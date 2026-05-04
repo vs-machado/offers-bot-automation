@@ -26,6 +26,14 @@ def format_offer(offer: Offer, affiliate_url: str) -> str:
 async def run() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     settings = load_settings()
+    
+    # Ensure directories exist before attempting to create SQLite files
+    settings.database_path.parent.mkdir(parents=True, exist_ok=True)
+    import pathlib
+    session_path = pathlib.Path(settings.telegram_session)
+    if str(session_path.parent) != ".":
+        session_path.parent.mkdir(parents=True, exist_ok=True)
+        
     store = OfferStore(settings.database_path)
     product_url_resolver = None
     if settings.browser_resolver_enabled:
