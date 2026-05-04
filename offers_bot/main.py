@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
+import tempfile
+import httpx
 
 from .config import load_settings
 from .browser_resolver import PlaywrightProductResolver
@@ -74,11 +77,33 @@ async def run() -> None:
                 continue
             try:
                 affiliate = await asyncio.to_thread(ml.create_link, offer.url)
+                affiliate = await asyncio.to_thread(ml.create_link, offer.url)
                 if store.seen_affiliate_url(affiliate.short_url):
                     logging.info("Skipped already posted affiliate offer %s", affiliate.short_url)
                     store.mark(source_chat, message_id, offer.url, affiliate.short_url)
                     continue
-                await telegram.send_offer(format_offer(offer, affiliate.short_url))
+
+                formatted_text = format_offer(offer, affiliate.short_url)
+                
+                temp_image_path = None
+                if affiliate.image_url:
+                    try:
+                        # Download the image to a temporary file
+                        async with httpx.AsyncClient() as client:
+                            resp = await client.get(affiliate.image_url)
+                            resp.raise_for_status()
+                            fd, temp_image_path = tempfile.mkstemp(suffix=".jpg")
+                            with os.fdopen(fd, 'wb') as f:
+                                f.write(resp.content)
+                    except Exception as e:
+                        logging.warning("Failed to download image %s: %s", affiliate.image_url, e)
+                        temp_image_path = None
+
+                await telegram.send_offer(formatted_text, image_file=temp_image_path)
+                
+                if temp_image_path and os.path.exists(temp_image_path):
+                    os.remove(temp_image_path)
+                    
                 store.mark(source_chat, message_id, offer.url, affiliate.short_url)
                 logging.info("Posted affiliate offer for %s", offer.url)
             except UnsupportedOfferError as exc:

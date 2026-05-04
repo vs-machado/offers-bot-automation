@@ -63,6 +63,31 @@ class PlaywrightProductResolver:
             finally:
                 browser.close()
 
+    def get_image(self, url: str) -> str | None:
+        from playwright.sync_api import sync_playwright
+
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch(headless=self._headless)
+            context = browser.new_context(
+                locale="pt-BR",
+                user_agent=(
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36"
+                ),
+            )
+            self._add_cookie_header(context)
+            page = context.new_page()
+            page.set_default_timeout(self._timeout_ms)
+            try:
+                page.goto(url, wait_until="domcontentloaded")
+                img = page.evaluate("() => { const meta = document.querySelector('meta[property=\"og:image\"]'); return meta ? meta.content : null; }")
+                return img
+            except Exception as exc:
+                LOGGER.warning("Browser resolver could not extract image from %s: %s", url, exc)
+                return None
+            finally:
+                browser.close()
+
     def _extract_product_href(self, page) -> str | None:
         selectors = [
             "a.poly-component__link--action-link",

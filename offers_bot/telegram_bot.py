@@ -64,10 +64,13 @@ class TelegramOfferBot:
         LOGGER.info("Listening to %s source chats", len(source_entities))
         await self.client.run_until_disconnected()
 
-    async def send_offer(self, text: str) -> None:
+    async def send_offer(self, text: str, image_file: str | None = None) -> None:
         if self._target_entity is None:
             self._target_entity = await self._resolve_chat(self._target_chat)
-        await self.client.send_message(self._target_entity, text, link_preview=True)
+        if image_file:
+            await self.client.send_message(self._target_entity, text, file=image_file, link_preview=False)
+        else:
+            await self.client.send_message(self._target_entity, text, link_preview=True)
 
     async def _resolve_chat(self, chat: str):
         chat = chat.strip()

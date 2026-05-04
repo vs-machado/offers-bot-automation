@@ -20,6 +20,9 @@ class ProductUrlResolver(Protocol):
     def resolve(self, url: str) -> str | None:
         ...
 
+    def get_image(self, url: str) -> str | None:
+        ...
+
 
 @dataclass(frozen=True)
 class AffiliateLink:
@@ -27,6 +30,7 @@ class AffiliateLink:
     long_url: str | None
     origin_url: str
     raw_text: str | None
+    image_url: str | None = None
 
 
 class MercadoLivreClient:
@@ -68,7 +72,19 @@ class MercadoLivreClient:
         normalized_url = self._normalize_url(url)
         resolved_url = self._resolve_url(normalized_url)
         resolved_url = self._resolve_product_url_if_needed(normalized_url, resolved_url) or resolved_url
-        return self._create_link_from_product_url(resolved_url)
+        link = self._create_link_from_product_url(resolved_url)
+        
+        image_url = None
+        if self._product_url_resolver:
+            image_url = self._product_url_resolver.get_image(resolved_url)
+            
+        return AffiliateLink(
+            short_url=link.short_url,
+            long_url=link.long_url,
+            origin_url=link.origin_url,
+            raw_text=link.raw_text,
+            image_url=image_url
+        )
 
     def _create_link_from_product_url(self, resolved_url: str) -> AffiliateLink:
         ids = self._discover_ids(resolved_url)
