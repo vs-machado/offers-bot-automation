@@ -9,7 +9,12 @@ MELI_SHORT_RE = re.compile(r"https?://meli\.la/[A-Za-z0-9]{7}", re.IGNORECASE)
 URL_RE = re.compile(r"https?://[^\s<>()]+", re.IGNORECASE)
 ML_HOST_RE = re.compile(r"(^|\.)mercadolivre\.com\.br$|(^|\.)meli\.la$", re.IGNORECASE)
 ML_ID_RE = re.compile(r"\bMLB\d{6,13}\b", re.IGNORECASE)
-PRICE_RE = re.compile(r"(?:R\$\s*)?(\d{1,3}(?:\.\d{3})*,\d{2}|\d+,\d{2})")
+PRICE_RE = re.compile(r"R\$\s*(\d{1,3}(?:\.\d{3})*(?:,\d{2})?|\d+(?:,\d{2})?)", re.IGNORECASE)
+PROMO_PRICE_RE = re.compile(r"\bpor\s+R\$\s*(\d{1,3}(?:\.\d{3})*(?:,\d{2})?|\d+(?:,\d{2})?)", re.IGNORECASE)
+COUPON_RE = re.compile(
+    r"(?:^|\n)\s*(?:[^\w\s]\s*)*(?:[🎟️]\s*)?(?:usem?\s+o\s+)?cupom\s*:\s*([^\s\n]+)",
+    re.IGNORECASE,
+)
 
 
 @dataclass(frozen=True)
@@ -18,6 +23,7 @@ class Offer:
     url: str
     title: str | None
     price: str | None
+    coupon: str | None
 
 
 def extract_offers(text: str) -> list[Offer]:
@@ -36,6 +42,7 @@ def extract_offers(text: str) -> list[Offer]:
                 url=clean_url,
                 title=extract_title(text),
                 price=extract_price(text),
+                coupon=extract_coupon(text),
             )
         )
     return offers
@@ -77,7 +84,14 @@ def extract_title(text: str) -> str | None:
 
 
 def extract_price(text: str) -> str | None:
-    match = PRICE_RE.search(text)
+    match = PROMO_PRICE_RE.search(text) or PRICE_RE.search(text)
     if not match:
         return None
     return f"R$ {match.group(1)}"
+
+
+def extract_coupon(text: str) -> str | None:
+    match = COUPON_RE.search(text)
+    if not match:
+        return None
+    return match.group(1).strip()
