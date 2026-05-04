@@ -1,0 +1,134 @@
+from __future__ import annotations
+
+import html
+import logging
+import re
+from pathlib import Path
+
+from .parser import extract_ml_ids
+
+LOGGER = logging.getLogger(__name__)
+PRODUCT_HREF_RE = re.compile(r"href=[\"']([^\"']*(?:/p/MLB|wid=MLB)[^\"']*)[\"']", re.IGNORECASE)
+
+
+class PlaywrightProductResolver:
+    def __init__(
+        self,
+        headless: bool = True,
+        timeout_ms: int = 15000,
+        cookie_header: str = "",
+        debug_dir: Path | None = None,
+    ) -> None:
+        self._headless = headless
+        self._timeout_ms = timeout_ms
+        self._cookie_header = cookie_header
+        self._debug_dir = debug_dir
+
+    def resolve(self, url: str) -> str | None:
+        from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+        from playwright.sync_api import sync_playwright
+
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch(headless=self._headless)
+            context = browser.new_context(
+                locale="pt-BR",
+                user_agent=(
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36"
+                ),
+            )
+            self._add_cookie_header(context)
+            page = context.new_page()
+            page.set_default_timeout(self._timeout_ms)
+            try:
+                page.goto(url, wait_until="domcontentloaded")
+
+                product_url = self._extract_product_href(page)
+                if product_url:
+                    return product_url
+
+                page.wait_for_load_state("networkidle", timeout=self._timeout_ms)
+                product_url = self._extract_product_href(page)
+                if product_url:
+                    return product_url
+
+                try:
+                    page.get_by_role("link", name="Ir para produto").first.click()
+                    page.wait_for_url(lambda current_url: bool(extract_ml_ids(current_url)), timeout=self._timeout_ms)
+                    return page.url
+                except PlaywrightTimeoutError:
+                    self._write_debug(page)
+                    LOGGER.warning("Browser resolver could not find product URL at %s", url)
+                    return None
+            finally:
+                browser.close()
+
+    def _extract_product_href(self, page) -> str | None:
+        selectors = [
+            "a.poly-component__link--action-link",
+            "a:has-text('Ir para produto')",
+            "a[href*='polycard_client']",
+            "a[href*='source=affiliate-profile']",
+            "a[href*='/p/MLB']",
+            "a[href*='wid=MLB']",
+        ]
+        for selector in selectors:
+            locator = page.locator(selector).first
+            if locator.count() == 0:
+                continue
+            href = locator.get_attribute("href")
+            if href and extract_ml_ids(href):
+                return href
+
+        links = page.evaluate(
+            """
+            () => Array.from(document.links).map((link) => ({
+                text: link.innerText || "",
+                href: link.href || ""
+            }))
+            """
+        )
+        for link in links:
+            href = link.get("href", "")
+            text = link.get("text", "")
+            if ("Ir para produto" in text or extract_ml_ids(href)) and extract_ml_ids(href):
+                return href
+
+        content = page.content()
+        for match in PRODUCT_HREF_RE.findall(content):
+            href = html.unescape(match)
+            if extract_ml_ids(href):
+                return href
+        return None
+
+    def _add_cookie_header(self, context) -> None:
+        cookies = []
+        for raw_cookie in self._cookie_header.split(";"):
+            if "=" not in raw_cookie:
+                continue
+            name, value = raw_cookie.strip().split("=", 1)
+            if not name:
+                continue
+            cookies.append(
+                {
+                    "name": name,
+                    "value": value,
+                    "domain": ".mercadolivre.com.br",
+                    "path": "/",
+                    "secure": True,
+                    "sameSite": "Lax",
+                }
+            )
+        if cookies:
+            context.add_cookies(cookies)
+
+    def _write_debug(self, page) -> None:
+        if not self._debug_dir:
+            return
+        self._debug_dir.mkdir(parents=True, exist_ok=True)
+        safe_name = re.sub(r"[^A-Za-z0-9]+", "-", page.url)[-120:].strip("-") or "page"
+        html_path = self._debug_dir / f"{safe_name}.html"
+        png_path = self._debug_dir / f"{safe_name}.png"
+        html_path.write_text(page.content(), encoding="utf-8")
+        page.screenshot(path=str(png_path), full_page=True)
+        LOGGER.info("Browser debug written: %s and %s", html_path, png_path)
