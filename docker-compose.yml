@@ -1,0 +1,12 @@
+services:
+  offers-bot:
+    build: .
+    container_name: offers_bot
+    restart: always
+    volumes:
+      - ./data:/app/data
+      - ./.env:/app/.env
+      # Mapeia a sessão do telegram para não precisar logar toda vez
+      - ./offers_bot.session:/app/offers_bot.session
+    environment:
+      - PYTHONUNBUFFERED=1
