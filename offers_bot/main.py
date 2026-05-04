@@ -55,6 +55,7 @@ async def run() -> None:
         session_name=settings.telegram_session,
         source_chats=settings.source_chats,
         target_chat=settings.target_chat,
+        phone=settings.telegram_phone,
     )
 
     async def handle_message(source_chat: str, message_id: int, text: str) -> None:

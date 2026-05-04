@@ -25,14 +25,16 @@ class TelegramOfferBot:
         session_name: str,
         source_chats: list[str],
         target_chat: str,
+        phone: str | None = None,
     ) -> None:
         self.client = TelegramClient(session_name, api_id, api_hash)
         self._source_chats = source_chats
         self._target_chat = target_chat
         self._target_entity = None
+        self._phone = phone
 
     async def start(self) -> None:
-        await self.client.start()
+        await self.client.start(phone=self._phone)
         self._target_entity = await self._resolve_chat(self._target_chat)
 
     async def listen(self, handler: MessageHandler, poll_existing: bool = False) -> None:
