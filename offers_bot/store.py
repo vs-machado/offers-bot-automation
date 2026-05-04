@@ -20,6 +20,12 @@ class OfferStore:
             )
             """
         )
+        self._conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_processed_offers_source_url ON processed_offers(source_url)"
+        )
+        self._conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_processed_offers_affiliate_url ON processed_offers(affiliate_url)"
+        )
         self._conn.commit()
 
     def seen(self, source_chat: str, message_id: int, source_url: str) -> bool:
@@ -27,10 +33,21 @@ class OfferStore:
             """
             SELECT 1
             FROM processed_offers
-            WHERE source_chat = ? AND source_message_id = ? AND source_url = ?
+            WHERE source_url = ?
                 AND affiliate_url IS NOT NULL
             """,
-            (source_chat, message_id, source_url),
+            (source_url,),
+        ).fetchone()
+        return row is not None
+
+    def seen_affiliate_url(self, affiliate_url: str) -> bool:
+        row = self._conn.execute(
+            """
+            SELECT 1
+            FROM processed_offers
+            WHERE affiliate_url = ?
+            """,
+            (affiliate_url,),
         ).fetchone()
         return row is not None
 

@@ -74,6 +74,10 @@ async def run() -> None:
                 continue
             try:
                 affiliate = await asyncio.to_thread(ml.create_link, offer.url)
+                if store.seen_affiliate_url(affiliate.short_url):
+                    logging.info("Skipped already posted affiliate offer %s", affiliate.short_url)
+                    store.mark(source_chat, message_id, offer.url, affiliate.short_url)
+                    continue
                 await telegram.send_offer(format_offer(offer, affiliate.short_url))
                 store.mark(source_chat, message_id, offer.url, affiliate.short_url)
                 logging.info("Posted affiliate offer for %s", offer.url)
