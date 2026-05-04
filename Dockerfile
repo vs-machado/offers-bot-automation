@@ -33,6 +33,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Instalar os navegadores do Playwright
 RUN playwright install chromium --with-deps
 
+# Criar o diretório de dados
+RUN mkdir -p /app/data
+
 # Copiar o restante do código
 COPY . .
 
