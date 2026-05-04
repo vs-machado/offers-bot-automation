@@ -19,6 +19,8 @@ def format_offer(offer: Offer, affiliate_url: str) -> str:
         parts.append(f"💰 {offer.price}")
     if offer.coupon:
         parts.append(f"🎟️ CUPOM: {offer.coupon}")
+    if offer.meli_plus_only:
+        parts.append("⭐ Exclusivo para clientes Meli+")
     parts.append(f"🔗 Link do produto:\n{affiliate_url}")
     return "\n\n".join(parts)
 

@@ -1,5 +1,6 @@
 import unittest
 
+from offers_bot.main import format_offer
 from offers_bot.parser import extract_ml_ids, extract_offers
 
 
@@ -13,7 +14,30 @@ class ParserTest(unittest.TestCase):
         self.assertEqual(offers[0].title, "Creatina Growth")
         self.assertEqual(offers[0].price, "R$ 49,90")
         self.assertIsNone(offers[0].coupon)
+        self.assertFalse(offers[0].meli_plus_only)
         self.assertEqual(offers[0].url, "https://www.mercadolivre.com.br/x/p/MLB19603205")
+
+    def test_removes_leading_status_text_from_inline_title(self):
+        offers = extract_offers(
+            'AINDA ATIVO! Notebook Gamer Lenovo LOQ 15IRX9, 15.6" Full HD 144Hz, Intel Core i5-13450HX, 16GB, 512GB SSD, NVIDIA RTX 4050, Linux - 83KHS00300 R$ 5084 -CUPOM: 5DO5 https://tidd.ly/4ulBz1F -Anúncio https://meli.la/2DYnu6W'
+        )
+
+        self.assertEqual(len(offers), 1)
+        self.assertEqual(
+            offers[0].title,
+            'Notebook Gamer Lenovo LOQ 15IRX9, 15.6" Full HD 144Hz, Intel Core i5-13450HX, 16GB, 512GB SSD, NVIDIA RTX 4050, Linux - 83KHS00300',
+        )
+        self.assertEqual(offers[0].price, "R$ 5084")
+        self.assertEqual(offers[0].coupon, "5DO5")
+        self.assertFalse(offers[0].meli_plus_only)
+
+    def test_prefers_product_line_over_status_line(self):
+        offers = extract_offers(
+            "AINDA ATIVO!\n\nNotebook Gamer Lenovo LOQ 15IRX9\n\nR$ 5084\n\nhttps://meli.la/2DYnu6W"
+        )
+
+        self.assertEqual(len(offers), 1)
+        self.assertEqual(offers[0].title, "Notebook Gamer Lenovo LOQ 15IRX9")
 
     def test_extracts_coupon_from_offer_message(self):
         offers = extract_offers(
@@ -49,6 +73,25 @@ class ParserTest(unittest.TestCase):
                 self.assertEqual(len(offers), 1)
                 self.assertEqual(offers[0].coupon, "MELIMAISPROMO")
                 self.assertEqual(offers[0].price, expected_price)
+
+    def test_extracts_multiple_coupons_and_meli_plus_flag(self):
+        offers = extract_offers(
+            "sérum super vitamina c 20% 30ml sallve de R$ 89,90 por R$ 59,84\n\n🔗 https://meli.la/1jujZ2D\nanúncio / válido por tempo limitado\n\n🏷️ cupom *10MELIMAIS* ou *MELIMAISPROMO* (para clientes meli+)"
+        )
+
+        self.assertEqual(len(offers), 1)
+        self.assertEqual(offers[0].coupon, "10MELIMAIS ou MELIMAISPROMO")
+        self.assertTrue(offers[0].meli_plus_only)
+
+    def test_format_offer_shows_meli_plus_flag(self):
+        offer = extract_offers(
+            "sérum super vitamina c 20% 30ml sallve de R$ 89,90 por R$ 59,84\n\n🔗 https://meli.la/1jujZ2D\n\n🏷️ cupom *10MELIMAIS* ou *MELIMAISPROMO* (para clientes meli+)"
+        )[0]
+
+        formatted = format_offer(offer, "https://meli.la/final123")
+
+        self.assertIn("🎟️ CUPOM: 10MELIMAIS ou MELIMAISPROMO", formatted)
+        self.assertIn("⭐ Exclusivo para clientes Meli+", formatted)
 
     def test_prefers_price_after_por_when_original_price_exists(self):
         offers = extract_offers(

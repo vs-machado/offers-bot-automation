@@ -9,10 +9,29 @@ MELI_SHORT_RE = re.compile(r"https?://meli\.la/[A-Za-z0-9]{7}", re.IGNORECASE)
 URL_RE = re.compile(r"https?://[^\s<>()]+", re.IGNORECASE)
 ML_HOST_RE = re.compile(r"(^|\.)mercadolivre\.com\.br$|(^|\.)meli\.la$", re.IGNORECASE)
 ML_ID_RE = re.compile(r"\bMLB\d{6,13}\b", re.IGNORECASE)
-PRICE_RE = re.compile(r"R\$\s*(\d{1,3}(?:\.\d{3})*(?:,\d{2})?|\d+(?:,\d{2})?)", re.IGNORECASE)
-PROMO_PRICE_RE = re.compile(r"\bpor\s+R\$\s*(\d{1,3}(?:\.\d{3})*(?:,\d{2})?|\d+(?:,\d{2})?)", re.IGNORECASE)
+PRICE_RE = re.compile(r"R\$\s*((?:\d{1,3}(?:\.\d{3})+|\d+)(?:,\d{2})?)", re.IGNORECASE)
+PROMO_PRICE_RE = re.compile(r"\bpor\s+R\$\s*((?:\d{1,3}(?:\.\d{3})+|\d+)(?:,\d{2})?)", re.IGNORECASE)
 COUPON_RE = re.compile(
     r"(?:^|\n)\s*(?:[^\w\s]\s*)*(?:[🎟️]\s*)?(?:usem?\s+o\s+)?cupom\s*:\s*([^\s\n]+)",
+    re.IGNORECASE,
+)
+INLINE_COUPON_RE = re.compile(r"(?:^|\s|-)(?:usem?\s+o\s+)?cupom\s*:\s*[^\s\n]+", re.IGNORECASE)
+COUPON_CODE_RE = re.compile(r"\*+([A-Za-z0-9]{4,})\*+|\b([A-Za-z0-9]{4,})\b")
+MELI_PLUS_RE = re.compile(r"\bmeli\+\b|clientes?\s+meli\+|assinantes?\s+meli\+", re.IGNORECASE)
+LEADING_NOISE_RE = re.compile(
+    r"^(?:[^\w\n]*)(?:(?:ainda\s+ativo|ativo|aproveita|imperd[ií]vel|oferta|promo[cç][aã]o|corre|urgente)\b[!:\-\s]*)+",
+    re.IGNORECASE,
+)
+TRAILING_NOISE_RE = re.compile(
+    r"(?:\s*[-|]\s*)?(?:an[uú]ncio|link\s+do\s+produto|compre\s+aqui|produto|oferta)\s*$",
+    re.IGNORECASE,
+)
+TITLE_TOKEN_RE = re.compile(
+    r"\b(?:[A-Za-z]+\d+[A-Za-z\d-]*|\d+(?:[\.,]\d+)?(?:gb|tb|hz|ml|pol|w|v)|i[3579]-\d+[A-Za-z]*|rtx\s*\d{3,4}|ssd|notebook|smartphone|gamer|full\s*hd|oled|intel|amd|nvidia|lenovo|samsung|apple|motorola|philips|electrolux|brastemp|consul|asus|acer|dell|vaio)\b",
+    re.IGNORECASE,
+)
+NOISE_LINE_RE = re.compile(
+    r"\b(?:cupom|link\s+do\s+produto|compre\s+aqui|an[uú]ncio|assinantes|ativo|aproveita|imperd[ií]vel|corre|promo[cç][aã]o)\b",
     re.IGNORECASE,
 )
 
@@ -24,6 +43,7 @@ class Offer:
     title: str | None
     price: str | None
     coupon: str | None
+    meli_plus_only: bool
 
 
 def extract_offers(text: str) -> list[Offer]:
@@ -43,6 +63,7 @@ def extract_offers(text: str) -> list[Offer]:
                 title=extract_title(text),
                 price=extract_price(text),
                 coupon=extract_coupon(text),
+                meli_plus_only=is_meli_plus_only(text),
             )
         )
     return offers
@@ -75,12 +96,62 @@ def extract_ml_ids(text: str) -> list[str]:
 
 
 def extract_title(text: str) -> str | None:
-    for line in text.splitlines():
-        line = URL_RE.sub("", line).strip()
-        line = PRICE_RE.sub("", line).replace("R$", "").strip(" -:|")
-        if line:
-            return line[:180]
-    return None
+    best_title = None
+    best_score = float("-inf")
+    for raw_line in text.splitlines():
+        line = clean_title_candidate(raw_line)
+        if not line:
+            continue
+        score = score_title_candidate(line)
+        if score > best_score:
+            best_score = score
+            best_title = line[:180]
+    return best_title if best_score >= 0 else None
+
+
+def clean_title_candidate(text: str) -> str:
+    line = URL_RE.sub("", text)
+    line = INLINE_COUPON_RE.sub("", line)
+    line = PRICE_RE.sub("", line).replace("R$", "")
+    line = TRAILING_NOISE_RE.sub("", line)
+    previous = None
+    while line != previous:
+        previous = line
+        line = LEADING_NOISE_RE.sub("", line).strip()
+        line = TRAILING_NOISE_RE.sub("", line).strip()
+    return re.sub(r"\s+", " ", line).strip(" -:|!\t")
+
+
+def score_title_candidate(line: str) -> int:
+    score = 0
+    length = len(line)
+
+    if 25 <= length <= 180:
+        score += 4
+    elif 12 <= length < 25:
+        score += 1
+    else:
+        score -= 3
+
+    if "," in line:
+        score += 3
+    if re.search(r"\d", line):
+        score += 2
+
+    token_hits = TITLE_TOKEN_RE.findall(line)
+    score += min(len(token_hits), 6) * 2
+
+    uppercase_words = re.findall(r"\b[A-ZÁÀÂÃÉÊÍÓÔÕÚÇ]{4,}\b", line)
+    if uppercase_words and len(uppercase_words) >= max(2, len(line.split()) // 2):
+        score -= 4
+
+    if NOISE_LINE_RE.search(line):
+        score -= 6
+
+    if re.fullmatch(r"[^A-Za-zÀ-ÿ0-9]*", line):
+        score -= 10
+
+    return score
 
 
 def extract_price(text: str) -> str | None:
@@ -91,7 +162,52 @@ def extract_price(text: str) -> str | None:
 
 
 def extract_coupon(text: str) -> str | None:
+    for line in text.splitlines():
+        if "cupom" not in line.lower():
+            continue
+        coupon_segment = line[line.lower().index("cupom") :]
+        codes = extract_coupon_codes(URL_RE.sub("", coupon_segment))
+        if codes:
+            return " ou ".join(codes)
+
     match = COUPON_RE.search(text)
     if not match:
         return None
-    return match.group(1).strip()
+    codes = extract_coupon_codes(match.group(1))
+    if not codes:
+        return None
+    return " ou ".join(codes)
+
+
+def extract_coupon_codes(text: str) -> list[str]:
+    ignored_tokens = {
+        "CUPOM",
+        "CUPONS",
+        "USE",
+        "USEM",
+        "O",
+        "OU",
+        "PARA",
+        "CLIENTE",
+        "CLIENTES",
+        "ASSINANTE",
+        "ASSINANTES",
+        "EXCLUSIVO",
+        "EXCLUSIVA",
+        "MELI",
+    }
+    codes: list[str] = []
+    seen: set[str] = set()
+    for match in COUPON_CODE_RE.finditer(text):
+        code = (match.group(1) or match.group(2) or "").upper()
+        if not code or code in ignored_tokens:
+            continue
+        if any(char.isdigit() for char in code) or len(code) >= 8:
+            if code not in seen:
+                codes.append(code)
+                seen.add(code)
+    return codes
+
+
+def is_meli_plus_only(text: str) -> bool:
+    return bool(MELI_PLUS_RE.search(text))
