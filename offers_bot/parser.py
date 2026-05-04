@@ -34,6 +34,10 @@ NOISE_LINE_RE = re.compile(
     r"\b(?:cupom|link\s+do\s+produto|compre\s+aqui|an[uú]ncio|assinantes|ativo|aproveita|imperd[ií]vel|corre|promo[cç][aã]o)\b",
     re.IGNORECASE,
 )
+PROMO_LINE_RE = re.compile(
+    r"\b(?:hoje|amanh[aã]|come[cç]a|comeca|carrinho|oferta(?:s)?|prepara|tempo\s+limitado|pre[cç]o\s+baixo|loja\s+oficial|entrega\s+full|v[aá]lido)\b|\b\d{1,2}h\b|\b\d{1,2}\.\d{1,2}\b",
+    re.IGNORECASE,
+)
 
 
 @dataclass(frozen=True)
@@ -119,6 +123,8 @@ def clean_title_candidate(text: str) -> str:
         previous = line
         line = LEADING_NOISE_RE.sub("", line).strip()
         line = TRAILING_NOISE_RE.sub("", line).strip()
+    line = re.sub(r"^[^\wÀ-ÿ]+", "", line)
+    line = re.sub(r"[^\wÀ-ÿ]+$", "", line)
     return re.sub(r"\s+", " ", line).strip(" -:|!\t")
 
 
@@ -147,6 +153,9 @@ def score_title_candidate(line: str) -> int:
 
     if NOISE_LINE_RE.search(line):
         score -= 6
+
+    if PROMO_LINE_RE.search(line):
+        score -= 8
 
     if re.fullmatch(r"[^A-Za-zÀ-ÿ0-9]*", line):
         score -= 10

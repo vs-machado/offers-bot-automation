@@ -39,6 +39,17 @@ class ParserTest(unittest.TestCase):
         self.assertEqual(len(offers), 1)
         self.assertEqual(offers[0].title, "Notebook Gamer Lenovo LOQ 15IRX9")
 
+    def test_ignores_promo_citation_when_product_line_exists(self):
+        offers = extract_offers(
+            "LEGO SAINDO POR UM PREÇO BAIXO, APROVEITA!\n\n✅ Blocos De Montar Star Wars 75373 Pack Da Emboscada Em Mandalore 109 peças Lego\n\nDE:R$199,99\n🔥 POR R$111 🔥\n\n🎟️ Cupom: 10MELIMAIS\n\n⚡ Produto com entrega FULL\n\n🔗https://meli.la/1CX6mXd\nSelecione a loja Oficial Lego\n\n*anúncio\n\n💥 Hoje, 00h, começa o 5.5 — prepara o carrinho porque vem oferta pesada!"
+        )
+
+        self.assertEqual(len(offers), 1)
+        self.assertEqual(
+            offers[0].title,
+            "Blocos De Montar Star Wars 75373 Pack Da Emboscada Em Mandalore 109 peças Lego",
+        )
+
     def test_extracts_coupon_from_offer_message(self):
         offers = extract_offers(
             "Jogo De Ferramentas 169 Peças\n\n💰 R$ 236,00\n\n🎟 Cupom: MELIMAISPROMO\n\nhttps://meli.la/136mqYH"
