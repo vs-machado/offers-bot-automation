@@ -43,7 +43,7 @@ def load_settings() -> Settings:
     return Settings(
         telegram_api_id=int(os.environ["TELEGRAM_API_ID"]),
         telegram_api_hash=os.environ["TELEGRAM_API_HASH"],
-        telegram_session=os.getenv("TELEGRAM_SESSION", "offers_bot"),
+        telegram_session=os.getenv("TELEGRAM_SESSION", "data/offers_bot"),
         source_chats=_split_csv(os.environ["SOURCE_CHATS"]),
         target_chat=os.environ["TARGET_CHAT"].strip(),
         ml_affiliate_tag=os.getenv("ML_AFFILIATE_TAG", "").strip(),
