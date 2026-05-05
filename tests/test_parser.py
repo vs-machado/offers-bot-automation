@@ -50,6 +50,17 @@ class ParserTest(unittest.TestCase):
             "Blocos De Montar Star Wars 75373 Pack Da Emboscada Em Mandalore 109 peças Lego",
         )
 
+    def test_ignores_conversational_copy_when_product_title_exists(self):
+        offers = extract_offers(
+            "Roupas Pet Outono Inverno Roupas Roupas Pet Outono Inverno Roupas Pet Para Cachorro E Gato\n\nCuide também dos seus amiguinhos de 4 patas🐾 !\n\nPOR R$ 29,90\n\nCusta R$ 45,90\n\nCOMPRE AQUI:\nhttps://meli.la/2XDwu59\n\nO que você achou dessa oferta?  👍❤️😳🥲😱🫠"
+        )
+
+        self.assertEqual(len(offers), 1)
+        self.assertEqual(
+            offers[0].title,
+            "Roupas Pet Outono Inverno Roupas Roupas Pet Outono Inverno Roupas Pet Para Cachorro E Gato",
+        )
+
     def test_extracts_coupon_from_offer_message(self):
         offers = extract_offers(
             "Jogo De Ferramentas 169 Peças\n\n💰 R$ 236,00\n\n🎟 Cupom: MELIMAISPROMO\n\nhttps://meli.la/136mqYH"

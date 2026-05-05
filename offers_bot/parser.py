@@ -31,7 +31,7 @@ TITLE_TOKEN_RE = re.compile(
     re.IGNORECASE,
 )
 NOISE_LINE_RE = re.compile(
-    r"\b(?:cupom|link\s+do\s+produto|compre\s+aqui|an[uú]ncio|assinantes|ativo|aproveita|imperd[ií]vel|corre|promo[cç][aã]o)\b",
+    r"\b(?:cupom|link\s+do\s+produto|compre\s+aqui|an[uú]ncio|assinantes|ativo|aproveita|imperd[ií]vel|corre|promo[cç][aã]o|cuide\s+tamb[ée]m|o\s+que\s+voc[êe]\s+achou|amiguinhos?|patas)\b",
     re.IGNORECASE,
 )
 PROMO_LINE_RE = re.compile(
