@@ -16,6 +16,7 @@ Bot user account listens to source Telegram groups, extracts Mercado Livre and A
    - `ML_CSRF_TOKEN`
    - `AMAZON_AFFILIATE_TAG`
    - `AMAZON_COOKIE_HEADER`
+   - `AMAZON_MARKETPLACE_ID`
 4. Install deps:
 
 ```powershell
