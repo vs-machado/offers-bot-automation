@@ -56,6 +56,7 @@ class AmazonClient:
         resolved_url = self._resolve_url(normalized_url)
         request_url = self._build_long_url(resolved_url)
         short_url, product_url = self._fetch_short_url(request_url, resolved_url)
+        product_url = self._resolve_short_url(short_url) or product_url
         asin = self._extract_asin(product_url)
         if not asin:
             raise RuntimeError(f"Could not find Amazon ASIN in URL: {product_url}")
@@ -94,6 +95,18 @@ class AmazonClient:
         response = self._client.get(url)
         response.raise_for_status()
         return str(response.url)
+
+    def _resolve_short_url(self, url: str) -> str | None:
+        try:
+            response = self._client.get(url)
+            response.raise_for_status()
+        except httpx.HTTPError:
+            return None
+        resolved_url = str(response.url)
+        parsed = urlparse(resolved_url)
+        if resolved_url.startswith("http") and parsed.netloc.lower() != "amzn.to":
+            return resolved_url
+        return None
 
     def _build_long_url(self, url: str) -> str:
         parsed = urlparse(url)

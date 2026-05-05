@@ -41,6 +41,7 @@ PROMO_LINE_RE = re.compile(
     r"\b(?:hoje|amanh[aã]|come[cç]a|comeca|carrinho|oferta(?:s)?|prepara|tempo\s+limitado|pre[cç]o\s+baixo|loja\s+oficial|entrega\s+full|v[aá]lido)\b|\b\d{1,2}h\b|\b\d{1,2}\.\d{1,2}\b",
     re.IGNORECASE,
 )
+COUPON_STATUS_RE = re.compile(r"\b(?:esgot\w*|acab\w*|encerr\w*|expir\w*|ativo\w*)\b", re.IGNORECASE)
 
 
 @dataclass(frozen=True)
@@ -216,13 +217,32 @@ def extract_shipping_info(text: str) -> str | None:
 
 
 def extract_coupon(text: str) -> str | None:
+    best_coupon = None
+    best_score = float("-inf")
+
     for line in text.splitlines():
         if "cupom" not in line.lower():
             continue
         coupon_segment = line[line.lower().index("cupom") :]
         codes = extract_coupon_codes(URL_RE.sub("", coupon_segment))
         if codes:
-            return " ou ".join(codes)
+            score = 0
+            if ":" in coupon_segment:
+                score += 4
+            if re.search(r"\busem?\b", line, re.IGNORECASE):
+                score += 2
+            if any(any(char.isdigit() for char in code) for code in codes):
+                score += 2
+            if " ou " in coupon_segment.lower():
+                score += 1
+            if COUPON_STATUS_RE.search(coupon_segment):
+                score -= 5
+            if score > best_score:
+                best_score = score
+                best_coupon = " ou ".join(codes)
+
+    if best_coupon and best_score >= 0:
+        return best_coupon
 
     match = COUPON_RE.search(text)
     if not match:

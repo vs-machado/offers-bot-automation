@@ -117,6 +117,20 @@ class ParserTest(unittest.TestCase):
         self.assertEqual(offers[0].coupon, "10MELIMAIS ou MELIMAISPROMO")
         self.assertTrue(offers[0].meli_plus_only)
 
+    def test_prefers_real_coupon_code_over_status_line(self):
+        offers = extract_offers(
+            "CUPOM ESGOTANDOO\n\n"
+            "iPhone 17e 256gb Preto\n"
+            "Mercado Livre\n\n"
+            "De: R$ 5.799,00\n"
+            "🔥Por: R$ 4.453,90\n\n"
+            "🎟 Use o cupom: RONALDO10\n\n"
+            "Link: https://meli.la/2oN3Kne"
+        )
+
+        self.assertEqual(len(offers), 1)
+        self.assertEqual(offers[0].coupon, "RONALDO10")
+
     def test_format_offer_shows_meli_plus_flag(self):
         offer = extract_offers(
             "sérum super vitamina c 20% 30ml sallve de R$ 89,90 por R$ 59,84\n\n🔗 https://meli.la/1jujZ2D\n\n🏷️ cupom *10MELIMAIS* ou *MELIMAISPROMO* (para clientes meli+)"
