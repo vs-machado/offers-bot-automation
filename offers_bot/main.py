@@ -17,9 +17,15 @@ from .telegram_bot import TelegramOfferBot
 def format_offer(offer: Offer, affiliate_url: str) -> str:
     parts = []
     if offer.title:
-        parts.append(f"🛍️ {offer.title}")
+        title = offer.title
+        if offer.installment_info:
+            title = f"[{offer.installment_info}] {title}"
+        parts.append(f"🛍️ {title}")
     if offer.price:
-        parts.append(f"💰 {offer.price}")
+        price_block = f"💰 {offer.price}"
+        if offer.shipping_info:
+            price_block = f"{price_block}\n{offer.shipping_info}"
+        parts.append(price_block)
     if offer.coupon:
         parts.append(f"🎟️ CUPOM: {offer.coupon}")
     if offer.meli_plus_only:

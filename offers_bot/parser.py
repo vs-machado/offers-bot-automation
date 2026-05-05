@@ -11,6 +11,8 @@ ML_HOST_RE = re.compile(r"(^|\.)mercadolivre\.com\.br$|(^|\.)meli\.la$", re.IGNO
 ML_ID_RE = re.compile(r"\bMLB-?\d{6,13}\b", re.IGNORECASE)
 PRICE_RE = re.compile(r"R\$\s*((?:\d{1,3}(?:\.\d{3})+|\d+)(?:,\d{2})?)", re.IGNORECASE)
 PROMO_PRICE_RE = re.compile(r"\bpor\s+R\$\s*((?:\d{1,3}(?:\.\d{3})+|\d+)(?:,\d{2})?)", re.IGNORECASE)
+INSTALLMENT_RE = re.compile(r"\b(\d{1,2})\s*x\s*sem\s+juros\b", re.IGNORECASE)
+FREE_SHIPPING_RE = re.compile(r"\bfrete\s+gr[áa]tis(?:\s+para\s+[A-Za-zÀ-ÿ\s]+)?\b", re.IGNORECASE)
 COUPON_RE = re.compile(
     r"(?:^|\n)\s*(?:[^\w\s]\s*)*(?:[🎟️]\s*)?(?:usem?\s+o\s+)?cupom\s*:\s*([^\s\n]+)",
     re.IGNORECASE,
@@ -46,6 +48,8 @@ class Offer:
     url: str
     title: str | None
     price: str | None
+    installment_info: str | None
+    shipping_info: str | None
     coupon: str | None
     meli_plus_only: bool
 
@@ -66,6 +70,8 @@ def extract_offers(text: str) -> list[Offer]:
                 url=clean_url,
                 title=extract_title(text),
                 price=extract_price(text),
+                installment_info=extract_installment_info(text),
+                shipping_info=extract_shipping_info(text),
                 coupon=extract_coupon(text),
                 meli_plus_only=is_meli_plus_only(text),
             )
@@ -164,10 +170,39 @@ def score_title_candidate(line: str) -> int:
 
 
 def extract_price(text: str) -> str | None:
-    match = PROMO_PRICE_RE.search(text) or PRICE_RE.search(text)
+    for line in text.splitlines():
+        promo_match = PROMO_PRICE_RE.search(line)
+        if not promo_match:
+            continue
+        price = f"R$ {promo_match.group(1)}"
+        if "pix" in line.lower():
+            return f"{price} no PIX"
+        return price
+
+    match = PRICE_RE.search(text)
     if not match:
         return None
     return f"R$ {match.group(1)}"
+
+
+def extract_installment_info(text: str) -> str | None:
+    match = INSTALLMENT_RE.search(text)
+    if not match:
+        return None
+    return f"{match.group(1)}X SEM JUROS"
+
+
+def extract_shipping_info(text: str) -> str | None:
+    for raw_line in text.splitlines():
+        line = re.sub(r"\s+", " ", raw_line).strip(" -:|!\t")
+        if not line:
+            continue
+        match = FREE_SHIPPING_RE.search(line)
+        if not match:
+            continue
+        start = match.start()
+        return line[start:]
+    return None
 
 
 def extract_coupon(text: str) -> str | None:

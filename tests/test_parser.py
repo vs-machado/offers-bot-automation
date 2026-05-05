@@ -13,6 +13,8 @@ class ParserTest(unittest.TestCase):
         self.assertEqual(len(offers), 1)
         self.assertEqual(offers[0].title, "Creatina Growth")
         self.assertEqual(offers[0].price, "R$ 49,90")
+        self.assertIsNone(offers[0].installment_info)
+        self.assertIsNone(offers[0].shipping_info)
         self.assertIsNone(offers[0].coupon)
         self.assertFalse(offers[0].meli_plus_only)
         self.assertEqual(offers[0].url, "https://www.mercadolivre.com.br/x/p/MLB19603205")
@@ -122,6 +124,46 @@ class ParserTest(unittest.TestCase):
 
         self.assertEqual(len(offers), 1)
         self.assertEqual(offers[0].price, "R$ 116")
+
+    def test_extracts_pix_price_installments_and_free_shipping(self):
+        offers = extract_offers(
+            "CELULAR DO BRUCE BANNER\n\n✅ Smartphone Motorola Moto g35 5G - 128GB 12GB (4GB RAM+8GB Ram Boost) e Camera 50MP com AI NFC Tela 6.7\" com Superbrilho - Verde - Vegan Leather\n\nDE R$ 1.327,14\n🔥POR R$ 844,90 🔥 no PIX\n\nparcelado em 10x sem juros\nFRETE GRÁTIS PARA SUL E SUDESTE\n\n🔗 https://meli.la/2jLohD3\nSelecione a Loja Oficial Motorola\n\n*anúncio"
+        )
+
+        self.assertEqual(len(offers), 1)
+        self.assertEqual(offers[0].price, "R$ 844,90 no PIX")
+        self.assertEqual(offers[0].installment_info, "10X SEM JUROS")
+        self.assertEqual(offers[0].shipping_info, "FRETE GRÁTIS PARA SUL E SUDESTE")
+
+    def test_extracts_pix_price_without_installments_or_shipping(self):
+        offers = extract_offers(
+            "Console Portátil Retro\n\nDE R$ 399,90\nPOR R$ 259,90 no PIX\n\nhttps://meli.la/2jLohD3"
+        )
+
+        self.assertEqual(len(offers), 1)
+        self.assertEqual(offers[0].price, "R$ 259,90 no PIX")
+        self.assertIsNone(offers[0].installment_info)
+        self.assertIsNone(offers[0].shipping_info)
+
+    def test_extracts_free_shipping_without_pix_or_installments(self):
+        offers = extract_offers(
+            "Mochila Escolar Reforçada\n\nR$ 89,90\nFRETE GRÁTIS\n\nhttps://meli.la/2jLohD3"
+        )
+
+        self.assertEqual(len(offers), 1)
+        self.assertEqual(offers[0].price, "R$ 89,90")
+        self.assertIsNone(offers[0].installment_info)
+        self.assertEqual(offers[0].shipping_info, "FRETE GRÁTIS")
+
+    def test_format_offer_shows_installments_pix_and_shipping(self):
+        offer = extract_offers(
+            "✅ Smartphone Motorola Moto g35 5G - 128GB 12GB (4GB RAM+8GB Ram Boost) e Camera 50MP com AI NFC Tela 6.7\" com Superbrilho - Verde - Vegan Leather\n\nDE R$ 1.327,14\n🔥POR R$ 844,90 🔥 no PIX\n\n10x sem juros\nFRETE GRÁTIS\n\nhttps://meli.la/2jLohD3"
+        )[0]
+
+        formatted = format_offer(offer, "https://meli.la/final123")
+
+        self.assertIn("🛍️ [10X SEM JUROS] Smartphone Motorola Moto g35 5G", formatted)
+        self.assertIn("💰 R$ 844,90 no PIX\nFRETE GRÁTIS", formatted)
 
     def test_ignores_non_mercado_livre_urls(self):
         self.assertEqual(extract_offers("Oferta https://example.com/item"), [])
