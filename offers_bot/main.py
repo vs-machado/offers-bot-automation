@@ -6,10 +6,11 @@ import os
 import tempfile
 import httpx
 
+from .amazon import AmazonClient
 from .config import load_settings
 from .browser_resolver import PlaywrightProductResolver
 from .mercado_livre import MercadoLivreClient, UnsupportedOfferError
-from .parser import Offer, extract_offers
+from .parser import Offer, extract_offers, is_amazon_url, is_mercado_livre_url
 from .store import OfferStore
 from .telegram_bot import TelegramOfferBot
 
@@ -52,6 +53,16 @@ async def run() -> None:
             headless=settings.browser_headless,
             timeout_ms=settings.browser_timeout_ms,
             cookie_header=settings.ml_cookie_header,
+            cookie_domains=(".mercadolivre.com.br",),
+            debug_dir=settings.browser_debug_dir,
+        )
+    amazon_image_resolver = None
+    if settings.browser_resolver_enabled:
+        amazon_image_resolver = PlaywrightProductResolver(
+            headless=settings.browser_headless,
+            timeout_ms=settings.browser_timeout_ms,
+            cookie_header=settings.amazon_cookie_header,
+            cookie_domains=(".amazon.com.br",),
             debug_dir=settings.browser_debug_dir,
         )
     ml = MercadoLivreClient(
@@ -59,6 +70,12 @@ async def run() -> None:
         cookie_header=settings.ml_cookie_header,
         csrf_token=settings.ml_csrf_token,
         product_url_resolver=product_url_resolver,
+    )
+    amazon = AmazonClient(
+        tag=settings.amazon_affiliate_tag,
+        cookie_header=settings.amazon_cookie_header,
+        marketplace_id=settings.amazon_marketplace_id,
+        image_resolver=amazon_image_resolver,
     )
     telegram = TelegramOfferBot(
         api_id=settings.telegram_api_id,
@@ -72,7 +89,7 @@ async def run() -> None:
     async def handle_message(source_chat: str, message_id: int, text: str) -> None:
         offers = extract_offers(text)
         logging.info(
-            "Parsed message chat=%s message=%s mercado_livre_offers=%s",
+            "Parsed message chat=%s message=%s offers=%s",
             source_chat,
             message_id,
             len(offers),
@@ -82,7 +99,11 @@ async def run() -> None:
                 logging.info("Skipped already posted offer %s", offer.url)
                 continue
             try:
-                affiliate = await asyncio.to_thread(ml.create_link, offer.url)
+                affiliate_client = ml if is_mercado_livre_url(offer.url) else amazon if is_amazon_url(offer.url) else None
+                if affiliate_client is None:
+                    logging.info("Skipped unsupported offer URL %s", offer.url)
+                    continue
+                affiliate = await asyncio.to_thread(affiliate_client.create_link, offer.url)
                 if store.seen_affiliate_url(affiliate.short_url):
                     logging.info("Skipped already posted affiliate offer %s", affiliate.short_url)
                     store.mark(source_chat, message_id, offer.url, affiliate.short_url, affiliate.product_key)
@@ -118,7 +139,7 @@ async def run() -> None:
                 store.mark(source_chat, message_id, offer.url, affiliate.short_url, affiliate.product_key)
                 logging.info("Posted affiliate offer for %s", offer.url)
             except UnsupportedOfferError as exc:
-                logging.warning("Skipped unsupported Mercado Livre offer %s: %s", offer.url, exc)
+                logging.warning("Skipped unsupported offer %s: %s", offer.url, exc)
                 store.mark(source_chat, message_id, offer.url, None)
             except Exception:
                 logging.exception("Failed to process offer %s", offer.url)

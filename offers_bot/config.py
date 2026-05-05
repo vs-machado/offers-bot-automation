@@ -22,6 +22,9 @@ class Settings:
     ml_affiliate_tag: str
     ml_cookie_header: str
     ml_csrf_token: str
+    amazon_affiliate_tag: str
+    amazon_cookie_header: str
+    amazon_marketplace_id: str
     poll_existing_messages: bool
     database_path: Path
     browser_resolver_enabled: bool
@@ -51,6 +54,9 @@ def load_settings() -> Settings:
         ml_affiliate_tag=os.getenv("ML_AFFILIATE_TAG", "").strip(),
         ml_cookie_header=os.getenv("ML_COOKIE_HEADER", "").strip(),
         ml_csrf_token=os.getenv("ML_CSRF_TOKEN", "").strip(),
+        amazon_affiliate_tag=os.getenv("AMAZON_AFFILIATE_TAG", "").strip(),
+        amazon_cookie_header=os.getenv("AMAZON_COOKIE_HEADER", "").strip(),
+        amazon_marketplace_id=os.getenv("AMAZON_MARKETPLACE_ID", "526970").strip() or "526970",
         poll_existing_messages=os.getenv("POLL_EXISTING_MESSAGES", "false").lower() == "true",
         database_path=Path(os.getenv("DATABASE_PATH", "data/offers.sqlite3")),
         browser_resolver_enabled=os.getenv("BROWSER_RESOLVER_ENABLED", "true").lower() == "true",

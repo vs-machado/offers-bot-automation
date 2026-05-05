@@ -4,12 +4,14 @@ import html
 import logging
 import re
 from pathlib import Path
+from urllib.parse import urlparse
 
 from .parser import extract_ml_ids
 
 LOGGER = logging.getLogger(__name__)
 PRODUCT_HREF_RE = re.compile(r"href=[\"']([^\"']*(?:/p/MLB|wid=MLB)[^\"']*)[\"']", re.IGNORECASE)
 MERCADO_LIVRE_IMAGE_HOST_RE = re.compile(r"^https://[^/]*mlstatic\.com/", re.IGNORECASE)
+AMAZON_IMAGE_HOST_RE = re.compile(r"^https://m\.media-amazon\.com/", re.IGNORECASE)
 
 
 class PlaywrightProductResolver:
@@ -18,11 +20,13 @@ class PlaywrightProductResolver:
         headless: bool = True,
         timeout_ms: int = 15000,
         cookie_header: str = "",
+        cookie_domains: tuple[str, ...] = (".mercadolivre.com.br",),
         debug_dir: Path | None = None,
     ) -> None:
         self._headless = headless
         self._timeout_ms = timeout_ms
         self._cookie_header = cookie_header
+        self._cookie_domains = cookie_domains
         self._debug_dir = debug_dir
 
     def resolve(self, url: str) -> str | None:
@@ -128,6 +132,26 @@ class PlaywrightProductResolver:
                     const absolute = absoluteUrl(url);
                     if (absolute) candidates.push({ url: absolute, score });
                 };
+                const landingImage = document.querySelector('#landingImage');
+                const oldHires = absoluteUrl(landingImage?.getAttribute('data-old-hires'));
+                if (oldHires && /https:\/\/m\.media-amazon\.com\//i.test(oldHires)) {
+                    return oldHires;
+                }
+
+                const landingSrc = absoluteUrl(landingImage?.currentSrc || landingImage?.src);
+                if (landingSrc && /https:\/\/m\.media-amazon\.com\//i.test(landingSrc)) {
+                    return landingSrc;
+                }
+
+                for (const selector of [
+                    '#imgTagWrapperId img',
+                    'img[data-a-image-name="landingImage"]',
+                    'li.image.selected img',
+                    '#imageBlock img',
+                ]) {
+                    const img = document.querySelector(selector);
+                    add(img?.getAttribute('data-old-hires') || img?.currentSrc || img?.src, 10000000);
+                }
 
                 const imageSrc = (img) => img?.currentSrc || img?.src || img?.dataset?.src || firstSrcsetUrl(img?.srcset);
                 const featuredImage = document.querySelector(
@@ -170,13 +194,19 @@ class PlaywrightProductResolver:
                 }
 
                 return candidates
-                    .filter((candidate) => /https:\/\/[^/]*mlstatic\.com\//i.test(candidate.url))
-                    .filter((candidate) => /D_NQ|product|MLB/i.test(candidate.url))
+                    .filter((candidate) => (
+                        /https:\/\/[^/]*mlstatic\.com\//i.test(candidate.url) ||
+                        /https:\/\/m\.media-amazon\.com\//i.test(candidate.url)
+                    ))
+                    .filter((candidate) => (
+                        /https:\/\/m\.media-amazon\.com\//i.test(candidate.url) ||
+                        /D_NQ|product|MLB/i.test(candidate.url)
+                    ))
                     .sort((left, right) => right.score - left.score)[0]?.url || null;
             }
             """
         )
-        if image_url and MERCADO_LIVRE_IMAGE_HOST_RE.search(image_url):
+        if image_url and (MERCADO_LIVRE_IMAGE_HOST_RE.search(image_url) or AMAZON_IMAGE_HOST_RE.search(image_url)):
             return image_url
         return None
 
@@ -226,16 +256,17 @@ class PlaywrightProductResolver:
             name, value = raw_cookie.strip().split("=", 1)
             if not name:
                 continue
-            cookies.append(
-                {
-                    "name": name,
-                    "value": value,
-                    "domain": ".mercadolivre.com.br",
-                    "path": "/",
-                    "secure": True,
-                    "sameSite": "Lax",
-                }
-            )
+            for domain in self._cookie_domains:
+                cookies.append(
+                    {
+                        "name": name,
+                        "value": value,
+                        "domain": domain,
+                        "path": "/",
+                        "secure": True,
+                        "sameSite": "Lax",
+                    }
+                )
         if cookies:
             context.add_cookies(cookies)
 

@@ -8,6 +8,7 @@ from urllib.parse import urlparse
 MELI_SHORT_RE = re.compile(r"https?://meli\.la/[A-Za-z0-9]{7}", re.IGNORECASE)
 URL_RE = re.compile(r"https?://[^\s<>()]+", re.IGNORECASE)
 ML_HOST_RE = re.compile(r"(^|\.)mercadolivre\.com\.br$|(^|\.)meli\.la$", re.IGNORECASE)
+AMAZON_HOST_RE = re.compile(r"(^|\.)amazon\.com\.br$|(^|\.)amzn\.to$", re.IGNORECASE)
 ML_ID_RE = re.compile(r"\bMLB-?\d{6,13}\b", re.IGNORECASE)
 PRICE_RE = re.compile(r"R\$\s*((?:\d{1,3}(?:\.\d{3})+|\d+)(?:,\d{2})?)", re.IGNORECASE)
 PROMO_PRICE_RE = re.compile(r"\bpor\s+R\$\s*((?:\d{1,3}(?:\.\d{3})+|\d+)(?:,\d{2})?)", re.IGNORECASE)
@@ -59,7 +60,7 @@ def extract_offers(text: str) -> list[Offer]:
     seen_urls: set[str] = set()
     for url in [*MELI_SHORT_RE.findall(text), *URL_RE.findall(text)]:
         clean_url = clean_offer_url(url)
-        if not is_mercado_livre_url(clean_url):
+        if not is_supported_offer_url(clean_url):
             continue
         if clean_url in seen_urls:
             continue
@@ -92,6 +93,15 @@ def clean_offer_url(url: str) -> str:
 def is_mercado_livre_url(url: str) -> bool:
     parsed = urlparse(url if "://" in url else f"https://{url}")
     return bool(parsed.netloc and ML_HOST_RE.search(parsed.netloc))
+
+
+def is_amazon_url(url: str) -> bool:
+    parsed = urlparse(url if "://" in url else f"https://{url}")
+    return bool(parsed.netloc and AMAZON_HOST_RE.search(parsed.netloc))
+
+
+def is_supported_offer_url(url: str) -> bool:
+    return is_mercado_livre_url(url) or is_amazon_url(url)
 
 
 def extract_ml_ids(text: str) -> list[str]:

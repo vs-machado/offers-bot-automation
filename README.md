@@ -1,6 +1,6 @@
 # Telegram Offers Bot
 
-Bot user account listens to source Telegram groups, extracts Mercado Livre URLs, generates your affiliate link, then posts to target group.
+Bot user account listens to source Telegram groups, extracts Mercado Livre and Amazon URLs, generates your affiliate link, then posts to target group.
 
 ## Setup
 
@@ -14,6 +14,8 @@ Bot user account listens to source Telegram groups, extracts Mercado Livre URLs,
    - `ML_AFFILIATE_TAG`
    - `ML_COOKIE_HEADER`
    - `ML_CSRF_TOKEN`
+   - `AMAZON_AFFILIATE_TAG`
+   - `AMAZON_COOKIE_HEADER`
 4. Install deps:
 
 ```powershell
@@ -31,10 +33,14 @@ python run.py
 
 First run asks Telegram login code. Session stored as `TELEGRAM_SESSION`.
 
-Test Mercado Livre link generation alone:
+Test one link conversion alone:
 
 ```powershell
 python -m offers_bot.check_link "https://www.mercadolivre.com.br/creatina-monohidratada-250g-growth-supplements-sem-sabor-em-po/p/MLB19603205"
+```
+
+```powershell
+python -m offers_bot.check_link "https://www.amazon.com.br/dp/B0DXR6MKR8?tag=promotom05-20"
 ```
 
 ## Deploying to Coolify (or Docker)
@@ -62,6 +68,18 @@ ML_AFFILIATE_TAG=axdxs2
 ```
 
 Cookies expire. When Mercado Livre starts returning 401/403, capture fresh cookie + CSRF from browser devtools while logged into affiliate hub.
+
+## Amazon Credentials
+
+Use the authenticated request to `associates/sitestripe/getShortUrl` while logged into your Amazon Associates account. Put the values in `.env`:
+
+```env
+AMAZON_COOKIE_HEADER=session-id=...; ubid-acbbr=...; ...
+AMAZON_AFFILIATE_TAG=yourtag-20
+AMAZON_MARKETPLACE_ID=526970
+```
+
+The bot resolves the incoming Amazon URL, replaces any existing `tag` with your own Associates tag, adds `linkCode=sl2`, then calls the same SiteStripe shortener endpoint.
 
 ## Notes
 

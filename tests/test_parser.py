@@ -19,6 +19,16 @@ class ParserTest(unittest.TestCase):
         self.assertFalse(offers[0].meli_plus_only)
         self.assertEqual(offers[0].url, "https://www.mercadolivre.com.br/x/p/MLB19603205")
 
+    def test_extracts_amazon_offer_title_and_price(self):
+        offers = extract_offers(
+            "iPhone 16 256 GB R$ 5.999 https://www.amazon.com.br/dp/B0DXR6MKR8?tag=promotom05-20"
+        )
+
+        self.assertEqual(len(offers), 1)
+        self.assertEqual(offers[0].title, "iPhone 16 256 GB")
+        self.assertEqual(offers[0].price, "R$ 5.999")
+        self.assertEqual(offers[0].url, "https://www.amazon.com.br/dp/B0DXR6MKR8?tag=promotom05-20")
+
     def test_removes_leading_status_text_from_inline_title(self):
         offers = extract_offers(
             'AINDA ATIVO! Notebook Gamer Lenovo LOQ 15IRX9, 15.6" Full HD 144Hz, Intel Core i5-13450HX, 16GB, 512GB SSD, NVIDIA RTX 4050, Linux - 83KHS00300 R$ 5084 -CUPOM: 5DO5 https://tidd.ly/4ulBz1F -Anúncio https://meli.la/2DYnu6W'
@@ -165,7 +175,7 @@ class ParserTest(unittest.TestCase):
         self.assertIn("🛍️ [10X SEM JUROS] Smartphone Motorola Moto g35 5G", formatted)
         self.assertIn("💰 R$ 844,90 no PIX\nFRETE GRÁTIS", formatted)
 
-    def test_ignores_non_mercado_livre_urls(self):
+    def test_ignores_non_supported_urls(self):
         self.assertEqual(extract_offers("Oferta https://example.com/item"), [])
 
     def test_trims_meli_short_url_before_appended_noise(self):

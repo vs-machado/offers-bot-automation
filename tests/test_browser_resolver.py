@@ -97,6 +97,49 @@ class BrowserResolverTest(unittest.TestCase):
             "https://http2.mlstatic.com/D_Q_NP_2X_featured-MLB1111111111-V.webp",
         )
 
+    def test_extract_product_image_prefers_amazon_data_old_hires(self):
+        try:
+            from playwright.sync_api import sync_playwright
+        except ImportError:
+            self.skipTest("playwright not installed")
+
+        resolver = PlaywrightProductResolver()
+        html = """
+        <html>
+          <body>
+            <li class="image item itemNo0 selected maintain-height cursorPointer variant-MAIN">
+              <span class="a-list-item">
+                <span class="a-declarative">
+                  <div id="imgTagWrapperId" class="imgTagWrapper">
+                    <img
+                      id="landingImage"
+                      data-a-image-name="landingImage"
+                      src="https://m.media-amazon.com/images/I/41Zguc9CziL._AC_SX522_.jpg"
+                      data-old-hires="https://m.media-amazon.com/images/I/41Zguc9CziL._AC_SL1000_.jpg"
+                      alt="Apple iPhone 16e de 128 GB - Branco"
+                    >
+                  </div>
+                </span>
+              </span>
+            </li>
+          </body>
+        </html>
+        """
+
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch(headless=True)
+            page = browser.new_page()
+            page.set_content(html)
+
+            image_url = resolver._extract_product_image(page)
+
+            browser.close()
+
+        self.assertEqual(
+            image_url,
+            "https://m.media-amazon.com/images/I/41Zguc9CziL._AC_SL1000_.jpg",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
