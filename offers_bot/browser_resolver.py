@@ -129,6 +129,10 @@ class PlaywrightProductResolver:
                     if (absolute) candidates.push({ url: absolute, score });
                 };
 
+                for (const img of document.querySelectorAll('.poly-card__portada img.poly-component__picture, img[data-testid="picture"].poly-component__picture')) {
+                    add(img.currentSrc || img.src || img.dataset.src || firstSrcsetUrl(img.srcset), 5000000);
+                }
+
                 for (const selector of [
                     'meta[property="og:image"]',
                     'meta[name="twitter:image"]',
@@ -142,6 +146,8 @@ class PlaywrightProductResolver:
                     const src = img.currentSrc || img.src || img.dataset.src || firstSrcsetUrl(img.srcset);
                     const text = `${img.alt || ''} ${img.className || ''}`.toLowerCase();
                     let score = (img.naturalWidth || 0) * (img.naturalHeight || 0);
+                    if (img.closest('.poly-card__portada')) score += 5000000;
+                    if (img.dataset?.testid === 'picture') score += 2500000;
                     if (text.includes('ui-pdp') || text.includes('gallery')) score += 500000;
                     if (text.includes('logo') || text.includes('avatar') || text.includes('icon')) score -= 1000000;
                     add(src, score);

@@ -96,12 +96,15 @@ class MercadoLivreClientTest(unittest.TestCase):
         posts = []
 
         class Resolver:
+            def __init__(self) -> None:
+                self.image_urls = []
+
             def resolve(self, url: str) -> str | None:
                 self.seen_url = url
                 return "https://www.mercadolivre.com.br/cooktop/p/MLB23997577?wid=MLB4548038861"
 
             def get_image(self, url: str) -> str | None:
-                self.image_url = url
+                self.image_urls.append(url)
                 return "https://http2.mlstatic.com/image.webp"
 
         resolver = Resolver()
@@ -144,10 +147,69 @@ class MercadoLivreClientTest(unittest.TestCase):
 
         self.assertEqual(link.short_url, "https://meli.la/mine")
         self.assertEqual(link.image_url, "https://http2.mlstatic.com/image.webp")
-        self.assertEqual(resolver.image_url, "https://www.mercadolivre.com.br/cooktop/p/MLB23997577?wid=MLB4548038861")
+        self.assertEqual(resolver.image_urls, ["https://www.mercadolivre.com.br/social/promotom?ref=abc"])
         self.assertEqual(len(posts), 1)
         self.assertEqual(posts[0]["itemId"], "MLB23997577")
         self.assertEqual(posts[0]["itemAddToList"], "MLB4548038861")
+
+    def test_create_link_falls_back_to_product_page_image_when_entry_page_has_none(self):
+        class Resolver:
+            def __init__(self) -> None:
+                self.image_urls = []
+
+            def resolve(self, url: str) -> str | None:
+                return "https://www.mercadolivre.com.br/cooktop/p/MLB23997577?wid=MLB4548038861"
+
+            def get_image(self, url: str) -> str | None:
+                self.image_urls.append(url)
+                if "social/promotom" in url:
+                    return None
+                return "https://http2.mlstatic.com/product.webp"
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            if request.method == "GET":
+                return httpx.Response(200, request=request)
+
+            payload = json.loads(request.content.decode())
+            if "social/promotom" in payload["urls"][0]:
+                return httpx.Response(
+                    200,
+                    json={
+                        "urls": [
+                            {
+                                "origin_url": "www.mercadolivre.com.br/social/promotom?ref=abc",
+                                "message": "URL not allowed in affiliates program",
+                                "error_code": 111,
+                            }
+                        ]
+                    },
+                    request=request,
+                )
+            return httpx.Response(
+                200,
+                json={"urls": [{"short_url": "https://meli.la/mine", "origin_url": payload["urls"][0]}]},
+                request=request,
+            )
+
+        resolver = Resolver()
+        client = MercadoLivreClient(
+            tag="axdxs2",
+            cookie_header="ssid=abc",
+            csrf_token="csrf",
+            product_url_resolver=resolver,
+            client=httpx.Client(transport=httpx.MockTransport(handler), follow_redirects=True),
+        )
+
+        link = client.create_link("https://www.mercadolivre.com.br/social/promotom?ref=abc")
+
+        self.assertEqual(link.image_url, "https://http2.mlstatic.com/product.webp")
+        self.assertEqual(
+            resolver.image_urls,
+            [
+                "https://www.mercadolivre.com.br/social/promotom?ref=abc",
+                "https://www.mercadolivre.com.br/cooktop/p/MLB23997577?wid=MLB4548038861",
+            ],
+        )
 
 
 if __name__ == "__main__":
