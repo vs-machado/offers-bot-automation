@@ -58,6 +58,29 @@ Because Telegram requires an interactive login code the first time you connect, 
 4. **Deploy:**
    Once the file is securely on the host server, deploy your app from Coolify.
 
+## Troubleshooting & Known Issues
+
+### 1. `sqlite3.OperationalError: unable to open database file`
+This usually happens due to a **Docker Bind Mount conflict**.
+*   **Cause:** If you configure a mount for `offers_bot.session` in Coolify/Docker, but the file does not exist on the host when the container starts, Docker will create a **directory** named `offers_bot.session`. When the bot tries to open it as a database file, it fails.
+*   **Fix:** 
+    1. Stop the container.
+    2. On the host, run `rm -rf offers_bot.session` to delete the incorrect directory.
+    3. Ensure your real `.session` file is placed there as a file.
+    4. Restart the container.
+*   **Pro-tip:** Use a subfolder for the session (e.g., `TELEGRAM_SESSION=data/offers_bot`). Since the `data/` folder is already a directory mount, it is much more stable than mounting individual files.
+
+### 2. `EOFError: EOF when reading a line`
+*   **Cause:** The bot is asking for a Telegram login code but cannot receive input (common in Docker). This means it **failed to find or load a valid session file**.
+*   **Check:**
+    1. Verify `TELEGRAM_SESSION` path matches your file location.
+    2. Ensure `TELEGRAM_API_ID` and `TELEGRAM_API_HASH` match the ones used to create the session file. If they differ, the session is invalidated.
+    3. Check file permissions (`chmod 664`).
+
+### 3. `telethon.errors.rpcerrorlist.FloodWaitError`
+*   **Cause:** Telegram has temporarily throttled your account for making too many requests (like joining too many groups or trying to login too many times).
+*   **Fix:** You **must wait** the exact number of seconds specified in the error message. There is no workaround. Stop the bot and wait before trying again, or you risk longer bans.
+
 ## Mercado Livre Credentials
 
 `task-context.md` shows browser request shape for `createLink`. Do not commit cookie or CSRF values. Put them in `.env`:
