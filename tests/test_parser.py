@@ -127,6 +127,14 @@ class ParserTest(unittest.TestCase):
             ["MLB19603205", "MLB5872060016"],
         )
 
+    def test_extract_ml_ids_normalizes_hyphenated_ids(self):
+        self.assertEqual(
+            extract_ml_ids(
+                "https://produto.mercadolivre.com.br/MLB-4222666581-sapato-masculino-casual-_JM"
+            ),
+            ["MLB4222666581"],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

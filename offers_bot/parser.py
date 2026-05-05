@@ -8,7 +8,7 @@ from urllib.parse import urlparse
 MELI_SHORT_RE = re.compile(r"https?://meli\.la/[A-Za-z0-9]{7}", re.IGNORECASE)
 URL_RE = re.compile(r"https?://[^\s<>()]+", re.IGNORECASE)
 ML_HOST_RE = re.compile(r"(^|\.)mercadolivre\.com\.br$|(^|\.)meli\.la$", re.IGNORECASE)
-ML_ID_RE = re.compile(r"\bMLB\d{6,13}\b", re.IGNORECASE)
+ML_ID_RE = re.compile(r"\bMLB-?\d{6,13}\b", re.IGNORECASE)
 PRICE_RE = re.compile(r"R\$\s*((?:\d{1,3}(?:\.\d{3})+|\d+)(?:,\d{2})?)", re.IGNORECASE)
 PROMO_PRICE_RE = re.compile(r"\bpor\s+R\$\s*((?:\d{1,3}(?:\.\d{3})+|\d+)(?:,\d{2})?)", re.IGNORECASE)
 COUPON_RE = re.compile(
@@ -92,7 +92,7 @@ def extract_ml_ids(text: str) -> list[str]:
     seen: set[str] = set()
     ids: list[str] = []
     for match in ML_ID_RE.findall(text):
-        item_id = match.upper()
+        item_id = match.upper().replace("-", "")
         if item_id not in seen:
             ids.append(item_id)
             seen.add(item_id)
