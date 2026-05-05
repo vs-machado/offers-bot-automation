@@ -22,7 +22,13 @@ class AmazonClientTest(unittest.TestCase):
             self.assertEqual(request.url.params["marketplaceId"], "526970")
             return httpx.Response(
                 200,
-                json={"shortUrl": "https://amzn.to/4abc123"},
+                json={
+                    "shortUrl": "https://amzn.to/4abc123",
+                    "longUrl": (
+                        "https://www.amazon.com.br/dp/B0DXR6MKR8?linkCode=sl2"
+                        "&tag=mytag-20&linkId=abc123&ref_=as_li_ss_tl"
+                    ),
+                },
                 request=request,
             )
 
@@ -35,7 +41,10 @@ class AmazonClientTest(unittest.TestCase):
         link = client.create_link("https://www.amazon.com.br/dp/B0DXR6MKR8?tag=promotom05-20")
 
         self.assertEqual(link.short_url, "https://amzn.to/4abc123")
-        self.assertEqual(link.long_url, "https://www.amazon.com.br/dp/B0DXR6MKR8?linkCode=sl2&tag=mytag-20")
+        self.assertEqual(
+            link.long_url,
+            "https://www.amazon.com.br/dp/B0DXR6MKR8?linkCode=sl2&tag=mytag-20&linkId=abc123&ref_=as_li_ss_tl",
+        )
         self.assertEqual(link.origin_url, "https://www.amazon.com.br/dp/B0DXR6MKR8?tag=promotom05-20")
         self.assertEqual(link.product_key, "AMZN:B0DXR6MKR8")
         self.assertEqual(len(seen_requests), 2)
@@ -48,7 +57,19 @@ class AmazonClientTest(unittest.TestCase):
                 request.url.params["longUrl"],
                 "https://www.amazon.com.br/dp/B0DXR6MKR8?th=1&psc=1&linkCode=sl2&tag=mytag-20",
             )
-            return httpx.Response(200, json={"data": {"shortUrl": "https://amzn.to/4abc123"}}, request=request)
+            return httpx.Response(
+                200,
+                json={
+                    "data": {
+                        "shortUrl": "https://amzn.to/4abc123",
+                        "longUrl": (
+                            "https://www.amazon.com.br/dp/B0DXR6MKR8?th=1&psc=1&linkCode=sl2"
+                            "&tag=mytag-20&linkId=abc123&ref_=as_li_ss_tl"
+                        ),
+                    }
+                },
+                request=request,
+            )
 
         client = AmazonClient(
             tag="mytag-20",
@@ -59,6 +80,10 @@ class AmazonClientTest(unittest.TestCase):
         link = client.create_link("https://www.amazon.com.br/dp/B0DXR6MKR8?th=1&psc=1&tag=old-20&linkId=123")
 
         self.assertEqual(link.short_url, "https://amzn.to/4abc123")
+        self.assertEqual(
+            link.long_url,
+            "https://www.amazon.com.br/dp/B0DXR6MKR8?th=1&psc=1&linkCode=sl2&tag=mytag-20&linkId=abc123&ref_=as_li_ss_tl",
+        )
 
     def test_create_link_extracts_image_with_resolver(self):
         class Resolver:

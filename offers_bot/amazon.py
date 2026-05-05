@@ -54,8 +54,8 @@ class AmazonClient:
 
         normalized_url = self._normalize_url(url)
         resolved_url = self._resolve_url(normalized_url)
-        product_url = self._build_long_url(resolved_url)
-        short_url = self._fetch_short_url(product_url, resolved_url)
+        request_url = self._build_long_url(resolved_url)
+        short_url, product_url = self._fetch_short_url(request_url, resolved_url)
         asin = self._extract_asin(product_url)
         if not asin:
             raise RuntimeError(f"Could not find Amazon ASIN in URL: {product_url}")
@@ -70,7 +70,7 @@ class AmazonClient:
             image_url=image_url,
         )
 
-    def _fetch_short_url(self, product_url: str, referer: str) -> str:
+    def _fetch_short_url(self, request_url: str, referer: str) -> tuple[str, str]:
         response = self._client.get(
             "https://www.amazon.com.br/associates/sitestripe/getShortUrl",
             headers={
@@ -78,7 +78,7 @@ class AmazonClient:
                 "referer": referer,
             },
             params={
-                "longUrl": product_url,
+                "longUrl": request_url,
                 "marketplaceId": self._marketplace_id,
             },
         )
@@ -87,7 +87,8 @@ class AmazonClient:
         short_url = self._extract_short_url(data)
         if not short_url:
             raise RuntimeError(f"Amazon did not return shortUrl: {data}")
-        return short_url
+        product_url = self._extract_long_url(data) or request_url
+        return short_url, product_url
 
     def _resolve_url(self, url: str) -> str:
         response = self._client.get(url)
@@ -125,6 +126,28 @@ class AmazonClient:
         if isinstance(data, list):
             for value in data:
                 nested = AmazonClient._extract_short_url(value)
+                if nested:
+                    return nested
+        return None
+
+    @staticmethod
+    def _extract_long_url(data: Any) -> str | None:
+        if isinstance(data, dict):
+            for key in ("longUrl", "longURL", "amznLongUrl", "long_url"):
+                value = data.get(key)
+                if isinstance(value, str) and value.startswith("http"):
+                    return value
+                if isinstance(value, dict):
+                    nested = AmazonClient._extract_long_url(value)
+                    if nested:
+                        return nested
+            for value in data.values():
+                nested = AmazonClient._extract_long_url(value)
+                if nested:
+                    return nested
+        if isinstance(data, list):
+            for value in data:
+                nested = AmazonClient._extract_long_url(value)
                 if nested:
                     return nested
         return None
