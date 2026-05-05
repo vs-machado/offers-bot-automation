@@ -77,7 +77,6 @@ async def run() -> None:
                 continue
             try:
                 affiliate = await asyncio.to_thread(ml.create_link, offer.url)
-                affiliate = await asyncio.to_thread(ml.create_link, offer.url)
                 if store.seen_affiliate_url(affiliate.short_url):
                     logging.info("Skipped already posted affiliate offer %s", affiliate.short_url)
                     store.mark(source_chat, message_id, offer.url, affiliate.short_url)
@@ -86,8 +85,8 @@ async def run() -> None:
                 formatted_text = format_offer(offer, affiliate.short_url)
                 
                 temp_image_path = None
-                if affiliate.image_url:
-                    try:
+                try:
+                    if affiliate.image_url:
                         # Download the image to a temporary file
                         async with httpx.AsyncClient() as client:
                             resp = await client.get(affiliate.image_url)
@@ -95,14 +94,16 @@ async def run() -> None:
                             fd, temp_image_path = tempfile.mkstemp(suffix=".jpg")
                             with os.fdopen(fd, 'wb') as f:
                                 f.write(resp.content)
-                    except Exception as e:
-                        logging.warning("Failed to download image %s: %s", affiliate.image_url, e)
-                        temp_image_path = None
 
-                await telegram.send_offer(formatted_text, image_file=temp_image_path)
-                
-                if temp_image_path and os.path.exists(temp_image_path):
-                    os.remove(temp_image_path)
+                    await telegram.send_offer(formatted_text, image_file=temp_image_path)
+                except Exception as e:
+                    if not affiliate.image_url:
+                        raise
+                    logging.warning("Failed to send image %s: %s", affiliate.image_url, e)
+                    await telegram.send_offer(formatted_text)
+                finally:
+                    if temp_image_path and os.path.exists(temp_image_path):
+                        os.remove(temp_image_path)
                     
                 store.mark(source_chat, message_id, offer.url, affiliate.short_url)
                 logging.info("Posted affiliate offer for %s", offer.url)

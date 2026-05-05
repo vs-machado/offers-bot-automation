@@ -9,6 +9,7 @@ from .parser import extract_ml_ids
 
 LOGGER = logging.getLogger(__name__)
 PRODUCT_HREF_RE = re.compile(r"href=[\"']([^\"']*(?:/p/MLB|wid=MLB)[^\"']*)[\"']", re.IGNORECASE)
+MERCADO_LIVRE_IMAGE_HOST_RE = re.compile(r"^https://[^/]*mlstatic\.com/", re.IGNORECASE)
 
 
 class PlaywrightProductResolver:
@@ -64,6 +65,7 @@ class PlaywrightProductResolver:
                 browser.close()
 
     def get_image(self, url: str) -> str | None:
+        from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
         from playwright.sync_api import sync_playwright
 
         with sync_playwright() as playwright:
@@ -80,13 +82,85 @@ class PlaywrightProductResolver:
             page.set_default_timeout(self._timeout_ms)
             try:
                 page.goto(url, wait_until="domcontentloaded")
-                img = page.evaluate("() => { const meta = document.querySelector('meta[property=\"og:image\"]'); return meta ? meta.content : null; }")
-                return img
+                image_url = self._extract_product_image(page)
+                if image_url:
+                    return image_url
+
+                try:
+                    page.wait_for_load_state("networkidle", timeout=self._timeout_ms)
+                except PlaywrightTimeoutError:
+                    pass
+
+                image_url = self._extract_product_image(page)
+                if image_url:
+                    return image_url
+
+                page.evaluate("window.scrollTo(0, Math.min(document.body.scrollHeight, 1200))")
+                page.wait_for_timeout(500)
+                return self._extract_product_image(page)
             except Exception as exc:
                 LOGGER.warning("Browser resolver could not extract image from %s: %s", url, exc)
                 return None
             finally:
                 browser.close()
+
+    def _extract_product_image(self, page) -> str | None:
+        image_url = page.evaluate(
+            """
+            () => {
+                const absoluteUrl = (value) => {
+                    if (!value) return null;
+                    try {
+                        return new URL(value, window.location.href).href;
+                    } catch (_) {
+                        return null;
+                    }
+                };
+
+                const firstSrcsetUrl = (srcset) => {
+                    if (!srcset) return null;
+                    const first = srcset.split(',')[0]?.trim()?.split(/\s+/)[0];
+                    return absoluteUrl(first);
+                };
+
+                const candidates = [];
+                const add = (url, score) => {
+                    const absolute = absoluteUrl(url);
+                    if (absolute) candidates.push({ url: absolute, score });
+                };
+
+                for (const selector of [
+                    'meta[property="og:image"]',
+                    'meta[name="twitter:image"]',
+                    'link[rel="image_src"]',
+                ]) {
+                    const element = document.querySelector(selector);
+                    add(element?.content || element?.href, 1000);
+                }
+
+                for (const img of document.images) {
+                    const src = img.currentSrc || img.src || img.dataset.src || firstSrcsetUrl(img.srcset);
+                    const text = `${img.alt || ''} ${img.className || ''}`.toLowerCase();
+                    let score = (img.naturalWidth || 0) * (img.naturalHeight || 0);
+                    if (text.includes('ui-pdp') || text.includes('gallery')) score += 500000;
+                    if (text.includes('logo') || text.includes('avatar') || text.includes('icon')) score -= 1000000;
+                    add(src, score);
+                }
+
+                for (const source of document.querySelectorAll('source[srcset]')) {
+                    add(firstSrcsetUrl(source.srcset), 100);
+                }
+
+                return candidates
+                    .filter((candidate) => /https:\/\/[^/]*mlstatic\.com\//i.test(candidate.url))
+                    .filter((candidate) => /D_NQ|product|MLB/i.test(candidate.url))
+                    .sort((left, right) => right.score - left.score)[0]?.url || null;
+            }
+            """
+        )
+        if image_url and MERCADO_LIVRE_IMAGE_HOST_RE.search(image_url):
+            return image_url
+        return None
 
     def _extract_product_href(self, page) -> str | None:
         selectors = [

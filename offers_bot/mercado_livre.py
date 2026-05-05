@@ -76,7 +76,8 @@ class MercadoLivreClient:
         
         image_url = None
         if self._product_url_resolver:
-            image_url = self._product_url_resolver.get_image(resolved_url)
+            image_source_url = self._normalize_url(link.origin_url or resolved_url)
+            image_url = self._product_url_resolver.get_image(image_source_url)
             
         return AffiliateLink(
             short_url=link.short_url,

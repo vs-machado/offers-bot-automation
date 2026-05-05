@@ -100,6 +100,10 @@ class MercadoLivreClientTest(unittest.TestCase):
                 self.seen_url = url
                 return "https://www.mercadolivre.com.br/cooktop/p/MLB23997577?wid=MLB4548038861"
 
+            def get_image(self, url: str) -> str | None:
+                self.image_url = url
+                return "https://http2.mlstatic.com/image.webp"
+
         resolver = Resolver()
 
         def handler(request: httpx.Request) -> httpx.Response:
@@ -139,6 +143,8 @@ class MercadoLivreClientTest(unittest.TestCase):
         link = client.create_link("https://www.mercadolivre.com.br/social/promotom?ref=abc")
 
         self.assertEqual(link.short_url, "https://meli.la/mine")
+        self.assertEqual(link.image_url, "https://http2.mlstatic.com/image.webp")
+        self.assertEqual(resolver.image_url, "https://www.mercadolivre.com.br/cooktop/p/MLB23997577?wid=MLB4548038861")
         self.assertEqual(len(posts), 1)
         self.assertEqual(posts[0]["itemId"], "MLB23997577")
         self.assertEqual(posts[0]["itemAddToList"], "MLB4548038861")
