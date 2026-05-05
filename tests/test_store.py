@@ -27,6 +27,21 @@ class OfferStoreTest(unittest.TestCase):
 
             store.close()
 
+    def test_seen_ignores_old_source_url(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            store = OfferStore(Path(tmpdir) / "offers.sqlite3")
+
+            store.mark("chat-a", 10, "https://meli.la/abc", "https://meli.la/new")
+            store._conn.execute(
+                "UPDATE processed_offers SET created_at = datetime('now', '-2 days') WHERE source_url = ?",
+                ("https://meli.la/abc",),
+            )
+            store._conn.commit()
+
+            self.assertFalse(store.seen("chat-b", 99, "https://meli.la/abc"))
+
+            store.close()
+
     def test_seen_affiliate_url_detects_posted_product(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             store = OfferStore(Path(tmpdir) / "offers.sqlite3")
@@ -38,6 +53,21 @@ class OfferStoreTest(unittest.TestCase):
 
             store.close()
 
+    def test_seen_affiliate_url_ignores_old_post(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            store = OfferStore(Path(tmpdir) / "offers.sqlite3")
+
+            store.mark("chat-a", 10, "https://meli.la/abc", "https://meli.la/final")
+            store._conn.execute(
+                "UPDATE processed_offers SET created_at = datetime('now', '-2 days') WHERE affiliate_url = ?",
+                ("https://meli.la/final",),
+            )
+            store._conn.commit()
+
+            self.assertFalse(store.seen_affiliate_url("https://meli.la/final"))
+
+            store.close()
+
     def test_seen_product_key_detects_same_product_with_different_links(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             store = OfferStore(Path(tmpdir) / "offers.sqlite3")
@@ -46,6 +76,21 @@ class OfferStoreTest(unittest.TestCase):
 
             self.assertTrue(store.seen_product_key("MLB123456:MLB999999"))
             self.assertFalse(store.seen_product_key("MLB123456:MLB888888"))
+
+            store.close()
+
+    def test_seen_product_key_ignores_old_post(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            store = OfferStore(Path(tmpdir) / "offers.sqlite3")
+
+            store.mark("chat-a", 10, "https://meli.la/abc", "https://meli.la/final", "MLB123456:MLB999999")
+            store._conn.execute(
+                "UPDATE processed_offers SET created_at = datetime('now', '-2 days') WHERE product_key = ?",
+                ("MLB123456:MLB999999",),
+            )
+            store._conn.commit()
+
+            self.assertFalse(store.seen_product_key("MLB123456:MLB999999"))
 
             store.close()
 

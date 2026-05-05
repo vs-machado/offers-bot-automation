@@ -5,9 +5,10 @@ from pathlib import Path
 
 
 class OfferStore:
-    def __init__(self, path: Path) -> None:
+    def __init__(self, path: Path, duplicate_window_minutes: int = 30) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
         self._conn = sqlite3.connect(path)
+        self._duplicate_window_minutes = duplicate_window_minutes
         self._conn.execute(
             """
             CREATE TABLE IF NOT EXISTS processed_offers (
@@ -42,36 +43,24 @@ class OfferStore:
             self._conn.execute("ALTER TABLE processed_offers ADD COLUMN product_key TEXT")
 
     def seen(self, source_chat: str, message_id: int, source_url: str) -> bool:
-        row = self._conn.execute(
-            """
-            SELECT 1
-            FROM processed_offers
-            WHERE source_url = ?
-                AND affiliate_url IS NOT NULL
-            """,
-            (source_url,),
-        ).fetchone()
-        return row is not None
+        return self._seen_recent("source_url = ? AND affiliate_url IS NOT NULL", source_url)
 
     def seen_affiliate_url(self, affiliate_url: str) -> bool:
-        row = self._conn.execute(
-            """
-            SELECT 1
-            FROM processed_offers
-            WHERE affiliate_url = ?
-            """,
-            (affiliate_url,),
-        ).fetchone()
-        return row is not None
+        return self._seen_recent("affiliate_url = ?", affiliate_url)
 
     def seen_product_key(self, product_key: str) -> bool:
+        return self._seen_recent("product_key = ?", product_key)
+
+    def _seen_recent(self, predicate: str, value: str) -> bool:
         row = self._conn.execute(
-            """
+            f"""
             SELECT 1
             FROM processed_offers
-            WHERE product_key = ?
+            WHERE {predicate}
+                AND created_at >= datetime('now', ?)
+            LIMIT 1
             """,
-            (product_key,),
+            (value, f"-{self._duplicate_window_minutes} minutes"),
         ).fetchone()
         return row is not None
 
