@@ -1,6 +1,6 @@
 # Telegram Offers Bot
 
-Bot user account listens to source Telegram groups, extracts Mercado Livre and Amazon URLs, generates your affiliate link, then posts to target group.
+Bot user account listens to source Telegram groups, extracts Mercado Livre, Amazon, and Shopee URLs, generates your affiliate link, then posts to target group.
 
 ## Setup
 
@@ -13,10 +13,16 @@ Bot user account listens to source Telegram groups, extracts Mercado Livre and A
    - `TARGET_CHAT` with your group id, `@name`, or invite link
    - `ML_AFFILIATE_TAG`
    - `ML_COOKIE_HEADER`
-   - `ML_CSRF_TOKEN`
-   - `AMAZON_AFFILIATE_TAG`
-   - `AMAZON_COOKIE_HEADER`
-   - `AMAZON_MARKETPLACE_ID`
+    - `ML_CSRF_TOKEN`
+    - `SHOPEE_COOKIE_HEADER`
+    - `SHOPEE_CSRF_TOKEN`
+    - `SHOPEE_AF_AC_ENC_DAT`
+    - `SHOPEE_AF_AC_ENC_SZ_TOKEN`
+    - `SHOPEE_X_SAP_RI`
+    - `SHOPEE_X_SAP_SEC`
+    - `AMAZON_AFFILIATE_TAG`
+    - `AMAZON_COOKIE_HEADER`
+    - `AMAZON_MARKETPLACE_ID`
 4. Install deps:
 
 ```powershell
@@ -42,6 +48,10 @@ python -m offers_bot.check_link "https://www.mercadolivre.com.br/creatina-monohi
 
 ```powershell
 python -m offers_bot.check_link "https://www.amazon.com.br/dp/B0DXR6MKR8?tag=promotom05-20"
+```
+
+```powershell
+python -m offers_bot.check_link "https://s.shopee.com.br/LjpppnYGZ"
 ```
 
 ## Deploying to Coolify (or Docker)
@@ -112,6 +122,21 @@ AMAZON_MARKETPLACE_ID=526970
 ```
 
 The bot resolves the incoming Amazon URL, replaces any existing `tag` with your own Associates tag, adds `linkCode=sl2`, then calls the same SiteStripe shortener endpoint.
+
+## Shopee Credentials
+
+Use cookies from logged-in Shopee Affiliate session. Put them in `.env`:
+
+```env
+SHOPEE_COOKIE_HEADER=SPC_F=...; csrftoken=...; ...
+SHOPEE_CSRF_TOKEN=...
+SHOPEE_AF_AC_ENC_DAT=...
+SHOPEE_AF_AC_ENC_SZ_TOKEN=...
+SHOPEE_X_SAP_RI=...
+SHOPEE_X_SAP_SEC=...
+```
+
+Bot resolves incoming `https://s.shopee.com.br/...` short URL, extracts final `-i.<shop_id>.<item_id>` ids from redirected product URL, opens `https://affiliate.shopee.com.br/offer/product_offer/<item_id>` in Chromium, clicks `Obter link`, then reads generated affiliate short URL from popup.
 
 ## Notes
 

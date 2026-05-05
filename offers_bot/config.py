@@ -22,6 +22,12 @@ class Settings:
     ml_affiliate_tag: str
     ml_cookie_header: str
     ml_csrf_token: str
+    shopee_cookie_header: str
+    shopee_csrf_token: str
+    shopee_af_ac_enc_dat: str
+    shopee_af_ac_enc_sz_token: str
+    shopee_x_sap_ri: str
+    shopee_x_sap_sec: str
     amazon_affiliate_tag: str
     amazon_cookie_header: str
     amazon_marketplace_id: str
@@ -54,6 +60,12 @@ def load_settings() -> Settings:
         ml_affiliate_tag=os.getenv("ML_AFFILIATE_TAG", "").strip(),
         ml_cookie_header=os.getenv("ML_COOKIE_HEADER", "").strip(),
         ml_csrf_token=os.getenv("ML_CSRF_TOKEN", "").strip(),
+        shopee_cookie_header=os.getenv("SHOPEE_COOKIE_HEADER", "").strip(),
+        shopee_csrf_token=os.getenv("SHOPEE_CSRF_TOKEN", "").strip(),
+        shopee_af_ac_enc_dat=os.getenv("SHOPEE_AF_AC_ENC_DAT", "").strip(),
+        shopee_af_ac_enc_sz_token=os.getenv("SHOPEE_AF_AC_ENC_SZ_TOKEN", "").strip(),
+        shopee_x_sap_ri=os.getenv("SHOPEE_X_SAP_RI", "").strip(),
+        shopee_x_sap_sec=os.getenv("SHOPEE_X_SAP_SEC", "").strip(),
         amazon_affiliate_tag=os.getenv("AMAZON_AFFILIATE_TAG", "").strip(),
         amazon_cookie_header=os.getenv("AMAZON_COOKIE_HEADER", "").strip(),
         amazon_marketplace_id=os.getenv("AMAZON_MARKETPLACE_ID", "526970").strip() or "526970",

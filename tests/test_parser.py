@@ -1,7 +1,7 @@
 import unittest
 
 from offers_bot.main import format_offer
-from offers_bot.parser import extract_ml_ids, extract_offers
+from offers_bot.parser import extract_ml_ids, extract_offers, extract_shopee_ids
 
 
 class ParserTest(unittest.TestCase):
@@ -28,6 +28,16 @@ class ParserTest(unittest.TestCase):
         self.assertEqual(offers[0].title, "iPhone 16 256 GB")
         self.assertEqual(offers[0].price, "R$ 5.999")
         self.assertEqual(offers[0].url, "https://www.amazon.com.br/dp/B0DXR6MKR8?tag=promotom05-20")
+
+    def test_extracts_shopee_offer_title_and_price(self):
+        offers = extract_offers(
+            "Liquidificador portátil Mondial R$ 89,90 https://s.shopee.com.br/LjpppnYGZ"
+        )
+
+        self.assertEqual(len(offers), 1)
+        self.assertEqual(offers[0].title, "Liquidificador portátil Mondial")
+        self.assertEqual(offers[0].price, "R$ 89,90")
+        self.assertEqual(offers[0].url, "https://s.shopee.com.br/LjpppnYGZ")
 
     def test_removes_leading_status_text_from_inline_title(self):
         offers = extract_offers(
@@ -280,6 +290,14 @@ class ParserTest(unittest.TestCase):
                 "https://produto.mercadolivre.com.br/MLB-4222666581-sapato-masculino-casual-_JM"
             ),
             ["MLB4222666581"],
+        )
+
+    def test_extract_shopee_ids_from_product_url(self):
+        self.assertEqual(
+            extract_shopee_ids(
+                "https://shopee.com.br/Liquidificador-portatil-i.1499852820.22199186045?x=1"
+            ),
+            ("1499852820", "22199186045"),
         )
 
 

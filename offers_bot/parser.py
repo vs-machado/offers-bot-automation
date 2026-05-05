@@ -9,7 +9,9 @@ MELI_SHORT_RE = re.compile(r"https?://meli\.la/[A-Za-z0-9]{7}", re.IGNORECASE)
 URL_RE = re.compile(r"https?://[^\s<>()]+", re.IGNORECASE)
 ML_HOST_RE = re.compile(r"(^|\.)mercadolivre\.com\.br$|(^|\.)meli\.la$", re.IGNORECASE)
 AMAZON_HOST_RE = re.compile(r"(^|\.)amazon\.com\.br$|(^|\.)amzn\.to$", re.IGNORECASE)
+SHOPEE_HOST_RE = re.compile(r"(^|\.)shopee\.com\.br$|(^|\.)s\.shopee\.com\.br$", re.IGNORECASE)
 ML_ID_RE = re.compile(r"\bMLB-?\d{6,13}\b", re.IGNORECASE)
+SHOPEE_ID_RE = re.compile(r"-i\.(\d+)\.(\d+)(?:[/?#]|$)", re.IGNORECASE)
 PRICE_RE = re.compile(r"R\$\s*((?:\d{1,3}(?:\.\d{3})+|\d+)(?:,\d{2})?)", re.IGNORECASE)
 PROMO_PRICE_RE = re.compile(r"\bpor\s+R\$\s*((?:\d{1,3}(?:\.\d{3})+|\d+)(?:,\d{2})?)", re.IGNORECASE)
 INSTALLMENT_RE = re.compile(r"\b(\d{1,2})\s*x\s*sem\s+juros\b", re.IGNORECASE)
@@ -101,8 +103,17 @@ def is_amazon_url(url: str) -> bool:
     return bool(parsed.netloc and AMAZON_HOST_RE.search(parsed.netloc))
 
 
+def is_shopee_url(url: str) -> bool:
+    parsed = urlparse(url if "://" in url else f"https://{url}")
+    return bool(parsed.netloc and SHOPEE_HOST_RE.search(parsed.netloc))
+
+
+def is_shopee_product_url(url: str) -> bool:
+    return is_shopee_url(url) and bool(SHOPEE_ID_RE.search(url))
+
+
 def is_supported_offer_url(url: str) -> bool:
-    return is_mercado_livre_url(url) or is_amazon_url(url)
+    return is_mercado_livre_url(url) or is_amazon_url(url) or is_shopee_url(url)
 
 
 def extract_ml_ids(text: str) -> list[str]:
@@ -114,6 +125,13 @@ def extract_ml_ids(text: str) -> list[str]:
             ids.append(item_id)
             seen.add(item_id)
     return ids
+
+
+def extract_shopee_ids(text: str) -> tuple[str, str] | None:
+    match = SHOPEE_ID_RE.search(text)
+    if not match:
+        return None
+    return match.group(1), match.group(2)
 
 
 def extract_title(text: str) -> str | None:

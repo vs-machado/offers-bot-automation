@@ -11,7 +11,8 @@ from .amazon import AmazonClient
 from .config import load_settings
 from .browser_resolver import PlaywrightProductResolver
 from .mercado_livre import MercadoLivreClient, UnsupportedOfferError
-from .parser import Offer, extract_offers, is_amazon_url, is_mercado_livre_url
+from .parser import Offer, extract_offers, is_amazon_url, is_mercado_livre_url, is_shopee_url
+from .shopee import ShopeeClient
 from .store import OfferStore
 from .telegram_bot import TelegramOfferBot
 
@@ -166,6 +167,17 @@ async def run() -> None:
         marketplace_id=settings.amazon_marketplace_id,
         image_resolver=amazon_image_resolver,
     )
+    shopee = ShopeeClient(
+        cookie_header=settings.shopee_cookie_header,
+        csrf_token=settings.shopee_csrf_token,
+        af_ac_enc_dat=settings.shopee_af_ac_enc_dat,
+        af_ac_enc_sz_token=settings.shopee_af_ac_enc_sz_token,
+        x_sap_ri=settings.shopee_x_sap_ri,
+        x_sap_sec=settings.shopee_x_sap_sec,
+        headless=settings.browser_headless,
+        timeout_ms=settings.browser_timeout_ms,
+        debug_dir=settings.browser_debug_dir,
+    )
     telegram = TelegramOfferBot(
         api_id=settings.telegram_api_id,
         api_hash=settings.telegram_api_hash,
@@ -188,7 +200,15 @@ async def run() -> None:
                 logging.info("Skipped already posted offer %s", offer.url)
                 continue
             try:
-                affiliate_client = ml if is_mercado_livre_url(offer.url) else amazon if is_amazon_url(offer.url) else None
+                affiliate_client = (
+                    ml
+                    if is_mercado_livre_url(offer.url)
+                    else amazon
+                    if is_amazon_url(offer.url)
+                    else shopee
+                    if is_shopee_url(offer.url)
+                    else None
+                )
                 if affiliate_client is None:
                     logging.info("Skipped unsupported offer URL %s", offer.url)
                     continue
