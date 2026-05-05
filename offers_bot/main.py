@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import re
 import tempfile
 import httpx
 
@@ -15,7 +16,79 @@ from .store import OfferStore
 from .telegram_bot import TelegramOfferBot
 
 
+AMAZON_COUPON_HEADER_RE = re.compile(r"\bcupom\s+amazon\b", re.IGNORECASE)
+ML_COUPON_HEADER_RE = re.compile(r"\bcupons?\s+mercado\s+livre\b", re.IGNORECASE)
+DETAIL_AND_CODE_RE = re.compile(r"(.+?)\s*:\s*([A-Za-z0-9]{4,})\s*$", re.IGNORECASE)
+CODE_LABEL_RE = re.compile(r"\b(?:c[oó]digo|cupom)\b\s*:\s*([A-Za-z0-9]{4,})", re.IGNORECASE)
+
+
+def _normalize_money_spacing(text: str) -> str:
+    return re.sub(r"R\$\s*(\d)", r"R$ \1", text)
+
+
+def _normalize_coupon_detail(text: str) -> str:
+    clean = re.sub(r"\s+", " ", text).strip(" -:|!\t")
+    return _normalize_money_spacing(clean)
+
+
+def format_coupon_bulletin_offer(offer: Offer, affiliate_url: str) -> str | None:
+    text = offer.original_text
+    is_amazon_coupon = bool(AMAZON_COUPON_HEADER_RE.search(text))
+    is_ml_coupon = bool(ML_COUPON_HEADER_RE.search(text))
+    if not is_amazon_coupon and not is_ml_coupon:
+        return None
+
+    coupon_lines: list[str] = []
+    pending_detail: str | None = None
+    for raw_line in text.splitlines():
+        line = re.sub(r"^[^\w\dR$%]+", "", raw_line).strip()
+        if not line:
+            continue
+
+        detail_and_code = DETAIL_AND_CODE_RE.match(line)
+        if detail_and_code and "%" in detail_and_code.group(1):
+            detail = _normalize_coupon_detail(detail_and_code.group(1))
+            code = detail_and_code.group(2).upper()
+            coupon_lines.append(f"🎟 {detail}: {code}")
+            pending_detail = None
+            continue
+
+        detail_candidate = line.lower()
+        if "%" in line and "off" in detail_candidate and ("acima" in detail_candidate or "compras" in detail_candidate):
+            pending_detail = _normalize_coupon_detail(line.rstrip(":"))
+            continue
+
+        code_match = CODE_LABEL_RE.search(line)
+        if code_match:
+            code = code_match.group(1).upper()
+            if pending_detail:
+                coupon_lines.append(f"🎟 {pending_detail}: {code}")
+                pending_detail = None
+            else:
+                coupon_lines.append(f"🎟 Cupom: {code}")
+
+    if not coupon_lines and offer.coupon and is_amazon_coupon:
+        coupon_lines.append(f"🎟 Cupom: {offer.coupon}")
+
+    if not coupon_lines:
+        return None
+
+    title = "☑️ Cupom Amazon!" if is_amazon_coupon else "🔥 Cupons Mercado Livre!"
+
+    return "\n\n".join(
+        [
+            title,
+            "\n".join(coupon_lines),
+            f"🛒 Resgate aqui: {affiliate_url}",
+        ]
+    )
+
+
 def format_offer(offer: Offer, affiliate_url: str) -> str:
+    coupon_offer = format_coupon_bulletin_offer(offer, affiliate_url)
+    if coupon_offer:
+        return coupon_offer
+
     parts = []
     if offer.title:
         title = offer.title

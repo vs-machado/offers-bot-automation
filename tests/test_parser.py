@@ -178,6 +178,63 @@ class ParserTest(unittest.TestCase):
     def test_ignores_non_supported_urls(self):
         self.assertEqual(extract_offers("Oferta https://example.com/item"), [])
 
+    def test_formats_amazon_coupon_message_pattern(self):
+        text = (
+            "☑️ Novo Cupom Amazon!\n\n"
+            "▪️ 10% OFF em compras acima de R$200, Limitado a R$50\n\n"
+            "🎯 Usem o cupom: SUPER10OFF\n\n"
+            "🛒 Resgate nesse produto: https://amzn.to/4wh62jk"
+        )
+        offer = extract_offers(text)[0]
+
+        formatted = format_offer(offer, "https://amzn.to/affiliate123")
+
+        self.assertEqual(
+            formatted,
+            "☑️ Cupom Amazon!\n\n"
+            "🎟 10% OFF em compras acima de R$ 200, Limitado a R$ 50: SUPER10OFF\n\n"
+            "🛒 Resgate aqui: https://amzn.to/affiliate123",
+        )
+
+    def test_formats_amazon_coupon_with_codigo_and_ative_aqui(self):
+        text = (
+            "🔵 Cupom Amazon\n\n"
+            "10% OFF acima de R$200 limite R$50\n\n"
+            "🎟️ Código:  SUPER10OFF\n\n"
+            "✅ Ative Aqui:\n"
+            "https://www.amazon.com.br/dp/B0CQMT33WX/ref=cm_sw_r_as_gl_apa_gl_i_dl_S3M6VSFKXRHPMX3KKKBH?tag=milyoficial-20"
+        )
+        offer = extract_offers(text)[0]
+
+        formatted = format_offer(offer, "https://amzn.to/affiliate123")
+
+        self.assertEqual(
+            formatted,
+            "☑️ Cupom Amazon!\n\n"
+            "🎟 10% OFF acima de R$ 200 limite R$ 50: SUPER10OFF\n\n"
+            "🛒 Resgate aqui: https://amzn.to/affiliate123",
+        )
+
+    def test_formats_mercado_livre_multi_coupon_bulletin(self):
+        text = (
+            "🔥 Cupons Mercado Livre\n\n"
+            "🎟 12% OFF acima de R$79, limite R$60: CUPOMDOML\n"
+            "🎟 12% OFF acima de R$79, limite R$50: OFFDOZE\n\n"
+            "✅ Resgate aqui:\n"
+            "https://meli.la/2KJ1Ghn"
+        )
+        offer = extract_offers(text)[0]
+
+        formatted = format_offer(offer, "https://meli.la/affiliate123")
+
+        self.assertEqual(
+            formatted,
+            "🔥 Cupons Mercado Livre!\n\n"
+            "🎟 12% OFF acima de R$ 79, limite R$ 60: CUPOMDOML\n"
+            "🎟 12% OFF acima de R$ 79, limite R$ 50: OFFDOZE\n\n"
+            "🛒 Resgate aqui: https://meli.la/affiliate123",
+        )
+
     def test_trims_meli_short_url_before_appended_noise(self):
         offers = extract_offers("Oferta https://meli.la/1vMs9xn167.51:443/TcpFull complete!")
 
