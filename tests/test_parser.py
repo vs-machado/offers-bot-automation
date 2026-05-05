@@ -235,6 +235,19 @@ class ParserTest(unittest.TestCase):
             "🛒 Resgate aqui: https://meli.la/affiliate123",
         )
 
+    def test_format_offer_shows_resgate_cupom_no_anuncio_note(self):
+        offer = extract_offers(
+            "Micro-ondas 35L Branco MasterCook Midea 220V\n\n"
+            "R$ 355\n"
+            "-Resgate cupom do anúncio\n\n"
+            "https://www.amazon.com.br/dp/B0FGZGY6VG?tag=promotom05-20\n\n"
+            "-Anúncio"
+        )[0]
+
+        formatted = format_offer(offer, "https://amzn.to/affiliate123")
+
+        self.assertIn("🏷️ Resgate cupom do anúncio", formatted)
+
     def test_trims_meli_short_url_before_appended_noise(self):
         offers = extract_offers("Oferta https://meli.la/1vMs9xn167.51:443/TcpFull complete!")
 

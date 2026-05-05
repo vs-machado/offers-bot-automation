@@ -20,6 +20,10 @@ AMAZON_COUPON_HEADER_RE = re.compile(r"\bcupom\s+amazon\b", re.IGNORECASE)
 ML_COUPON_HEADER_RE = re.compile(r"\bcupons?\s+mercado\s+livre\b", re.IGNORECASE)
 DETAIL_AND_CODE_RE = re.compile(r"(.+?)\s*:\s*([A-Za-z0-9]{4,})\s*$", re.IGNORECASE)
 CODE_LABEL_RE = re.compile(r"\b(?:c[oó]digo|cupom)\b\s*:\s*([A-Za-z0-9]{4,})", re.IGNORECASE)
+RESGATE_ANUNCIO_RE = re.compile(
+    r"\bresgate\s+(?:cupom\s+)?(?:do|no)?\s*an[uú]ncio\b",
+    re.IGNORECASE,
+)
 
 
 def _normalize_money_spacing(text: str) -> str:
@@ -29,6 +33,15 @@ def _normalize_money_spacing(text: str) -> str:
 def _normalize_coupon_detail(text: str) -> str:
     clean = re.sub(r"\s+", " ", text).strip(" -:|!\t")
     return _normalize_money_spacing(clean)
+
+
+def extract_resgate_anuncio_note(text: str) -> str | None:
+    match = RESGATE_ANUNCIO_RE.search(text)
+    if not match:
+        return None
+    note = re.sub(r"\s+", " ", match.group(0)).strip(" -:|!\t")
+    note = note[0].upper() + note[1:].lower()
+    return note
 
 
 def format_coupon_bulletin_offer(offer: Offer, affiliate_url: str) -> str | None:
@@ -90,6 +103,7 @@ def format_offer(offer: Offer, affiliate_url: str) -> str:
         return coupon_offer
 
     parts = []
+    resgate_anuncio_note = extract_resgate_anuncio_note(offer.original_text)
     if offer.title:
         title = offer.title
         if offer.installment_info:
@@ -102,6 +116,8 @@ def format_offer(offer: Offer, affiliate_url: str) -> str:
         parts.append(price_block)
     if offer.coupon:
         parts.append(f"🎟️ CUPOM: {offer.coupon}")
+    if resgate_anuncio_note:
+        parts.append(f"🏷️ {resgate_anuncio_note}")
     if offer.meli_plus_only:
         parts.append("⭐ Exclusivo para clientes Meli+")
     parts.append(f"🔗 Link do produto:\n{affiliate_url}")
