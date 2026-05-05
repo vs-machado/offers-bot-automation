@@ -81,6 +81,14 @@ This usually happens due to a **Docker Bind Mount conflict**.
 *   **Cause:** Telegram has temporarily throttled your account for making too many requests (like joining too many groups or trying to login too many times).
 *   **Fix:** You **must wait** the exact number of seconds specified in the error message. There is no workaround. Stop the bot and wait before trying again, or you risk longer bans.
 
+### 4. Safe Session Update Pattern
+If you need to update or move your session file on a live server, always follow this sequence to prevent Docker from creating "ghost" directories:
+1.  **Stop** the container (`docker stop <container_id>`).
+2.  **Delete** the old file/directory on the host.
+3.  **Copy** the new `.session` file to the destination path.
+4.  **Set permissions** (`chown ubuntu:ubuntu` and `chmod 664`).
+5.  **Start** the container again.
+
 ## Mercado Livre Credentials
 
 `task-context.md` shows browser request shape for `createLink`. Do not commit cookie or CSRF values. Put them in `.env`:
