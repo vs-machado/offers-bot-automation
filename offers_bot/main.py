@@ -79,7 +79,11 @@ async def run() -> None:
                 affiliate = await asyncio.to_thread(ml.create_link, offer.url)
                 if store.seen_affiliate_url(affiliate.short_url):
                     logging.info("Skipped already posted affiliate offer %s", affiliate.short_url)
-                    store.mark(source_chat, message_id, offer.url, affiliate.short_url)
+                    store.mark(source_chat, message_id, offer.url, affiliate.short_url, affiliate.product_key)
+                    continue
+                if store.seen_product_key(affiliate.product_key):
+                    logging.info("Skipped already posted product offer %s", affiliate.product_key)
+                    store.mark(source_chat, message_id, offer.url, affiliate.short_url, affiliate.product_key)
                     continue
 
                 formatted_text = format_offer(offer, affiliate.short_url)
@@ -105,7 +109,7 @@ async def run() -> None:
                     if temp_image_path and os.path.exists(temp_image_path):
                         os.remove(temp_image_path)
                     
-                store.mark(source_chat, message_id, offer.url, affiliate.short_url)
+                store.mark(source_chat, message_id, offer.url, affiliate.short_url, affiliate.product_key)
                 logging.info("Posted affiliate offer for %s", offer.url)
             except UnsupportedOfferError as exc:
                 logging.warning("Skipped unsupported Mercado Livre offer %s: %s", offer.url, exc)

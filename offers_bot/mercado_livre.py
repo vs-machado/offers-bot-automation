@@ -30,6 +30,7 @@ class AffiliateLink:
     long_url: str | None
     origin_url: str
     raw_text: str | None
+    product_key: str
     image_url: str | None = None
 
 
@@ -84,6 +85,7 @@ class MercadoLivreClient:
             long_url=link.long_url,
             origin_url=link.origin_url,
             raw_text=link.raw_text,
+            product_key=link.product_key,
             image_url=image_url
         )
 
@@ -94,6 +96,7 @@ class MercadoLivreClient:
 
         item_id = ids[0]
         item_add_to_list = ids[-1]
+        product_key = ":".join(ids)
         payload = {
             "itemId": item_id,
             "itemAddToList": item_add_to_list,
@@ -130,6 +133,7 @@ class MercadoLivreClient:
             long_url=first.get("long_url"),
             origin_url=first.get("origin_url") or resolved_url,
             raw_text=first.get("text"),
+            product_key=product_key,
         )
 
     def _resolve_product_url_if_needed(self, original_url: str, resolved_url: str) -> str | None:
