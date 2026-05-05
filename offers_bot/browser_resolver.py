@@ -106,7 +106,7 @@ class PlaywrightProductResolver:
 
     def _extract_product_image(self, page) -> str | None:
         image_url = page.evaluate(
-            """
+            r"""
             () => {
                 const absoluteUrl = (value) => {
                     if (!value) return null;
@@ -129,8 +129,20 @@ class PlaywrightProductResolver:
                     if (absolute) candidates.push({ url: absolute, score });
                 };
 
+                const imageSrc = (img) => img?.currentSrc || img?.src || img?.dataset?.src || firstSrcsetUrl(img?.srcset);
+                const featuredImage = document.querySelector(
+                    '.poly-card.poly-card--list .poly-card__portada img.poly-component__picture, ' +
+                    '.poly-card.poly-card--list img[data-testid="picture"].poly-component__picture, ' +
+                    '.poly-card--list .poly-card__portada img, ' +
+                    '.poly-card--list img[data-testid="picture"]'
+                );
+                const featuredImageUrl = absoluteUrl(imageSrc(featuredImage));
+                if (featuredImageUrl && /https:\/\/[^/]*mlstatic\.com\//i.test(featuredImageUrl)) {
+                    return featuredImageUrl;
+                }
+
                 for (const img of document.querySelectorAll('.poly-card__portada img.poly-component__picture, img[data-testid="picture"].poly-component__picture')) {
-                    add(img.currentSrc || img.src || img.dataset.src || firstSrcsetUrl(img.srcset), 5000000);
+                    add(imageSrc(img), 5000000);
                 }
 
                 for (const selector of [
@@ -143,7 +155,7 @@ class PlaywrightProductResolver:
                 }
 
                 for (const img of document.images) {
-                    const src = img.currentSrc || img.src || img.dataset.src || firstSrcsetUrl(img.srcset);
+                    const src = imageSrc(img);
                     const text = `${img.alt || ''} ${img.className || ''}`.toLowerCase();
                     let score = (img.naturalWidth || 0) * (img.naturalHeight || 0);
                     if (img.closest('.poly-card__portada')) score += 5000000;

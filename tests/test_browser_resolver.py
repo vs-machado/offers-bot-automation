@@ -54,6 +54,49 @@ class BrowserResolverTest(unittest.TestCase):
             "sapato-masculino-casual-couro-legitimo-calce-facil-macio-_JM",
         )
 
+    def test_extract_product_image_prefers_featured_list_card_image(self):
+        try:
+            from playwright.sync_api import sync_playwright
+        except ImportError:
+            self.skipTest("playwright not installed")
+
+        resolver = PlaywrightProductResolver()
+        html = """
+        <html>
+          <body>
+            <div class="poly-card poly-card--list poly-card--xlarge">
+              <div class="poly-card__portada">
+                <img class="poly-component__picture" data-testid="picture"
+                  src="https://http2.mlstatic.com/D_Q_NP_2X_featured-MLB1111111111-V.webp"
+                  alt="Featured product">
+              </div>
+            </div>
+            <div class="poly-card poly-card--grid poly-card--xlarge">
+              <div class="poly-card__portada">
+                <img class="poly-component__picture" data-testid="picture"
+                  src="https://http2.mlstatic.com/D_Q_NP_2X_grid-MLB2222222222-V.webp"
+                  alt="Grid product">
+              </div>
+            </div>
+            <meta property="og:image" content="https://http2.mlstatic.com/D_Q_NP_2X_meta-MLB3333333333-V.webp">
+          </body>
+        </html>
+        """
+
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch(headless=True)
+            page = browser.new_page()
+            page.set_content(html)
+
+            image_url = resolver._extract_product_image(page)
+
+            browser.close()
+
+        self.assertEqual(
+            image_url,
+            "https://http2.mlstatic.com/D_Q_NP_2X_featured-MLB1111111111-V.webp",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
