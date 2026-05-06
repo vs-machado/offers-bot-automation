@@ -10,6 +10,7 @@ URL_RE = re.compile(r"https?://[^\s<>()]+", re.IGNORECASE)
 ML_HOST_RE = re.compile(r"(^|\.)mercadolivre\.com\.br$|(^|\.)meli\.la$", re.IGNORECASE)
 AMAZON_HOST_RE = re.compile(r"(^|\.)amazon\.com\.br$|(^|\.)amzn\.to$", re.IGNORECASE)
 SHOPEE_HOST_RE = re.compile(r"(^|\.)shopee\.com\.br$|(^|\.)s\.shopee\.com\.br$", re.IGNORECASE)
+ALIEXPRESS_HOST_RE = re.compile(r"(^|\.)aliexpress\.com$|(^|\.)aliexpress\.com\.br$|(^|\.)s\.click\.aliexpress\.com$", re.IGNORECASE)
 ML_ID_RE = re.compile(r"\bMLB-?\d{6,13}\b", re.IGNORECASE)
 SHOPEE_ID_RE = re.compile(r"-i\.(\d+)\.(\d+)(?:[/?#]|$)", re.IGNORECASE)
 PRICE_RE = re.compile(r"R\$\s*((?:\d{1,3}(?:\.\d{3})+|\d+)(?:,\d{2})?)", re.IGNORECASE)
@@ -108,12 +109,17 @@ def is_shopee_url(url: str) -> bool:
     return bool(parsed.netloc and SHOPEE_HOST_RE.search(parsed.netloc))
 
 
+def is_aliexpress_url(url: str) -> bool:
+    parsed = urlparse(url if "://" in url else f"https://{url}")
+    return bool(parsed.netloc and ALIEXPRESS_HOST_RE.search(parsed.netloc))
+
+
 def is_shopee_product_url(url: str) -> bool:
     return is_shopee_url(url) and bool(SHOPEE_ID_RE.search(url))
 
 
 def is_supported_offer_url(url: str) -> bool:
-    return is_mercado_livre_url(url) or is_amazon_url(url) or is_shopee_url(url)
+    return is_mercado_livre_url(url) or is_amazon_url(url) or is_shopee_url(url) or is_aliexpress_url(url)
 
 
 def extract_ml_ids(text: str) -> list[str]:

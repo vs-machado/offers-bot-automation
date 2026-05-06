@@ -8,10 +8,11 @@ import tempfile
 import httpx
 
 from .amazon import AmazonClient
+from .aliexpress import AliExpressClient
 from .config import load_settings
 from .browser_resolver import PlaywrightProductResolver
 from .mercado_livre import MercadoLivreClient, UnsupportedOfferError
-from .parser import Offer, extract_offers, is_amazon_url, is_mercado_livre_url, is_shopee_url
+from .parser import Offer, extract_offers, is_amazon_url, is_mercado_livre_url, is_shopee_url, is_aliexpress_url
 from .shopee import ShopeeClient
 from .store import OfferStore
 from .telegram_bot import TelegramOfferBot
@@ -178,6 +179,12 @@ async def run() -> None:
         timeout_ms=settings.browser_timeout_ms,
         debug_dir=settings.browser_debug_dir,
     )
+    aliexpress = AliExpressClient(
+        app_key=settings.aliexpress_app_key,
+        app_secret=settings.aliexpress_app_secret,
+        tracking_id=settings.aliexpress_tracking_id,
+        timeout_ms=settings.browser_timeout_ms,
+    )
     telegram = TelegramOfferBot(
         api_id=settings.telegram_api_id,
         api_hash=settings.telegram_api_hash,
@@ -207,6 +214,8 @@ async def run() -> None:
                     if is_amazon_url(offer.url)
                     else shopee
                     if is_shopee_url(offer.url)
+                    else aliexpress
+                    if is_aliexpress_url(offer.url)
                     else None
                 )
                 if affiliate_client is None:

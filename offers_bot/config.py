@@ -28,6 +28,9 @@ class Settings:
     shopee_af_ac_enc_sz_token: str
     shopee_x_sap_ri: str
     shopee_x_sap_sec: str
+    aliexpress_app_key: str
+    aliexpress_app_secret: str
+    aliexpress_tracking_id: str
     amazon_affiliate_tag: str
     amazon_cookie_header: str
     amazon_marketplace_id: str
@@ -66,6 +69,9 @@ def load_settings() -> Settings:
         shopee_af_ac_enc_sz_token=os.getenv("SHOPEE_AF_AC_ENC_SZ_TOKEN", "").strip(),
         shopee_x_sap_ri=os.getenv("SHOPEE_X_SAP_RI", "").strip(),
         shopee_x_sap_sec=os.getenv("SHOPEE_X_SAP_SEC", "").strip(),
+        aliexpress_app_key=os.getenv("ALIEXPRESS_APP_KEY", "").strip(),
+        aliexpress_app_secret=os.getenv("ALIEXPRESS_APP_SECRET", "").strip(),
+        aliexpress_tracking_id=os.getenv("ALIEXPRESS_TRACKING_ID", "").strip(),
         amazon_affiliate_tag=os.getenv("AMAZON_AFFILIATE_TAG", "").strip(),
         amazon_cookie_header=os.getenv("AMAZON_COOKIE_HEADER", "").strip(),
         amazon_marketplace_id=os.getenv("AMAZON_MARKETPLACE_ID", "526970").strip() or "526970",
