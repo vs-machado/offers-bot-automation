@@ -169,15 +169,8 @@ async def run() -> None:
         image_resolver=amazon_image_resolver,
     )
     shopee = ShopeeClient(
-        cookie_header=settings.shopee_cookie_header,
-        csrf_token=settings.shopee_csrf_token,
-        af_ac_enc_dat=settings.shopee_af_ac_enc_dat,
-        af_ac_enc_sz_token=settings.shopee_af_ac_enc_sz_token,
-        x_sap_ri=settings.shopee_x_sap_ri,
-        x_sap_sec=settings.shopee_x_sap_sec,
-        headless=settings.browser_headless,
-        timeout_ms=settings.browser_timeout_ms,
-        debug_dir=settings.browser_debug_dir,
+        app_id=settings.shopee_app_id,
+        app_secret=settings.shopee_app_secret,
     )
     aliexpress = AliExpressClient(
         app_key=settings.aliexpress_app_key,

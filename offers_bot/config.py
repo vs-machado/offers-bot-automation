@@ -22,12 +22,8 @@ class Settings:
     ml_affiliate_tag: str
     ml_cookie_header: str
     ml_csrf_token: str
-    shopee_cookie_header: str
-    shopee_csrf_token: str
-    shopee_af_ac_enc_dat: str
-    shopee_af_ac_enc_sz_token: str
-    shopee_x_sap_ri: str
-    shopee_x_sap_sec: str
+    shopee_app_id: str
+    shopee_app_secret: str
     aliexpress_app_key: str
     aliexpress_app_secret: str
     aliexpress_tracking_id: str
@@ -63,12 +59,8 @@ def load_settings() -> Settings:
         ml_affiliate_tag=os.getenv("ML_AFFILIATE_TAG", "").strip(),
         ml_cookie_header=os.getenv("ML_COOKIE_HEADER", "").strip(),
         ml_csrf_token=os.getenv("ML_CSRF_TOKEN", "").strip(),
-        shopee_cookie_header=os.getenv("SHOPEE_COOKIE_HEADER", "").strip(),
-        shopee_csrf_token=os.getenv("SHOPEE_CSRF_TOKEN", "").strip(),
-        shopee_af_ac_enc_dat=os.getenv("SHOPEE_AF_AC_ENC_DAT", "").strip(),
-        shopee_af_ac_enc_sz_token=os.getenv("SHOPEE_AF_AC_ENC_SZ_TOKEN", "").strip(),
-        shopee_x_sap_ri=os.getenv("SHOPEE_X_SAP_RI", "").strip(),
-        shopee_x_sap_sec=os.getenv("SHOPEE_X_SAP_SEC", "").strip(),
+        shopee_app_id=os.getenv("SHOPEE_APP_ID", "").strip(),
+        shopee_app_secret=os.getenv("SHOPEE_APP_SECRET", "").strip(),
         aliexpress_app_key=os.getenv("ALIEXPRESS_APP_KEY", "").strip(),
         aliexpress_app_secret=os.getenv("ALIEXPRESS_APP_SECRET", "").strip(),
         aliexpress_tracking_id=os.getenv("ALIEXPRESS_TRACKING_ID", "").strip(),
