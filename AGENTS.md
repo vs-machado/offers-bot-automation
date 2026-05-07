@@ -18,8 +18,7 @@ After formatting, run the test suite to ensure everything is still working corre
 
 ```bash
 # Run all tests
-python tests/test_aliexpress.py
-# (Add other test commands as they are implemented)
+python -m unittest discover tests
 ```
 
 ## 3. Handling Test Failures
