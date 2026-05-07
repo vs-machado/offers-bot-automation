@@ -4,12 +4,13 @@ import html
 import logging
 import re
 from pathlib import Path
-from urllib.parse import urlparse
 
 from .parser import extract_ml_ids
 
 LOGGER = logging.getLogger(__name__)
-PRODUCT_HREF_RE = re.compile(r"href=[\"']([^\"']*(?:/p/MLB|wid=MLB)[^\"']*)[\"']", re.IGNORECASE)
+PRODUCT_HREF_RE = re.compile(
+    r"href=[\"']([^\"']*(?:/p/MLB|wid=MLB)[^\"']*)[\"']", re.IGNORECASE
+)
 MERCADO_LIVRE_IMAGE_HOST_RE = re.compile(r"^https://[^/]*mlstatic\.com/", re.IGNORECASE)
 AMAZON_IMAGE_HOST_RE = re.compile(r"^https://m\.media-amazon\.com/", re.IGNORECASE)
 
@@ -59,11 +60,16 @@ class PlaywrightProductResolver:
 
                 try:
                     page.get_by_role("link", name="Ir para produto").first.click()
-                    page.wait_for_url(lambda current_url: bool(extract_ml_ids(current_url)), timeout=self._timeout_ms)
+                    page.wait_for_url(
+                        lambda current_url: bool(extract_ml_ids(current_url)),
+                        timeout=self._timeout_ms,
+                    )
                     return page.url
                 except PlaywrightTimeoutError:
                     self._write_debug(page)
-                    LOGGER.warning("Browser resolver could not find product URL at %s", url)
+                    LOGGER.warning(
+                        "Browser resolver could not find product URL at %s", url
+                    )
                     return None
             finally:
                 browser.close()
@@ -99,11 +105,15 @@ class PlaywrightProductResolver:
                 if image_url:
                     return image_url
 
-                page.evaluate("window.scrollTo(0, Math.min(document.body.scrollHeight, 1200))")
+                page.evaluate(
+                    "window.scrollTo(0, Math.min(document.body.scrollHeight, 1200))"
+                )
                 page.wait_for_timeout(500)
                 return self._extract_product_image(page)
             except Exception as exc:
-                LOGGER.warning("Browser resolver could not extract image from %s: %s", url, exc)
+                LOGGER.warning(
+                    "Browser resolver could not extract image from %s: %s", url, exc
+                )
                 return None
             finally:
                 browser.close()
@@ -206,7 +216,10 @@ class PlaywrightProductResolver:
             }
             """
         )
-        if image_url and (MERCADO_LIVRE_IMAGE_HOST_RE.search(image_url) or AMAZON_IMAGE_HOST_RE.search(image_url)):
+        if image_url and (
+            MERCADO_LIVRE_IMAGE_HOST_RE.search(image_url)
+            or AMAZON_IMAGE_HOST_RE.search(image_url)
+        ):
             return image_url
         return None
 
@@ -238,7 +251,9 @@ class PlaywrightProductResolver:
         for link in links:
             href = link.get("href", "")
             text = link.get("text", "")
-            if ("Ir para produto" in text or extract_ml_ids(href)) and extract_ml_ids(href):
+            if ("Ir para produto" in text or extract_ml_ids(href)) and extract_ml_ids(
+                href
+            ):
                 return href
 
         content = page.content()

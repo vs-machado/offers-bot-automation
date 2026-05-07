@@ -15,6 +15,7 @@ from dotenv import load_dotenv
 # Set up logging to see SDK errors
 logging.basicConfig(level=logging.INFO)
 
+
 def test_aliexpress_message_parsing():
     """Test real message parsing and Telegram formatting"""
     test_cases = [
@@ -32,7 +33,7 @@ def test_aliexpress_message_parsing():
 🔗 https://s.click.aliexpress.com/e/_c4LBE5wb""",
             "expected_price": "R$ 717,51",
             "expected_coupon": "LIBRETX5600 ou IFPAF7UN ou MAES5",
-            "expected_installment": "9X SEM JUROS"
+            "expected_installment": "9X SEM JUROS",
         },
         {
             "id": "Projector (No spacing in price)",
@@ -42,7 +43,7 @@ Moedas No APP + MAES3
 Link¹: https://s.click.aliexpress.com/e/_c3Goue9Z""",
             "expected_price": "R$ 279,72",
             "expected_coupon": "MAES3",
-            "expected_installment": None
+            "expected_installment": None,
         },
         {
             "id": "UGREEN Hub (Inline coupon with data)",
@@ -51,17 +52,17 @@ Link¹: https://s.click.aliexpress.com/e/_c3Goue9Z""",
 Link App: https://a.aliexpress.com/_c3iwj7Qj""",
             "expected_price": "R$ 179",
             "expected_coupon": "ZH5533 ou IFPIQRSZ",
-            "expected_installment": None
+            "expected_installment": None,
         },
         {
             "id": "Tronsmart (Coupon + Announcement rescue)",
             "text": """Caixa de Som Tronsmart T8 Mini 16w
-R$ 110
+R$ 110~~
 -CUPOM: MAES2 + Resgate cupom do anúncio + moedas no APP
 https://s.click.aliexpress.com/e/_c2Q2ElYr""",
             "expected_price": "R$ 110",
             "expected_coupon": "MAES2",
-            "expected_installment": None
+            "expected_installment": None,
         },
         {
             "id": "SSD (Multiple coupon variants)",
@@ -71,41 +72,54 @@ R$ 948
 https://s.click.aliexpress.com/e/_c3a2kGc3""",
             "expected_price": "R$ 948",
             "expected_coupon": "KOOTION40 ou KOOTION401 ou MAES6",
-            "expected_installment": None
-        }
+            "expected_installment": None,
+        },
     ]
 
     for case in test_cases:
         print(f"Testing case: {case['id']}")
-        offers = extract_offers(case['text'])
+        offers = extract_offers(case["text"])
         assert len(offers) >= 1, f"Failed to find offer in {case['id']}"
-        
+
         offer = offers[0]
         simulated_url = "https://s.click.aliexpress.com/e/_SIMULATED"
         formatted = format_offer(offer, simulated_url)
 
         # Assertions
-        if case['expected_price']:
-            assert case['expected_price'] in formatted, f"Price mismatch in {case['id']}. Found: {offer.price}"
-        if case['expected_coupon']:
-            assert case['expected_coupon'] in formatted, f"Coupon mismatch in {case['id']}. Found: {offer.coupon}"
-        if case['expected_installment']:
-            assert case['expected_installment'] in formatted, f"Installment mismatch in {case['id']}. Found: {offer.installment_info}"
-        
+        if case["expected_price"]:
+            assert case["expected_price"] in formatted, (
+                f"Price mismatch in {case['id']}. Found: {offer.price}"
+            )
+        if case["expected_coupon"]:
+            assert case["expected_coupon"] in formatted, (
+                f"Coupon mismatch in {case['id']}. Found: {offer.coupon}"
+            )
+        if case["expected_installment"]:
+            assert case["expected_installment"] in formatted, (
+                f"Installment mismatch in {case['id']}. Found: {offer.installment_info}"
+            )
+
         # Display the formatted message
         print(f"\n--- FORMATTED MESSAGE: {case['id']} ---")
-        safe_display = formatted.replace("🛍️", "[SHOP]").replace("💰", "[CASH]").replace("🎟️", "[COUPON]").replace("🔗", "[LINK]").replace("🏷️", "[LABEL]")
+        safe_display = (
+            formatted.replace("🛍️", "[SHOP]")
+            .replace("💰", "[CASH]")
+            .replace("🎟️", "[COUPON]")
+            .replace("🔗", "[LINK]")
+            .replace("🏷️", "[LABEL]")
+        )
         print(safe_display)
-        print("-" * (25 + len(case['id'])) + "\n")
-        
+        print("-" * (25 + len(case["id"])) + "\n")
+
         print(f"  [OK] {case['id']} passed.")
 
     print("\n[OK] All message patterns verified successfully!")
 
+
 def test_aliexpress_api():
     """Test real API integration"""
     load_dotenv()
-    
+
     app_key = os.getenv("ALIEXPRESS_APP_KEY")
     app_secret = os.getenv("ALIEXPRESS_APP_SECRET")
     tracking_id = os.getenv("ALIEXPRESS_TRACKING_ID", "default")
@@ -116,7 +130,7 @@ def test_aliexpress_api():
 
     client = AliExpressClient(app_key, app_secret, tracking_id)
     test_url = "https://a.aliexpress.com/_mMNsFKn"
-    
+
     try:
         affiliate_link = client.create_link(test_url)
         assert affiliate_link.short_url is not None

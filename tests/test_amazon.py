@@ -37,17 +37,23 @@ class AmazonClientTest(unittest.TestCase):
         client = AmazonClient(
             tag="mytag-20",
             cookie_header="session-id=abc",
-            client=httpx.Client(transport=httpx.MockTransport(handler), follow_redirects=True),
+            client=httpx.Client(
+                transport=httpx.MockTransport(handler), follow_redirects=True
+            ),
         )
 
-        link = client.create_link("https://www.amazon.com.br/dp/B0DXR6MKR8?tag=promotom05-20")
+        link = client.create_link(
+            "https://www.amazon.com.br/dp/B0DXR6MKR8?tag=promotom05-20"
+        )
 
         self.assertEqual(link.short_url, "https://amzn.to/4abc123")
         self.assertEqual(
             link.long_url,
             "https://www.amazon.com.br/dp/B0DXR6MKR8?linkCode=sl2&tag=mytag-20&linkId=abc123&ref_=as_li_ss_tl",
         )
-        self.assertEqual(link.origin_url, "https://www.amazon.com.br/dp/B0DXR6MKR8?tag=promotom05-20")
+        self.assertEqual(
+            link.origin_url, "https://www.amazon.com.br/dp/B0DXR6MKR8?tag=promotom05-20"
+        )
         self.assertEqual(link.product_key, "AMZN:B0DXR6MKR8")
         self.assertEqual(len(seen_requests), 3)
 
@@ -78,10 +84,14 @@ class AmazonClientTest(unittest.TestCase):
         client = AmazonClient(
             tag="mytag-20",
             cookie_header="session-id=abc",
-            client=httpx.Client(transport=httpx.MockTransport(handler), follow_redirects=True),
+            client=httpx.Client(
+                transport=httpx.MockTransport(handler), follow_redirects=True
+            ),
         )
 
-        link = client.create_link("https://www.amazon.com.br/dp/B0DXR6MKR8?th=1&psc=1&tag=old-20&linkId=123")
+        link = client.create_link(
+            "https://www.amazon.com.br/dp/B0DXR6MKR8?th=1&psc=1&tag=old-20&linkId=123"
+        )
 
         self.assertEqual(link.short_url, "https://amzn.to/4abc123")
         self.assertEqual(
@@ -102,19 +112,31 @@ class AmazonClientTest(unittest.TestCase):
                 return httpx.Response(200, request=request)
             if request.url.host == "amzn.to":
                 return httpx.Response(200, request=request)
-            return httpx.Response(200, json={"shortUrl": "https://amzn.to/4abc123"}, request=request)
+            return httpx.Response(
+                200, json={"shortUrl": "https://amzn.to/4abc123"}, request=request
+            )
 
         client = AmazonClient(
             tag="mytag-20",
             cookie_header="session-id=abc",
             image_resolver=resolver,
-            client=httpx.Client(transport=httpx.MockTransport(handler), follow_redirects=True),
+            client=httpx.Client(
+                transport=httpx.MockTransport(handler), follow_redirects=True
+            ),
         )
 
-        link = client.create_link("https://www.amazon.com.br/dp/B0DXR6MKR8?tag=promotom05-20")
+        link = client.create_link(
+            "https://www.amazon.com.br/dp/B0DXR6MKR8?tag=promotom05-20"
+        )
 
-        self.assertEqual(resolver.seen_url, "https://www.amazon.com.br/dp/B0DXR6MKR8?tag=promotom05-20")
-        self.assertEqual(link.image_url, "https://m.media-amazon.com/images/I/41Zguc9CziL._AC_SL1000_.jpg")
+        self.assertEqual(
+            resolver.seen_url,
+            "https://www.amazon.com.br/dp/B0DXR6MKR8?tag=promotom05-20",
+        )
+        self.assertEqual(
+            link.image_url,
+            "https://m.media-amazon.com/images/I/41Zguc9CziL._AC_SL1000_.jpg",
+        )
 
     def test_create_link_prefers_short_url_redirect_target(self):
         def handler(request: httpx.Request) -> httpx.Response:
@@ -149,7 +171,9 @@ class AmazonClientTest(unittest.TestCase):
             "&linkId=abc123&ref_=as_li_ss_tl"
         )
         try:
-            link = client.create_link("https://www.amazon.com.br/dp/B0DXR6MKR8?tag=promotom05-20")
+            link = client.create_link(
+                "https://www.amazon.com.br/dp/B0DXR6MKR8?tag=promotom05-20"
+            )
         finally:
             client._resolve_short_url = original_resolve_short_url
 

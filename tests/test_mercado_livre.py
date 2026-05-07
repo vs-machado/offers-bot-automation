@@ -39,7 +39,9 @@ class MercadoLivreClientTest(unittest.TestCase):
             tag="axdxs2",
             cookie_header="ssid=abc",
             csrf_token="csrf",
-            client=httpx.Client(transport=httpx.MockTransport(handler), follow_redirects=True),
+            client=httpx.Client(
+                transport=httpx.MockTransport(handler), follow_redirects=True
+            ),
         )
 
         link = client.create_link("https://www.mercadolivre.com.br/x/p/MLB19603205")
@@ -86,11 +88,15 @@ class MercadoLivreClientTest(unittest.TestCase):
             tag="axdxs2",
             cookie_header="ssid=abc",
             csrf_token="csrf",
-            client=httpx.Client(transport=httpx.MockTransport(handler), follow_redirects=True),
+            client=httpx.Client(
+                transport=httpx.MockTransport(handler), follow_redirects=True
+            ),
         )
 
         with self.assertRaisesRegex(UnsupportedOfferError, "URL not allowed"):
-            client.create_link("https://www.mercadolivre.com.br/social/promotom?ref=abc")
+            client.create_link(
+                "https://www.mercadolivre.com.br/social/promotom?ref=abc"
+            )
 
     def test_create_link_retries_with_browser_resolved_product_url(self):
         posts = []
@@ -131,7 +137,14 @@ class MercadoLivreClientTest(unittest.TestCase):
                 )
             return httpx.Response(
                 200,
-                json={"urls": [{"short_url": "https://meli.la/mine", "origin_url": payload["urls"][0]}]},
+                json={
+                    "urls": [
+                        {
+                            "short_url": "https://meli.la/mine",
+                            "origin_url": payload["urls"][0],
+                        }
+                    ]
+                },
                 request=request,
             )
 
@@ -140,19 +153,28 @@ class MercadoLivreClientTest(unittest.TestCase):
             cookie_header="ssid=abc",
             csrf_token="csrf",
             product_url_resolver=resolver,
-            client=httpx.Client(transport=httpx.MockTransport(handler), follow_redirects=True),
+            client=httpx.Client(
+                transport=httpx.MockTransport(handler), follow_redirects=True
+            ),
         )
 
-        link = client.create_link("https://www.mercadolivre.com.br/social/promotom?ref=abc")
+        link = client.create_link(
+            "https://www.mercadolivre.com.br/social/promotom?ref=abc"
+        )
 
         self.assertEqual(link.short_url, "https://meli.la/mine")
         self.assertEqual(link.image_url, "https://http2.mlstatic.com/image.webp")
-        self.assertEqual(resolver.image_urls, ["https://www.mercadolivre.com.br/social/promotom?ref=abc"])
+        self.assertEqual(
+            resolver.image_urls,
+            ["https://www.mercadolivre.com.br/social/promotom?ref=abc"],
+        )
         self.assertEqual(len(posts), 1)
         self.assertEqual(posts[0]["itemId"], "MLB23997577")
         self.assertEqual(posts[0]["itemAddToList"], "MLB4548038861")
 
-    def test_create_link_falls_back_to_product_page_image_when_entry_page_has_none(self):
+    def test_create_link_falls_back_to_product_page_image_when_entry_page_has_none(
+        self,
+    ):
         class Resolver:
             def __init__(self) -> None:
                 self.image_urls = []
@@ -187,7 +209,14 @@ class MercadoLivreClientTest(unittest.TestCase):
                 )
             return httpx.Response(
                 200,
-                json={"urls": [{"short_url": "https://meli.la/mine", "origin_url": payload["urls"][0]}]},
+                json={
+                    "urls": [
+                        {
+                            "short_url": "https://meli.la/mine",
+                            "origin_url": payload["urls"][0],
+                        }
+                    ]
+                },
                 request=request,
             )
 
@@ -197,10 +226,14 @@ class MercadoLivreClientTest(unittest.TestCase):
             cookie_header="ssid=abc",
             csrf_token="csrf",
             product_url_resolver=resolver,
-            client=httpx.Client(transport=httpx.MockTransport(handler), follow_redirects=True),
+            client=httpx.Client(
+                transport=httpx.MockTransport(handler), follow_redirects=True
+            ),
         )
 
-        link = client.create_link("https://www.mercadolivre.com.br/social/promotom?ref=abc")
+        link = client.create_link(
+            "https://www.mercadolivre.com.br/social/promotom?ref=abc"
+        )
 
         self.assertEqual(link.image_url, "https://http2.mlstatic.com/product.webp")
         self.assertEqual(

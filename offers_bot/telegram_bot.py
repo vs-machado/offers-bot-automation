@@ -37,10 +37,18 @@ class TelegramOfferBot:
         await self.client.start(phone=self._phone)
         self._target_entity = await self._resolve_chat(self._target_chat)
 
-    async def listen(self, handler: MessageHandler, poll_existing: bool = False) -> None:
-        source_entities = [await self._resolve_chat(chat) for chat in self._source_chats]
+    async def listen(
+        self, handler: MessageHandler, poll_existing: bool = False
+    ) -> None:
+        source_entities = [
+            await self._resolve_chat(chat) for chat in self._source_chats
+        ]
         for entity in source_entities:
-            title = getattr(entity, "title", None) or getattr(entity, "username", None) or str(entity.id)
+            title = (
+                getattr(entity, "title", None)
+                or getattr(entity, "username", None)
+                or str(entity.id)
+            )
             LOGGER.info("Resolved source chat %s -> id=%s", title, entity.id)
 
         if poll_existing:
@@ -68,7 +76,9 @@ class TelegramOfferBot:
         if self._target_entity is None:
             self._target_entity = await self._resolve_chat(self._target_chat)
         if image_file:
-            await self.client.send_message(self._target_entity, text, file=image_file, link_preview=False)
+            await self.client.send_message(
+                self._target_entity, text, file=image_file, link_preview=False
+            )
         else:
             await self.client.send_message(self._target_entity, text, link_preview=True)
 
@@ -85,4 +95,6 @@ class TelegramOfferBot:
                 if isinstance(invite, ChatInviteAlready):
                     return invite.chat
                 return await self.client.get_entity(chat)
-        return await self.client.get_entity(int(chat) if chat.lstrip("-").isdigit() else chat)
+        return await self.client.get_entity(
+            int(chat) if chat.lstrip("-").isdigit() else chat
+        )

@@ -1,5 +1,4 @@
 import unittest
-import json
 import httpx
 from offers_bot.shopee import ShopeeClient
 
@@ -25,7 +24,7 @@ class ShopeeClientTest(unittest.TestCase):
                             }
                         }
                     },
-                    request=request
+                    request=request,
                 )
             return httpx.Response(200, text="ok", request=request)
 
@@ -33,7 +32,9 @@ class ShopeeClientTest(unittest.TestCase):
             app_id="123456",
             app_secret="demo",
             client=httpx.Client(transport=httpx.MockTransport(handler)),
-            resolver_client=httpx.Client(transport=httpx.MockTransport(handler), follow_redirects=True),
+            resolver_client=httpx.Client(
+                transport=httpx.MockTransport(handler), follow_redirects=True
+            ),
         )
 
         link = client.create_link("https://s.shopee.com.br/LjpppnYGZ")
@@ -53,7 +54,7 @@ class ShopeeClientTest(unittest.TestCase):
                     json={
                         "errors": [{"message": "Invalid application", "code": 10020}]
                     },
-                    request=request
+                    request=request,
                 )
             return httpx.Response(200, text="ok", request=request)
 

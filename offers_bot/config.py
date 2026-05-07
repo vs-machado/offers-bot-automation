@@ -43,7 +43,12 @@ def load_settings() -> Settings:
 
     missing = [
         name
-        for name in ("TELEGRAM_API_ID", "TELEGRAM_API_HASH", "SOURCE_CHATS", "TARGET_CHAT")
+        for name in (
+            "TELEGRAM_API_ID",
+            "TELEGRAM_API_HASH",
+            "SOURCE_CHATS",
+            "TARGET_CHAT",
+        )
         if not os.getenv(name)
     ]
     if missing:
@@ -66,11 +71,16 @@ def load_settings() -> Settings:
         aliexpress_tracking_id=os.getenv("ALIEXPRESS_TRACKING_ID", "").strip(),
         amazon_affiliate_tag=os.getenv("AMAZON_AFFILIATE_TAG", "").strip(),
         amazon_cookie_header=os.getenv("AMAZON_COOKIE_HEADER", "").strip(),
-        amazon_marketplace_id=os.getenv("AMAZON_MARKETPLACE_ID", "526970").strip() or "526970",
-        poll_existing_messages=os.getenv("POLL_EXISTING_MESSAGES", "false").lower() == "true",
+        amazon_marketplace_id=os.getenv("AMAZON_MARKETPLACE_ID", "526970").strip()
+        or "526970",
+        poll_existing_messages=os.getenv("POLL_EXISTING_MESSAGES", "false").lower()
+        == "true",
         database_path=Path(os.getenv("DATABASE_PATH", "data/offers.sqlite3")),
-        browser_resolver_enabled=os.getenv("BROWSER_RESOLVER_ENABLED", "true").lower() == "true",
+        browser_resolver_enabled=os.getenv("BROWSER_RESOLVER_ENABLED", "true").lower()
+        == "true",
         browser_headless=os.getenv("BROWSER_HEADLESS", "true").lower() == "true",
         browser_timeout_ms=int(os.getenv("BROWSER_TIMEOUT_MS", "15000")),
-        browser_debug_dir=Path(os.environ["BROWSER_DEBUG_DIR"]) if os.getenv("BROWSER_DEBUG_DIR") else None,
+        browser_debug_dir=Path(os.environ["BROWSER_DEBUG_DIR"])
+        if os.getenv("BROWSER_DEBUG_DIR")
+        else None,
     )

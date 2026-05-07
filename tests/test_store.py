@@ -72,7 +72,13 @@ class OfferStoreTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             store = OfferStore(Path(tmpdir) / "offers.sqlite3")
 
-            store.mark("chat-a", 10, "https://meli.la/abc", "https://meli.la/final", "MLB123456:MLB999999")
+            store.mark(
+                "chat-a",
+                10,
+                "https://meli.la/abc",
+                "https://meli.la/final",
+                "MLB123456:MLB999999",
+            )
 
             self.assertTrue(store.seen_product_key("MLB123456:MLB999999"))
             self.assertFalse(store.seen_product_key("MLB123456:MLB888888"))
@@ -83,7 +89,13 @@ class OfferStoreTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             store = OfferStore(Path(tmpdir) / "offers.sqlite3")
 
-            store.mark("chat-a", 10, "https://meli.la/abc", "https://meli.la/final", "MLB123456:MLB999999")
+            store.mark(
+                "chat-a",
+                10,
+                "https://meli.la/abc",
+                "https://meli.la/final",
+                "MLB123456:MLB999999",
+            )
             store._conn.execute(
                 "UPDATE processed_offers SET created_at = datetime('now', '-2 days') WHERE product_key = ?",
                 ("MLB123456:MLB999999",),
@@ -114,7 +126,13 @@ class OfferStoreTest(unittest.TestCase):
             conn.close()
 
             store = OfferStore(db_path)
-            store.mark("chat-a", 10, "https://meli.la/abc", "https://meli.la/final", "MLB123456")
+            store.mark(
+                "chat-a",
+                10,
+                "https://meli.la/abc",
+                "https://meli.la/final",
+                "MLB123456",
+            )
 
             self.assertTrue(store.seen_product_key("MLB123456"))
 

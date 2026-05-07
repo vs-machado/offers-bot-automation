@@ -12,7 +12,14 @@ from .aliexpress import AliExpressClient
 from .config import load_settings
 from .browser_resolver import PlaywrightProductResolver
 from .mercado_livre import MercadoLivreClient, UnsupportedOfferError
-from .parser import Offer, extract_offers, is_amazon_url, is_mercado_livre_url, is_shopee_url, is_aliexpress_url
+from .parser import (
+    Offer,
+    extract_offers,
+    is_amazon_url,
+    is_mercado_livre_url,
+    is_shopee_url,
+    is_aliexpress_url,
+)
 from .shopee import ShopeeClient
 from .store import OfferStore
 from .telegram_bot import TelegramOfferBot
@@ -21,7 +28,9 @@ from .telegram_bot import TelegramOfferBot
 AMAZON_COUPON_HEADER_RE = re.compile(r"\bcupom\s+amazon\b", re.IGNORECASE)
 ML_COUPON_HEADER_RE = re.compile(r"\bcupons?\s+mercado\s+livre\b", re.IGNORECASE)
 DETAIL_AND_CODE_RE = re.compile(r"(.+?)\s*:\s*([A-Za-z0-9]{4,})\s*$", re.IGNORECASE)
-CODE_LABEL_RE = re.compile(r"\b(?:c[oó]digo|cupom)\b\s*:\s*([A-Za-z0-9]{4,})", re.IGNORECASE)
+CODE_LABEL_RE = re.compile(
+    r"\b(?:c[oó]digo|cupom)\b\s*:\s*([A-Za-z0-9]{4,})", re.IGNORECASE
+)
 RESGATE_ANUNCIO_RE = re.compile(
     r"\bresgate\s+(?:cupom\s+)?(?:do|no)?\s*an[uú]ncio\b",
     re.IGNORECASE,
@@ -69,7 +78,11 @@ def format_coupon_bulletin_offer(offer: Offer, affiliate_url: str) -> str | None
             continue
 
         detail_candidate = line.lower()
-        if "%" in line and "off" in detail_candidate and ("acima" in detail_candidate or "compras" in detail_candidate):
+        if (
+            "%" in line
+            and "off" in detail_candidate
+            and ("acima" in detail_candidate or "compras" in detail_candidate)
+        ):
             pending_detail = _normalize_coupon_detail(line.rstrip(":"))
             continue
 
@@ -127,16 +140,19 @@ def format_offer(offer: Offer, affiliate_url: str) -> str:
 
 
 async def run() -> None:
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s"
+    )
     settings = load_settings()
-    
+
     # Ensure directories exist before attempting to create SQLite files
     settings.database_path.parent.mkdir(parents=True, exist_ok=True)
     import pathlib
+
     session_path = pathlib.Path(settings.telegram_session)
     if str(session_path.parent) != ".":
         session_path.parent.mkdir(parents=True, exist_ok=True)
-        
+
     store = OfferStore(settings.database_path)
     product_url_resolver = None
     if settings.browser_resolver_enabled:
@@ -214,18 +230,36 @@ async def run() -> None:
                 if affiliate_client is None:
                     logging.info("Skipped unsupported offer URL %s", offer.url)
                     continue
-                affiliate = await asyncio.to_thread(affiliate_client.create_link, offer.url)
+                affiliate = await asyncio.to_thread(
+                    affiliate_client.create_link, offer.url
+                )
                 if store.seen_affiliate_url(affiliate.short_url):
-                    logging.info("Skipped already posted affiliate offer %s", affiliate.short_url)
-                    store.mark(source_chat, message_id, offer.url, affiliate.short_url, affiliate.product_key)
+                    logging.info(
+                        "Skipped already posted affiliate offer %s", affiliate.short_url
+                    )
+                    store.mark(
+                        source_chat,
+                        message_id,
+                        offer.url,
+                        affiliate.short_url,
+                        affiliate.product_key,
+                    )
                     continue
                 if store.seen_product_key(affiliate.product_key):
-                    logging.info("Skipped already posted product offer %s", affiliate.product_key)
-                    store.mark(source_chat, message_id, offer.url, affiliate.short_url, affiliate.product_key)
+                    logging.info(
+                        "Skipped already posted product offer %s", affiliate.product_key
+                    )
+                    store.mark(
+                        source_chat,
+                        message_id,
+                        offer.url,
+                        affiliate.short_url,
+                        affiliate.product_key,
+                    )
                     continue
 
                 formatted_text = format_offer(offer, affiliate.short_url)
-                
+
                 temp_image_path = None
                 try:
                     if affiliate.image_url:
@@ -234,20 +268,30 @@ async def run() -> None:
                             resp = await client.get(affiliate.image_url)
                             resp.raise_for_status()
                             fd, temp_image_path = tempfile.mkstemp(suffix=".jpg")
-                            with os.fdopen(fd, 'wb') as f:
+                            with os.fdopen(fd, "wb") as f:
                                 f.write(resp.content)
 
-                    await telegram.send_offer(formatted_text, image_file=temp_image_path)
+                    await telegram.send_offer(
+                        formatted_text, image_file=temp_image_path
+                    )
                 except Exception as e:
                     if not affiliate.image_url:
                         raise
-                    logging.warning("Failed to send image %s: %s", affiliate.image_url, e)
+                    logging.warning(
+                        "Failed to send image %s: %s", affiliate.image_url, e
+                    )
                     await telegram.send_offer(formatted_text)
                 finally:
                     if temp_image_path and os.path.exists(temp_image_path):
                         os.remove(temp_image_path)
-                    
-                store.mark(source_chat, message_id, offer.url, affiliate.short_url, affiliate.product_key)
+
+                store.mark(
+                    source_chat,
+                    message_id,
+                    offer.url,
+                    affiliate.short_url,
+                    affiliate.product_key,
+                )
                 logging.info("Posted affiliate offer for %s", offer.url)
             except UnsupportedOfferError as exc:
                 logging.warning("Skipped unsupported offer %s: %s", offer.url, exc)
@@ -257,7 +301,9 @@ async def run() -> None:
 
     try:
         await telegram.start()
-        await telegram.listen(handle_message, poll_existing=settings.poll_existing_messages)
+        await telegram.listen(
+            handle_message, poll_existing=settings.poll_existing_messages
+        )
     finally:
         store.close()
 

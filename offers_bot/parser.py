@@ -9,21 +9,36 @@ MELI_SHORT_RE = re.compile(r"https?://meli\.la/[A-Za-z0-9]{7}", re.IGNORECASE)
 URL_RE = re.compile(r"https?://[^\s<>()]+", re.IGNORECASE)
 ML_HOST_RE = re.compile(r"(^|\.)mercadolivre\.com\.br$|(^|\.)meli\.la$", re.IGNORECASE)
 AMAZON_HOST_RE = re.compile(r"(^|\.)amazon\.com\.br$|(^|\.)amzn\.to$", re.IGNORECASE)
-SHOPEE_HOST_RE = re.compile(r"(^|\.)shopee\.com\.br$|(^|\.)s\.shopee\.com\.br$", re.IGNORECASE)
-ALIEXPRESS_HOST_RE = re.compile(r"(^|\.)aliexpress\.com$|(^|\.)aliexpress\.com\.br$|(^|\.)s\.click\.aliexpress\.com$", re.IGNORECASE)
+SHOPEE_HOST_RE = re.compile(
+    r"(^|\.)shopee\.com\.br$|(^|\.)s\.shopee\.com\.br$", re.IGNORECASE
+)
+ALIEXPRESS_HOST_RE = re.compile(
+    r"(^|\.)aliexpress\.com$|(^|\.)aliexpress\.com\.br$|(^|\.)s\.click\.aliexpress\.com$",
+    re.IGNORECASE,
+)
 ML_ID_RE = re.compile(r"\bMLB-?\d{6,13}\b", re.IGNORECASE)
 SHOPEE_ID_RE = re.compile(r"-i\.(\d+)\.(\d+)(?:[/?#]|$)", re.IGNORECASE)
 PRICE_RE = re.compile(r"R\$\s?((?:\d{1,3}(?:\.\d{3})+|\d+)(?:,\d{2})?)", re.IGNORECASE)
-PROMO_PRICE_RE = re.compile(r"\bpor\s+R\$\s*((?:\d{1,3}(?:\.\d{3})+|\d+)(?:,\d{2})?)", re.IGNORECASE)
-INSTALLMENT_RE = re.compile(r"\b(\d{1,2})\s*x\s*(?:de\s+(?:R\$\s*)?[\d.,]+\s+)?sem\s+juros\b", re.IGNORECASE)
-FREE_SHIPPING_RE = re.compile(r"\bfrete\s+gr[áa]tis(?:\s+para\s+[A-Za-zÀ-ÿ\s]+)?\b", re.IGNORECASE)
+PROMO_PRICE_RE = re.compile(
+    r"\bpor\s+R\$\s*((?:\d{1,3}(?:\.\d{3})+|\d+)(?:,\d{2})?)", re.IGNORECASE
+)
+INSTALLMENT_RE = re.compile(
+    r"\b(\d{1,2})\s*x\s*(?:de\s+(?:R\$\s*)?[\d.,]+\s+)?sem\s+juros\b", re.IGNORECASE
+)
+FREE_SHIPPING_RE = re.compile(
+    r"\bfrete\s+gr[áa]tis(?:\s+para\s+[A-Za-zÀ-ÿ\s]+)?\b", re.IGNORECASE
+)
 COUPON_RE = re.compile(
     r"(?:^|\n)\s*(?:[^\w\s]\s*)*(?:[🎟️]\s*)?(?:usem?\s+o\s+)?cupom\s*:\s*([^\s\n]+)",
     re.IGNORECASE,
 )
-INLINE_COUPON_RE = re.compile(r"(?:^|\s|-)(?:usem?\s+o\s+)?cupom\s*:\s*[^\s\n]+", re.IGNORECASE)
+INLINE_COUPON_RE = re.compile(
+    r"(?:^|\s|-)(?:usem?\s+o\s+)?cupom\s*:\s*[^\s\n]+", re.IGNORECASE
+)
 COUPON_CODE_RE = re.compile(r"\*+([A-Za-z0-9]{4,})\*+|\b([A-Za-z0-9]{4,})\b")
-MELI_PLUS_RE = re.compile(r"\bmeli\+\b|clientes?\s+meli\+|assinantes?\s+meli\+", re.IGNORECASE)
+MELI_PLUS_RE = re.compile(
+    r"\bmeli\+\b|clientes?\s+meli\+|assinantes?\s+meli\+", re.IGNORECASE
+)
 LEADING_NOISE_RE = re.compile(
     r"^(?:[^\w\n]*)(?:(?:ainda\s+ativo|ativo|aproveita|imperd[ií]vel|oferta|promo[cç][aã]o|corre|urgente)\b[!:\-\s]*)+",
     re.IGNORECASE,
@@ -44,7 +59,9 @@ PROMO_LINE_RE = re.compile(
     r"\b(?:hoje|amanh[aã]|come[cç]a|comeca|carrinho|oferta(?:s)?|prepara|tempo\s+limitado|pre[cç]o\s+baixo|loja\s+oficial|entrega\s+full|v[aá]lido)\b|\b\d{1,2}h\b|\b\d{1,2}\.\d{1,2}\b",
     re.IGNORECASE,
 )
-COUPON_STATUS_RE = re.compile(r"\b(?:esgot\w*|acab\w*|encerr\w*|expir\w*|ativo\w*)\b", re.IGNORECASE)
+COUPON_STATUS_RE = re.compile(
+    r"\b(?:esgot\w*|acab\w*|encerr\w*|expir\w*|ativo\w*)\b", re.IGNORECASE
+)
 
 
 @dataclass(frozen=True)
@@ -119,7 +136,12 @@ def is_shopee_product_url(url: str) -> bool:
 
 
 def is_supported_offer_url(url: str) -> bool:
-    return is_mercado_livre_url(url) or is_amazon_url(url) or is_shopee_url(url) or is_aliexpress_url(url)
+    return (
+        is_mercado_livre_url(url)
+        or is_amazon_url(url)
+        or is_shopee_url(url)
+        or is_aliexpress_url(url)
+    )
 
 
 def extract_ml_ids(text: str) -> list[str]:
@@ -157,12 +179,12 @@ def extract_title(text: str) -> str | None:
 def clean_title_candidate(text: str) -> str:
     line = URL_RE.sub("", text)
     line = INLINE_COUPON_RE.sub("", line)
-    
+
     # Also remove common promo noise that stays after regex
     lower_line = line.lower()
     if "cupom" in lower_line or "maes" in lower_line or "moedas" in lower_line:
         line = ""
-    
+
     line = PRICE_RE.sub("", line).replace("R$", "")
     line = INSTALLMENT_RE.sub("", line)
     line = TRAILING_NOISE_RE.sub("", line)
@@ -224,7 +246,7 @@ def extract_price(text: str) -> str | None:
     match = PRICE_RE.search(text)
     if not match:
         return None
-    
+
     # Standardize spacing to "R$ XXX"
     return f"R$ {match.group(1)}"
 
@@ -257,14 +279,14 @@ def extract_coupon(text: str) -> str | None:
         lower_line = line.lower()
         if "cupom" not in lower_line and "maes" not in lower_line:
             continue
-            
-        # If line has "cupom", take everything after it. 
+
+        # If line has "cupom", take everything after it.
         # If not (but has "maes"), take the whole line.
         if "cupom" in lower_line:
             coupon_segment = line[lower_line.index("cupom") :]
         else:
             coupon_segment = line
-            
+
         codes = extract_coupon_codes(URL_RE.sub("", coupon_segment))
         if codes:
             score = 0

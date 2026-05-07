@@ -25,15 +25,19 @@ class ShopeeClient:
         self._app_id = app_id
         self._app_secret = app_secret
         self._client = client or httpx.Client(timeout=30)
-        self._resolver_client = resolver_client or self._client or httpx.Client(
-            timeout=25,
-            follow_redirects=True,
-            headers={
-                "user-agent": (
-                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
-                ),
-            },
+        self._resolver_client = (
+            resolver_client
+            or self._client
+            or httpx.Client(
+                timeout=25,
+                follow_redirects=True,
+                headers={
+                    "user-agent": (
+                        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                        "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
+                    ),
+                },
+            )
         )
         self._endpoint = "https://open-api.affiliate.shopee.com.br/graphql"
 
@@ -42,11 +46,13 @@ class ShopeeClient:
 
     def create_link(self, url: str) -> AffiliateLink:
         if not self.ready():
-            raise RuntimeError("Shopee credentials missing: SHOPEE_APP_ID, SHOPEE_APP_SECRET")
+            raise RuntimeError(
+                "Shopee credentials missing: SHOPEE_APP_ID, SHOPEE_APP_SECRET"
+            )
 
         normalized_url = self._normalize_url(url)
         resolved_url = self._resolve_url(normalized_url)
-        
+
         # Use the GraphQL API to generate the short link
         query = """
         mutation generateShortLink($input: ShortLinkInput!) {
@@ -55,17 +61,15 @@ class ShopeeClient:
           }
         }
         """
-        variables = {
-            "input": {
-                "originUrl": resolved_url
-            }
-        }
-        
+        variables = {"input": {"originUrl": resolved_url}}
+
         data = self._api_request(query, variables)
         short_url = data.get("generateShortLink", {}).get("shortLink")
-        
+
         if not short_url:
-            raise RuntimeError(f"Shopee API did not return shortLink for {resolved_url}. Data: {data}")
+            raise RuntimeError(
+                f"Shopee API did not return shortLink for {resolved_url}. Data: {data}"
+            )
 
         ids = extract_shopee_ids(resolved_url) or extract_shopee_ids(normalized_url)
         if ids:
@@ -82,7 +86,9 @@ class ShopeeClient:
             product_key=product_key,
         )
 
-    def _api_request(self, query: str, variables: dict[str, Any] | None = None) -> dict[str, Any]:
+    def _api_request(
+        self, query: str, variables: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
         timestamp = int(time.time())
         payload = {
             "query": query,
@@ -90,21 +96,21 @@ class ShopeeClient:
         }
         body_str = json.dumps(payload, separators=(",", ":"))
         signature = self._generate_signature(timestamp, body_str)
-        
+
         authorization = f"SHA256 Credentials={self._app_id}, Timestamp={timestamp}, Signature={signature}"
-        
+
         headers = {
             "Content-Type": "application/json",
             "Authorization": authorization,
         }
-        
+
         response = self._client.post(self._endpoint, headers=headers, content=body_str)
         response.raise_for_status()
-        
+
         result = response.json()
         if "errors" in result:
             raise RuntimeError(f"Shopee API error: {result['errors']}")
-            
+
         return result.get("data", {})
 
     def _generate_signature(self, timestamp: int, body: str) -> str:

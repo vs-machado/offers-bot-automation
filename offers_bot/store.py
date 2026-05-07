@@ -37,13 +37,19 @@ class OfferStore:
     def _ensure_product_key_column(self) -> None:
         columns = {
             row[1]
-            for row in self._conn.execute("PRAGMA table_info(processed_offers)").fetchall()
+            for row in self._conn.execute(
+                "PRAGMA table_info(processed_offers)"
+            ).fetchall()
         }
         if "product_key" not in columns:
-            self._conn.execute("ALTER TABLE processed_offers ADD COLUMN product_key TEXT")
+            self._conn.execute(
+                "ALTER TABLE processed_offers ADD COLUMN product_key TEXT"
+            )
 
     def seen(self, source_chat: str, message_id: int, source_url: str) -> bool:
-        return self._seen_recent("source_url = ? AND affiliate_url IS NOT NULL", source_url)
+        return self._seen_recent(
+            "source_url = ? AND affiliate_url IS NOT NULL", source_url
+        )
 
     def seen_affiliate_url(self, affiliate_url: str) -> bool:
         return self._seen_recent("affiliate_url = ?", affiliate_url)

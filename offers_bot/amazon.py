@@ -12,8 +12,7 @@ ASIN_RE = re.compile(r"/(?:dp|gp/product)/([A-Z0-9]{10})(?:[/?]|$)", re.IGNORECA
 
 
 class ImageResolver(Protocol):
-    def get_image(self, url: str) -> str | None:
-        ...
+    def get_image(self, url: str) -> str | None: ...
 
 
 class AmazonClient:
@@ -50,7 +49,9 @@ class AmazonClient:
 
     def create_link(self, url: str) -> AffiliateLink:
         if not self.ready():
-            raise RuntimeError("Amazon credentials missing: AMAZON_AFFILIATE_TAG, AMAZON_COOKIE_HEADER")
+            raise RuntimeError(
+                "Amazon credentials missing: AMAZON_AFFILIATE_TAG, AMAZON_COOKIE_HEADER"
+            )
 
         normalized_url = self._normalize_url(url)
         resolved_url = self._resolve_url(normalized_url)
@@ -60,7 +61,11 @@ class AmazonClient:
         asin = self._extract_asin(product_url)
         if not asin:
             raise RuntimeError(f"Could not find Amazon ASIN in URL: {product_url}")
-        image_url = self._image_resolver.get_image(resolved_url) if self._image_resolver else None
+        image_url = (
+            self._image_resolver.get_image(resolved_url)
+            if self._image_resolver
+            else None
+        )
 
         return AffiliateLink(
             short_url=short_url,

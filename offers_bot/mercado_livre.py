@@ -17,11 +17,9 @@ class UnsupportedOfferError(RuntimeError):
 
 
 class ProductUrlResolver(Protocol):
-    def resolve(self, url: str) -> str | None:
-        ...
+    def resolve(self, url: str) -> str | None: ...
 
-    def get_image(self, url: str) -> str | None:
-        ...
+    def get_image(self, url: str) -> str | None: ...
 
 
 @dataclass(frozen=True)
@@ -68,12 +66,17 @@ class MercadoLivreClient:
 
     def create_link(self, url: str) -> AffiliateLink:
         if not self.ready():
-            raise RuntimeError("Mercado Livre credentials missing: ML_AFFILIATE_TAG, ML_COOKIE_HEADER, ML_CSRF_TOKEN")
+            raise RuntimeError(
+                "Mercado Livre credentials missing: ML_AFFILIATE_TAG, ML_COOKIE_HEADER, ML_CSRF_TOKEN"
+            )
 
         normalized_url = self._normalize_url(url)
         resolved_url = self._resolve_url(normalized_url)
         image_page_url = resolved_url
-        resolved_url = self._resolve_product_url_if_needed(normalized_url, resolved_url) or resolved_url
+        resolved_url = (
+            self._resolve_product_url_if_needed(normalized_url, resolved_url)
+            or resolved_url
+        )
         link = self._create_link_from_product_url(resolved_url)
 
         image_url = None
@@ -89,13 +92,15 @@ class MercadoLivreClient:
             origin_url=link.origin_url,
             raw_text=link.raw_text,
             product_key=link.product_key,
-            image_url=image_url
+            image_url=image_url,
         )
 
     def _create_link_from_product_url(self, resolved_url: str) -> AffiliateLink:
         ids = self._discover_ids(resolved_url)
         if not ids:
-            raise RuntimeError(f"Could not find Mercado Livre item id in URL/page: {resolved_url}")
+            raise RuntimeError(
+                f"Could not find Mercado Livre item id in URL/page: {resolved_url}"
+            )
 
         item_id = ids[0]
         item_add_to_list = ids[-1]
@@ -127,7 +132,10 @@ class MercadoLivreClient:
                 if product_url and product_url != resolved_url:
                     return self._create_link_from_product_url(product_url)
             if first_error.get("error_code") == 111:
-                raise UnsupportedOfferError(first_error.get("message") or "URL not allowed in affiliates program")
+                raise UnsupportedOfferError(
+                    first_error.get("message")
+                    or "URL not allowed in affiliates program"
+                )
             raise RuntimeError(f"Mercado Livre did not return short_url: {data}")
 
         first = urls[0]
@@ -139,19 +147,28 @@ class MercadoLivreClient:
             product_key=product_key,
         )
 
-    def _resolve_product_url_if_needed(self, original_url: str, resolved_url: str) -> str | None:
+    def _resolve_product_url_if_needed(
+        self, original_url: str, resolved_url: str
+    ) -> str | None:
         if not self._product_url_resolver:
             return None
         parsed = urlparse(resolved_url)
-        if parsed.path.startswith("/social/") or "source=affiliate-profile" in resolved_url:
+        if (
+            parsed.path.startswith("/social/")
+            or "source=affiliate-profile" in resolved_url
+        ):
             product_url = self._product_url_resolver.resolve(resolved_url)
             if product_url:
-                LOGGER.info("Resolved affiliate/profile URL to product URL: %s", product_url)
+                LOGGER.info(
+                    "Resolved affiliate/profile URL to product URL: %s", product_url
+                )
                 return product_url
         if "meli.la" in original_url and not extract_ml_ids(resolved_url):
             product_url = self._product_url_resolver.resolve(resolved_url)
             if product_url:
-                LOGGER.info("Resolved short affiliate URL to product URL: %s", product_url)
+                LOGGER.info(
+                    "Resolved short affiliate URL to product URL: %s", product_url
+                )
                 return product_url
         return None
 
@@ -188,4 +205,6 @@ class MercadoLivreClient:
     @staticmethod
     def _strip_scheme(url: str) -> str:
         parsed = urlparse(url)
-        return f"{parsed.netloc}{parsed.path}" + (f"?{parsed.query}" if parsed.query else "")
+        return f"{parsed.netloc}{parsed.path}" + (
+            f"?{parsed.query}" if parsed.query else ""
+        )
