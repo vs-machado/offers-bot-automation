@@ -163,6 +163,16 @@ class ParserTest(unittest.TestCase):
         self.assertEqual(len(offers), 1)
         self.assertEqual(offers[0].price, "R$ 116")
 
+    def test_prefers_por_price_with_colon_and_emoji_over_de_price(self):
+        offers = extract_offers(
+            "🛍️ Jarra De Vidro Com Tampa De Bambu Para Servir Suco Água 1200ml Hermética Garrafa\n\nDe: R$ 69,25\n💥Por: R$ 36,70\n\n🛒 Compre aqui 👉🏻 https://s.shopee.com.br/5VRzNIezJW"
+        )
+
+        self.assertEqual(len(offers), 1)
+        self.assertEqual(offers[0].title, "Jarra De Vidro Com Tampa De Bambu Para Servir Suco Água 1200ml Hermética Garrafa")
+        self.assertEqual(offers[0].price, "R$ 36,70")
+        self.assertEqual(offers[0].url, "https://s.shopee.com.br/5VRzNIezJW")
+
     def test_extracts_pix_price_installments_and_free_shipping(self):
         offers = extract_offers(
             'CELULAR DO BRUCE BANNER\n\n✅ Smartphone Motorola Moto g35 5G - 128GB 12GB (4GB RAM+8GB Ram Boost) e Camera 50MP com AI NFC Tela 6.7" com Superbrilho - Verde - Vegan Leather\n\nDE R$ 1.327,14\n🔥POR R$ 844,90 🔥 no PIX\n\nparcelado em 10x sem juros\nFRETE GRÁTIS PARA SUL E SUDESTE\n\n🔗 https://meli.la/2jLohD3\nSelecione a Loja Oficial Motorola\n\n*anúncio'

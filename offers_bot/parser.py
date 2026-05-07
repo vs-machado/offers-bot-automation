@@ -22,7 +22,7 @@ SHOPEE_ID_RE = re.compile(
 )
 PRICE_RE = re.compile(r"R\$\s?((?:\d{1,3}(?:\.\d{3})+|\d+)(?:,\d{2})?)", re.IGNORECASE)
 PROMO_PRICE_RE = re.compile(
-    r"\bpor\s+R\$\s*((?:\d{1,3}(?:\.\d{3})+|\d+)(?:,\d{2})?)", re.IGNORECASE
+    r"\bpor\s*:?\s*R\$\s*((?:\d{1,3}(?:\.\d{3})+|\d+)(?:,\d{2})?)", re.IGNORECASE
 )
 INSTALLMENT_RE = re.compile(
     r"\b(\d{1,2})\s*x\s*(?:de\s+(?:R\$\s*)?[\d.,]+\s+)?sem\s+juros\b", re.IGNORECASE
