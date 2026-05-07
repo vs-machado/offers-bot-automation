@@ -192,7 +192,6 @@ async def run() -> None:
         app_key=settings.aliexpress_app_key,
         app_secret=settings.aliexpress_app_secret,
         tracking_id=settings.aliexpress_tracking_id,
-        timeout_ms=settings.browser_timeout_ms,
     )
     telegram = TelegramOfferBot(
         api_id=settings.telegram_api_id,
