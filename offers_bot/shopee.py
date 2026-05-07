@@ -97,7 +97,7 @@ class ShopeeClient:
         body_str = json.dumps(payload, separators=(",", ":"))
         signature = self._generate_signature(timestamp, body_str)
 
-        authorization = f"SHA256 Credentials={self._app_id}, Timestamp={timestamp}, Signature={signature}"
+        authorization = f"SHA256 Credential={self._app_id},Timestamp={timestamp},Signature={signature}"
 
         headers = {
             "Content-Type": "application/json",
