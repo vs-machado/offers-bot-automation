@@ -71,8 +71,10 @@ class ShopeeClient:
         if ids:
             shop_id, item_id = ids
             product_key = f"SHOPEE:{shop_id}:{item_id}"
+            image_url = self._get_product_image(shop_id, item_id)
         else:
             product_key = f"SHOPEE:CUSTOM:{resolved_url}"
+            image_url = None
 
         return AffiliateLink(
             short_url=short_url,
@@ -80,6 +82,7 @@ class ShopeeClient:
             origin_url=resolved_url,
             raw_text=None,
             product_key=product_key,
+            image_url=image_url,
         )
 
     def _api_request(
@@ -115,6 +118,27 @@ class ShopeeClient:
     def _generate_signature(self, timestamp: int, body: str) -> str:
         factor = f"{self._app_id}{timestamp}{body}{self._app_secret}"
         return hashlib.sha256(factor.encode("utf-8")).hexdigest()
+
+    def _get_product_image(self, shop_id: str, item_id: str) -> str | None:
+        query = f"""
+        {{
+          productOfferV2(shopId: {shop_id}, itemId: {item_id}, page: 1, limit: 1) {{
+            nodes {{
+              imageUrl
+            }}
+          }}
+        }}
+        """
+        try:
+            data = self._api_request(query)
+            nodes = data.get("productOfferV2", {}).get("nodes", [])
+            if nodes:
+                image_url = nodes[0].get("imageUrl")
+                LOGGER.info("Shopee product image URL: %s", image_url)
+                return image_url
+        except Exception as exc:
+            LOGGER.warning("Failed to fetch Shopee product image: %s", exc)
+        return None
 
     def _resolve_url(self, url: str) -> str:
         try:

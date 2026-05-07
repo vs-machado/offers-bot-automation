@@ -306,6 +306,14 @@ class ParserTest(unittest.TestCase):
             ("1499852820", "22199186045"),
         )
 
+    def test_extract_shopee_ids_from_opaanlp_url(self):
+        self.assertEqual(
+            extract_shopee_ids(
+                "https://shopee.com.br/opaanlp/1231924500/22998179385?__mobile__=1"
+            ),
+            ("1231924500", "22998179385"),
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
