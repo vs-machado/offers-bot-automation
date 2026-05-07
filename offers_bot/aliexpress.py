@@ -1,58 +1,78 @@
 import logging
-import time
-import hashlib
+import json
 from .mercado_livre import AffiliateLink
+from .iop import IopClient, IopRequest
 
 LOGGER = logging.getLogger(__name__)
 
 class AliExpressClient:
-    """AliExpress Affiliate API Client"""
+    """AliExpress Affiliate API Client using official IOP SDK"""
     def __init__(
         self,
         app_key: str | None = None,
         app_secret: str | None = None,
         tracking_id: str | None = None,
-        timeout_ms: int = 15000,
     ) -> None:
         self._app_key = app_key
         self._app_secret = app_secret
         self._tracking_id = tracking_id
-        self._timeout_ms = timeout_ms
-        self._api_url = "https://gw.api.alibaba.com/openapi/param2/2/portals.open/aliexpress.affiliate.link.generate"
+        # Standard Global Gateway
+        self._endpoint = "https://api-sg.aliexpress.com/sync"
 
     def ready(self) -> bool:
         return bool(self._app_key and self._app_secret)
 
-    def _sign(self, params: dict) -> str:
-        # AliExpress TOP API signing logic:
-        # 1. Sort all parameters by name
-        # 2. Concatenate secret + name1 + value1 + name2 + value2 ... + secret
-        # 3. MD5 and hex uppercase
-        sorted_params = sorted(params.items())
-        query_string = self._app_secret
-        for key, value in sorted_params:
-            query_string += f"{key}{value}"
-        query_string += self._app_secret
-        
-        return hashlib.md5(query_string.encode("utf-8")).hexdigest().upper()
-
     def create_link(self, url: str) -> AffiliateLink:
         if not self.ready():
-            # Initially disabled as requested
-            raise RuntimeError("AliExpress credentials missing (ALIEXPRESS_APP_KEY/SECRET). Integration is currently disabled.")
+            raise RuntimeError("AliExpress credentials missing (ALIEXPRESS_APP_KEY/SECRET).")
 
-        # Implementation according to provided screenshot
-        timestamp = int(time.time() * 1000)
-        params = {
-            "ship_to_country": "BR",
-            "promotion_link_type": "0", # 0 for normal, 2 for hot
-            "source_values": url,
-            "tracking_id": self._tracking_id or "default",
-        }
+        client = IopClient(self._endpoint, self._app_key, self._app_secret)
+        request = IopRequest("aliexpress.affiliate.link.generate")
         
-        # Note: Official AliExpress TOP API usually requires a specific signing method
-        # for 'aliexpress.affiliate.link.generate'
+        request.add_api_param("ship_to_country", "BR")
+        request.add_api_param("promotion_link_type", "0")
+        request.add_api_param("source_values", url)
+        request.add_api_param("tracking_id", self._tracking_id or "default")
         
-        # For now, we keep it as a placeholder as requested, 
-        # but structured closer to the documentation.
-        raise NotImplementedError("AliExpress link generation logic is scaffolded but requires final testing with real credentials.")
+        response = client.execute(request)
+        
+        # The response.body is the parsed JSON
+        data = response.body
+        LOGGER.info(f"AliExpress Response: {json.dumps(data)}")
+        
+        if response.code != "0" and response.code is not None:
+            raise RuntimeError(f"AliExpress API error: {response.message} (code: {response.code})")
+
+        # Parse resp_result according to the documentation
+        # The structure is usually nested: 
+        # aliexpress_affiliate_link_generate_response -> resp_result -> result -> promotion_links -> promotion_link
+        
+        root_key = "aliexpress_affiliate_link_generate_response"
+        resp_result = data.get(root_key, {}).get("resp_result", {})
+        
+        if not resp_result:
+            # Fallback for different response formats
+            resp_result = data.get("resp_result", {})
+
+        links = resp_result.get("result", {}).get("promotion_links", {}).get("promotion_link", [])
+        
+        if not links and "promotion_links" in resp_result:
+            # Handle if it's directly under resp_result (Streamlined)
+            links = resp_result.get("promotion_links", [])
+
+        if not links:
+            raise RuntimeError(f"AliExpress API returned no links. Response: {json.dumps(data)}")
+
+        promotion_link = links[0].get("promotion_link")
+        
+        if not promotion_link:
+            message = links[0].get("message", "Unknown error")
+            raise RuntimeError(f"AliExpress API failed to generate link: {message}")
+        
+        return AffiliateLink(
+            short_url=promotion_link,
+            long_url=url,
+            origin_url=url,
+            raw_text=None,
+            product_key=f"ALIEXPRESS:{url}",
+        )
