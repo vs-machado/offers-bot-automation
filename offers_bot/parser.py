@@ -13,9 +13,9 @@ SHOPEE_HOST_RE = re.compile(r"(^|\.)shopee\.com\.br$|(^|\.)s\.shopee\.com\.br$",
 ALIEXPRESS_HOST_RE = re.compile(r"(^|\.)aliexpress\.com$|(^|\.)aliexpress\.com\.br$|(^|\.)s\.click\.aliexpress\.com$", re.IGNORECASE)
 ML_ID_RE = re.compile(r"\bMLB-?\d{6,13}\b", re.IGNORECASE)
 SHOPEE_ID_RE = re.compile(r"-i\.(\d+)\.(\d+)(?:[/?#]|$)", re.IGNORECASE)
-PRICE_RE = re.compile(r"R\$\s*((?:\d{1,3}(?:\.\d{3})+|\d+)(?:,\d{2})?)", re.IGNORECASE)
+PRICE_RE = re.compile(r"R\$\s?((?:\d{1,3}(?:\.\d{3})+|\d+)(?:,\d{2})?)", re.IGNORECASE)
 PROMO_PRICE_RE = re.compile(r"\bpor\s+R\$\s*((?:\d{1,3}(?:\.\d{3})+|\d+)(?:,\d{2})?)", re.IGNORECASE)
-INSTALLMENT_RE = re.compile(r"\b(\d{1,2})\s*x\s*sem\s+juros\b", re.IGNORECASE)
+INSTALLMENT_RE = re.compile(r"\b(\d{1,2})\s*x\s*(?:de\s+(?:R\$\s*)?[\d.,]+\s+)?sem\s+juros\b", re.IGNORECASE)
 FREE_SHIPPING_RE = re.compile(r"\bfrete\s+gr[áa]tis(?:\s+para\s+[A-Za-zÀ-ÿ\s]+)?\b", re.IGNORECASE)
 COUPON_RE = re.compile(
     r"(?:^|\n)\s*(?:[^\w\s]\s*)*(?:[🎟️]\s*)?(?:usem?\s+o\s+)?cupom\s*:\s*([^\s\n]+)",
@@ -157,7 +157,14 @@ def extract_title(text: str) -> str | None:
 def clean_title_candidate(text: str) -> str:
     line = URL_RE.sub("", text)
     line = INLINE_COUPON_RE.sub("", line)
+    
+    # Also remove common promo noise that stays after regex
+    lower_line = line.lower()
+    if "cupom" in lower_line or "maes" in lower_line or "moedas" in lower_line:
+        line = ""
+    
     line = PRICE_RE.sub("", line).replace("R$", "")
+    line = INSTALLMENT_RE.sub("", line)
     line = TRAILING_NOISE_RE.sub("", line)
     previous = None
     while line != previous:
@@ -217,6 +224,8 @@ def extract_price(text: str) -> str | None:
     match = PRICE_RE.search(text)
     if not match:
         return None
+    
+    # Standardize spacing to "R$ XXX"
     return f"R$ {match.group(1)}"
 
 
@@ -245,9 +254,17 @@ def extract_coupon(text: str) -> str | None:
     best_score = float("-inf")
 
     for line in text.splitlines():
-        if "cupom" not in line.lower():
+        lower_line = line.lower()
+        if "cupom" not in lower_line and "maes" not in lower_line:
             continue
-        coupon_segment = line[line.lower().index("cupom") :]
+            
+        # If line has "cupom", take everything after it. 
+        # If not (but has "maes"), take the whole line.
+        if "cupom" in lower_line:
+            coupon_segment = line[lower_line.index("cupom") :]
+        else:
+            coupon_segment = line
+            
         codes = extract_coupon_codes(URL_RE.sub("", coupon_segment))
         if codes:
             score = 0
