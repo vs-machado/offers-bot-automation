@@ -25,19 +25,15 @@ class ShopeeClient:
         self._app_id = app_id
         self._app_secret = app_secret
         self._client = client or httpx.Client(timeout=30)
-        self._resolver_client = (
-            resolver_client
-            or self._client
-            or httpx.Client(
-                timeout=25,
-                follow_redirects=True,
-                headers={
-                    "user-agent": (
-                        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                        "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
-                    ),
-                },
-            )
+        self._resolver_client = resolver_client or httpx.Client(
+            timeout=25,
+            follow_redirects=True,
+            headers={
+                "user-agent": (
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
+                ),
+            },
         )
         self._endpoint = "https://open-api.affiliate.shopee.com.br/graphql"
 
@@ -91,8 +87,9 @@ class ShopeeClient:
     ) -> dict[str, Any]:
         timestamp = int(time.time())
         payload = {
-            "query": query,
+            "query": query.strip(),
             "variables": variables or {},
+            "operationName": None,
         }
         body_str = json.dumps(payload, separators=(",", ":"))
         signature = self._generate_signature(timestamp, body_str)
@@ -104,11 +101,13 @@ class ShopeeClient:
             "Authorization": authorization,
         }
 
+        LOGGER.debug("Shopee API Request: %s", body_str)
         response = self._client.post(self._endpoint, headers=headers, content=body_str)
         response.raise_for_status()
 
         result = response.json()
         if "errors" in result:
+            LOGGER.error("Shopee API Errors: %s", result["errors"])
             raise RuntimeError(f"Shopee API error: {result['errors']}")
 
         return result.get("data", {})
