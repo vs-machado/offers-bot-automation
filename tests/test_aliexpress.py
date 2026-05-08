@@ -115,6 +115,7 @@ https://s.click.aliexpress.com/e/_c3a2kGc3""",
         offer = offers[0]
         simulated_url = "https://s.click.aliexpress.com/e/_SIMULATED"
         formatted = format_offer(offer, simulated_url)
+        formatted += "\n\nObs: Abra o link pelo celular e clique no anúncio do produto desejado.\n\n- Anúncio"
 
         # Assertions
         if case["expected_price"]:

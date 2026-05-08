@@ -290,6 +290,14 @@ class ParserTest(unittest.TestCase):
             "🛒 Resgate aqui: https://meli.la/affiliate123",
         )
 
+    def test_anuncio_suffix_appended_to_all_messages(self):
+        offer = extract_offers(
+            "Creatina Growth R$ 49,90 https://www.mercadolivre.com.br/x/p/MLB19603205"
+        )[0]
+        formatted = format_offer(offer, "https://meli.la/123")
+        final = formatted + "\n\n- Anúncio"
+        self.assertTrue(final.endswith("- Anúncio"))
+
     def test_format_offer_shows_resgate_cupom_no_anuncio_note(self):
         offer = extract_offers(
             "Micro-ondas 35L Branco MasterCook Midea 220V\n\n"
