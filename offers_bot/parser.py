@@ -16,6 +16,8 @@ ALIEXPRESS_HOST_RE = re.compile(
     r"(^|\.)aliexpress\.com$|(^|\.)aliexpress\.com\.br$|(^|\.)s\.click\.aliexpress\.com$",
     re.IGNORECASE,
 )
+ALIEXPRESS_PROD_ID_RE = re.compile(r"/item/(\d+)\.html", re.IGNORECASE)
+ALIEXPRESS_PROD_IDS_RE = re.compile(r"[?&]productIds=(\d+)")
 ML_ID_RE = re.compile(r"\bMLB-?\d{6,13}\b", re.IGNORECASE)
 SHOPEE_ID_RE = re.compile(
     r"-i\.(\d+)\.(\d+)(?:[/?#]|$)|/opaanlp/(\d+)/(\d+)(?:[/?#]|$)|/product/(\d+)/(\d+)(?:[/?#]|$)",
@@ -136,6 +138,16 @@ def is_aliexpress_url(url: str) -> bool:
 
 def is_shopee_product_url(url: str) -> bool:
     return is_shopee_url(url) and bool(SHOPEE_ID_RE.search(url))
+
+
+def extract_aliexpress_product_id(url: str) -> str | None:
+    match = ALIEXPRESS_PROD_ID_RE.search(url)
+    if match:
+        return match.group(1)
+    match = ALIEXPRESS_PROD_IDS_RE.search(url)
+    if match:
+        return match.group(1)
+    return None
 
 
 def is_supported_offer_url(url: str) -> bool:

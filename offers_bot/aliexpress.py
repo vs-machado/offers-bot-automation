@@ -1,9 +1,29 @@
 import logging
 import json
+import httpx
 from .mercado_livre import AffiliateLink
 from .iop import IopClient, IopRequest
+from .parser import extract_aliexpress_product_id
 
 LOGGER = logging.getLogger(__name__)
+
+
+COIN_INDEX_URL = (
+    "https://m.aliexpress.com/p/coin-index/index.html"
+    "?_immersiveMode=true&from=syicon&productIds={product_id}"
+)
+
+
+def _resolve_ali_url(url: str) -> str:
+    try:
+        with httpx.Client(
+            timeout=httpx.Timeout(15.0, connect=10.0), follow_redirects=True
+        ) as client:
+            resp = client.get(url)
+            return str(resp.url)
+    except Exception as exc:
+        LOGGER.warning("Failed to resolve AliExpress URL %s: %s", url, exc)
+        return url
 
 
 class AliExpressClient:
@@ -30,12 +50,25 @@ class AliExpressClient:
                 "AliExpress credentials missing (ALIEXPRESS_APP_KEY/SECRET)."
             )
 
+        resolved = _resolve_ali_url(url)
+        product_id = extract_aliexpress_product_id(resolved)
+        if product_id:
+            target_url = COIN_INDEX_URL.format(product_id=product_id)
+            LOGGER.info(
+                "Using coin-index URL for product %s: %s", product_id, target_url
+            )
+        else:
+            LOGGER.warning(
+                "Could not extract product ID from resolved URL: %s", resolved
+            )
+            target_url = url
+
         client = IopClient(self._endpoint, self._app_key, self._app_secret)
         request = IopRequest("aliexpress.affiliate.link.generate")
 
         request.add_api_param("ship_to_country", "BR")
         request.add_api_param("promotion_link_type", "0")
-        request.add_api_param("source_values", url)
+        request.add_api_param("source_values", target_url)
         request.add_api_param("tracking_id", self._tracking_id or "default")
 
         response = client.execute(request)
@@ -81,10 +114,12 @@ class AliExpressClient:
             message = links[0].get("message", "Unknown error")
             raise RuntimeError(f"AliExpress API failed to generate link: {message}")
 
+        key = f"ALIEXPRESS:{product_id}" if product_id else f"ALIEXPRESS:{url}"
+
         return AffiliateLink(
             short_url=promotion_link,
-            long_url=url,
+            long_url=target_url,
             origin_url=url,
             raw_text=None,
-            product_key=f"ALIEXPRESS:{url}",
+            product_key=key,
         )

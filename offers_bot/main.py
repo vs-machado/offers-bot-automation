@@ -258,6 +258,8 @@ async def run() -> None:
                     continue
 
                 formatted_text = format_offer(offer, affiliate.short_url)
+                if is_aliexpress_url(offer.url):
+                    formatted_text += "\n\nObs: Abra o link pelo celular e clique no anúncio do produto desejado."
 
                 temp_image_path = None
                 try:
