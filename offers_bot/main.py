@@ -123,7 +123,7 @@ def format_offer(offer: Offer, affiliate_url: str) -> str:
         title = offer.title
         if offer.installment_info:
             title = f"[{offer.installment_info}] {title}"
-        parts.append(f"🛍️ {title}")
+        parts.append(f"{title}")
     if offer.price:
         price_block = f"💰 {offer.price}"
         if offer.shipping_info:
