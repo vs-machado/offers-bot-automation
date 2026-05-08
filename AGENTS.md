@@ -1,3 +1,7 @@
+# Instructions for AI Agents
+
+Always load the `caveman` skill before responding — use the skill tool with name "caveman" for every response, with intensity level "full".
+
 # Development Workflow
 
 To ensure code quality and consistency, please follow this workflow before every commit:
