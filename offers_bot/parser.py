@@ -18,7 +18,8 @@ ALIEXPRESS_HOST_RE = re.compile(
 )
 ML_ID_RE = re.compile(r"\bMLB-?\d{6,13}\b", re.IGNORECASE)
 SHOPEE_ID_RE = re.compile(
-    r"-i\.(\d+)\.(\d+)(?:[/?#]|$)|/opaanlp/(\d+)/(\d+)(?:[/?#]|$)", re.IGNORECASE
+    r"-i\.(\d+)\.(\d+)(?:[/?#]|$)|/opaanlp/(\d+)/(\d+)(?:[/?#]|$)|/product/(\d+)/(\d+)(?:[/?#]|$)",
+    re.IGNORECASE,
 )
 PRICE_RE = re.compile(r"R\$\s?((?:\d{1,3}(?:\.\d{3})+|\d+)(?:,\d{2})?)", re.IGNORECASE)
 PROMO_PRICE_RE = re.compile(
@@ -161,7 +162,9 @@ def extract_shopee_ids(text: str) -> tuple[str, str] | None:
     match = SHOPEE_ID_RE.search(text)
     if not match:
         return None
-    return match.group(1) or match.group(3), match.group(2) or match.group(4)
+    return match.group(1) or match.group(3) or match.group(5), match.group(
+        2
+    ) or match.group(4) or match.group(6)
 
 
 def extract_title(text: str) -> str | None:

@@ -169,7 +169,10 @@ class ParserTest(unittest.TestCase):
         )
 
         self.assertEqual(len(offers), 1)
-        self.assertEqual(offers[0].title, "Jarra De Vidro Com Tampa De Bambu Para Servir Suco Água 1200ml Hermética Garrafa")
+        self.assertEqual(
+            offers[0].title,
+            "Jarra De Vidro Com Tampa De Bambu Para Servir Suco Água 1200ml Hermética Garrafa",
+        )
         self.assertEqual(offers[0].price, "R$ 36,70")
         self.assertEqual(offers[0].url, "https://s.shopee.com.br/5VRzNIezJW")
 
@@ -322,6 +325,14 @@ class ParserTest(unittest.TestCase):
                 "https://shopee.com.br/opaanlp/1231924500/22998179385?__mobile__=1"
             ),
             ("1231924500", "22998179385"),
+        )
+
+    def test_extract_shopee_ids_from_product_slash_url(self):
+        self.assertEqual(
+            extract_shopee_ids(
+                "https://shopee.com.br/product/412968566/58207918412?credential_token=abc&exp_group=rollout"
+            ),
+            ("412968566", "58207918412"),
         )
 
 
