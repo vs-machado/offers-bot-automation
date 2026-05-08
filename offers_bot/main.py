@@ -32,7 +32,7 @@ CODE_LABEL_RE = re.compile(
     r"\b(?:c[oó]digo|cupom)\b\s*:\s*([A-Za-z0-9]{4,})", re.IGNORECASE
 )
 RESGATE_ANUNCIO_RE = re.compile(
-    r"\bresgate\s+(?:cupom\s+)?(?:do|no)?\s*an[uú]ncio\b",
+    r"\bresgate\s+(?:o\s+)?(?:cupom\s+)?(?:do|no)?\s*an[uú]ncio\b",
     re.IGNORECASE,
 )
 

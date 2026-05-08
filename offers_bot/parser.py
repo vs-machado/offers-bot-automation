@@ -297,6 +297,10 @@ def extract_coupon(text: str) -> str | None:
         if "cupom" not in lower_line and "maes" not in lower_line:
             continue
 
+        # Skip resgate instructions that look like coupons but have no code
+        if "resgate" in lower_line and "anúncio" in lower_line:
+            continue
+
         # If line has "cupom", take everything after it.
         # If not (but has "maes"), take the whole line.
         if "cupom" in lower_line:

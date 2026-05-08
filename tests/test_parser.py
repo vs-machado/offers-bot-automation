@@ -213,8 +213,22 @@ class ParserTest(unittest.TestCase):
 
         formatted = format_offer(offer, "https://meli.la/final123")
 
-        self.assertIn("🛍️ [10X SEM JUROS] Smartphone Motorola Moto g35 5G", formatted)
+        self.assertIn("[10X SEM JUROS] Smartphone Motorola Moto g35 5G", formatted)
         self.assertIn("💰 R$ 844,90 no PIX\nFRETE GRÁTIS", formatted)
+
+    def test_resgate_anuncio_note_appears_and_no_fake_coupon(self):
+        text = """🔥 Processador Amd Ryzen 5 5600GT
+
+✅ Por R$ 913
+🎟️ Resgate o cupom no anúncio do produto
+🛒 https://meli.la/2Pc3tDW"""
+        offer = extract_offers(text)[0]
+
+        self.assertIsNone(offer.coupon)
+
+        formatted = format_offer(offer, "https://meli.la/final123")
+        self.assertIn("🏷️ Resgate o cupom no anúncio", formatted)
+        self.assertNotIn("CUPOM:", formatted)
 
     def test_ignores_non_supported_urls(self):
         self.assertEqual(extract_offers("Oferta https://example.com/item"), [])
