@@ -270,6 +270,25 @@ class ParserTest(unittest.TestCase):
             "🛒 Resgate aqui: https://amzn.to/affiliate123",
         )
 
+    def test_formats_novo_cupom_mercado_livre(self):
+        text = (
+            "🔥 Novo Cupom Mercado Livre em produtos ELECTROLUX!\n\n"
+            "▪️ 15% OFF em compras acima de R$199, Limitado a R$2.000\n\n"
+            "🎯 Usem o cupom: ELUX15OFF\n\n"
+            "🛒 https://meli.la/1GwL6Yt\n\n"
+            '⚠️ Clique em "Mostrar mais" para ver a lista completa.'
+        )
+        offer = extract_offers(text)[0]
+
+        formatted = format_offer(offer, "https://meli.la/affiliate123")
+
+        self.assertEqual(
+            formatted,
+            "🤑 15% OFF em compras acima de R$199, Limitado a R$2.000\n\n"
+            "🎟️ Cupom: ELUX15OFF\n\n"
+            "🔗 https://meli.la/affiliate123",
+        )
+
     def test_formats_mercado_livre_multi_coupon_bulletin(self):
         text = (
             "🔥 Cupons Mercado Livre\n\n"
@@ -289,6 +308,216 @@ class ParserTest(unittest.TestCase):
             "🎟 12% OFF acima de R$ 79, limite R$ 50: OFFDOZE\n\n"
             "🛒 Resgate aqui: https://meli.la/affiliate123",
         )
+
+    def test_formats_generic_coupon_bulletin_without_header(self):
+        text = (
+            "🔥 15% OFF em produtos selecionados!\n\n"
+            "Use o cupom: GERAL15\n\n"
+            "https://meli.la/abc1234"
+        )
+        offer = extract_offers(text)[0]
+
+        formatted = format_offer(offer, "https://meli.la/aff123")
+
+        self.assertEqual(
+            formatted,
+            "15% OFF em produtos selecionados!\n\n"
+            "🎟️ Cupom: GERAL15\n\n"
+            "🔗 https://meli.la/aff123",
+        )
+
+    def test_product_with_coupon_not_mistaken_for_bulletin(self):
+        text = (
+            "Notebook Gamer Lenovo LOQ 15IRX9\n\n"
+            "R$ 4.999\n\n"
+            "Cupom: EXTRA5\n\n"
+            "https://meli.la/xyz5678"
+        )
+        offer = extract_offers(text)[0]
+
+        formatted = format_offer(offer, "https://meli.la/aff456")
+
+        self.assertIn("CUPOM: EXTRA5", formatted)
+        self.assertNotIn("🎟️ Cupom:", formatted)
+
+    # --- 9 sample patterns from user ---
+
+    def test_sample1_amazon_app_hojetem(self):
+        text = (
+            "🚨 Cupom Amazon APP\n\n"
+            "🎟 R$100 OFF em R$999: HOJETEM\n\n"
+            "✅ Resgate aqui:\n"
+            "https://amzn.to/3OmdZT1"
+        )
+        offer = extract_offers(text)[0]
+        formatted = format_offer(offer, "https://amzn.to/aff123")
+
+        print(f"\n--- {self._testMethodName} ---\n{formatted}")
+        self.assertIn("☑️ Cupom Amazon!", formatted)
+        self.assertIn("HOJETEM", formatted)
+        self.assertNotIn("CUPOM:", formatted)
+
+    def test_sample2_amazon_plain_hojetem(self):
+        text = (
+            "Cupom Amazon\n\n"
+            "R$ 100 OFF em R$ 999: HOJETEM\n\n"
+            "-Resgate o cupom aqui: https://amzn.to/4ljRg64"
+        )
+        offer = extract_offers(text)[0]
+        formatted = format_offer(offer, "https://amzn.to/aff123")
+
+        print(f"\n--- {self._testMethodName} ---\n{formatted}")
+        self.assertIn("☑️ Cupom Amazon!", formatted)
+        self.assertIn("HOJETEM", formatted)
+        self.assertNotIn("CUPOM:", formatted)
+
+    def test_sample3_amazon_cupom_hojetem(self):
+        text = (
+            "🔵 Cupom Amazon\n\n"
+            "R$ 100 OFF acima de R$ 999\n\n"
+            "🎟️ Cupom: HOJETEM\n\n"
+            "✅ Ative Aqui:\n"
+            "https://www.amazon.com.br/dp/B0CQMT33WX?tag=milyoficial-20"
+        )
+        offer = extract_offers(text)[0]
+        formatted = format_offer(offer, "https://amzn.to/aff123")
+
+        print(f"\n--- {self._testMethodName} ---\n{formatted}")
+        self.assertIn("☑️ Cupom Amazon!", formatted)
+        self.assertIn("HOJETEM", formatted)
+        self.assertNotIn("CUPOM:", formatted)
+
+    def test_sample4_amazon_app2_hojetem(self):
+        text = (
+            "🔥 Cupom Amazon no APP\n\n"
+            "🎟 R$ 100 OFF em R$ 999: HOJETEM\n\n"
+            "✅ Resgate aqui:\n"
+            "https://www.amazon.com.br/dp/B0CYW2N6TX?tag=anaporto-20"
+        )
+        offer = extract_offers(text)[0]
+        formatted = format_offer(offer, "https://amzn.to/aff123")
+
+        print(f"\n--- {self._testMethodName} ---\n{formatted}")
+        self.assertIn("☑️ Cupom Amazon!", formatted)
+        self.assertIn("HOJETEM", formatted)
+        self.assertNotIn("CUPOM:", formatted)
+
+    def test_sample5_shopee_no_coupon_code(self):
+        text = (
+            "🔥 Cupons Shopee\n\n"
+            "🎟 R$ 35 OFF em R$ 299 (Válido para produtos Full)\n"
+            "https://s.shopee.com.br/4LG2NNghN4\n\n"
+            "✅ Cupons Fidelidade no APP\n"
+            '-Resgate em "Confira seu nível":\n'
+            "https://s.shopee.com.br/2qREachwMz"
+        )
+        offers = extract_offers(text)
+        self.assertEqual(len(offers), 2)
+        for i, o in enumerate(offers):
+            formatted = format_offer(o, f"https://s.shopee.com.br/aff{i}")
+            print(f"\n--- {self._testMethodName} (offer {i+1}) ---\n{formatted}")
+            self.assertIsNone(o.coupon)
+
+    def test_sample6_amazon_multilist(self):
+        text = (
+            "⚠️ LISTA DE CUPONS AMAZON\n"
+            "------------------------------------------------------\n"
+            "🤑 R$300 OFF EM SMARTPHONES\n"
+            "🎟️ CUPOM: SMART300\n"
+            "🔗https://amzn.to/4uDivfA\n\n"
+            "🤑 20%OFF EM ITENS SELECIONADOS\n"
+            "🎟️ CUPOM: LEVE20\n"
+            "🔗https://amzn.to/4eyex32\n\n"
+            "🤑 10%OFF EM ESQUENTA CONSUMIDOR\n"
+            "🎟️ CUPOM: CONSUMI10\n"
+            "🔗https://amzn.to/4d0u3SA\n\n"
+            "🤑 R$100 OFF EM SMARTPHONES\n"
+            "🔗https://amzn.to/42g9jBB\n\n"
+            "🤑 COMPRE 3 E GANHE 25% DE DESCONTO\n"
+            "🔗https://amzn.to/3PdDFBA\n\n"
+            "🤑 10%OFF SELEÇÃO DE ITENS\n"
+            "🎟️ CUPOM: LEVE10OFF\n"
+            "🔗https://amzn.to/4naaWdu\n\n"
+            "🤑 15%OFF EM DIVERSIDADES PARA CASA\n"
+            "🎟️ CUPOM: CASA15\n"
+            "🔗https://amzn.to/4neobdj\n\n"
+            "🤑 10%OFF EM SELECIONADOS\n"
+            "🎟️ CUPOM: TOMA10\n"
+            "🔗https://amzn.to/49nNNP9"
+        )
+        offers = extract_offers(text)
+        self.assertEqual(len(offers), 8)
+        formatted = format_offer(offers[0], "https://amzn.to/aff123")
+
+        print(f"\n--- {self._testMethodName} ---\n{formatted}")
+        self.assertIn("☑️ Cupom Amazon!", formatted)
+        self.assertIn("SMART300", formatted)
+        self.assertIn("LEVE20", formatted)
+        self.assertIn("CONSUMI10", formatted)
+        self.assertIn("LEVE10OFF", formatted)
+        self.assertIn("CASA15", formatted)
+        self.assertIn("TOMA10", formatted)
+
+    def test_sample7_aliexpress_multicoupon(self):
+        text = (
+            "Cupons EXCLUSIVOS Aliexpress DIA DAS MÃES 2026\n\n"
+            "Página 1: https://s.click.aliexpress.com/e/_c3ErZnNh\n\n"
+            "A promoção ACABA hoje\n\n"
+            "Cupons:\n\n"
+            "R$ 11 off acima de R$ 86: IFPDAB9R\n"
+            "R$ 23 off acima de R$ 172: IFPBTUME\n"
+            "R$ 35 off acima de R$260: IFP7D0MS\n"
+            "R$ 69 off acima de R$ 511: IFPMEIRL\n"
+            "R$ 95 off acima de R$ 800: IFPMEIRL\n"
+            "R$ 144 off acima de R$ 1.200: IFPAF7UN"
+        )
+        offer = extract_offers(text)[0]
+        formatted = format_offer(offer, "https://s.click.aliexpress.com/e/aff123")
+
+        print(f"\n--- {self._testMethodName} ---\n{formatted}")
+        self.assertIn("IFPDAB9R", formatted)
+        self.assertIn("IFPBTUME", formatted)
+        self.assertIn("IFP7D0MS", formatted)
+        self.assertIn("IFPMEIRL", formatted)
+        self.assertIn("IFPAF7UN", formatted)
+        self.assertNotIn("CUPOM:", formatted)
+        self.assertNotIn("EXCLUSIVOS", formatted)
+
+    def test_sample8_ml_visa_maesbbvisa(self):
+        text = (
+            "🔥 Cupom Mercado Livre Visa\n\n"
+            "🎟️ R$ 40 OFF em R$ 400: MAESBBVISA\n\n"
+            "Nossa lista de sugestões:\n"
+            "https://mercadolivre.com/sec/1N9WRdF\n\n"
+            "Produtos mais vendidos (clique em mostrar mais):\n"
+            "https://meli.la/1QaQhxF"
+        )
+        offers = extract_offers(text)
+        self.assertEqual(len(offers), 1)
+        formatted = format_offer(offers[0], "https://meli.la/aff123")
+
+        print(f"\n--- {self._testMethodName} ---\n{formatted}")
+        self.assertIn("🔥 Cupons Mercado Livre!", formatted)
+        self.assertIn("MAESBBVISA", formatted)
+        self.assertNotIn("CUPOM:", formatted)
+
+    def test_sample9_novo_ml_recebidospago(self):
+        text = (
+            "🚨 NOVO CUPOM MERCADO LIVRE\n\n"
+            "🎟️ Cupom: RECEBIDOSPAGO\n"
+            "12% OFF em compras, limite de R$ 60 de desconto\n\n"
+            'Acesse o link, procure o(s) produto(s) desejado(s) e ative o cupom na tela de pagamento clicando em "cupons"\n\n'
+            "🔗 https://meli.la/2qsgG2b\n\n"
+            "*anúncio"
+        )
+        offer = extract_offers(text)[0]
+        formatted = format_offer(offer, "https://meli.la/aff123")
+
+        print(f"\n--- {self._testMethodName} ---\n{formatted}")
+        self.assertIn("12% OFF em compras", formatted)
+        self.assertIn("🎟️ Cupom: RECEBIDOSPAGO", formatted)
+        self.assertIn("🔗 https://meli.la/aff123", formatted)
+        self.assertNotIn("*anúncio", formatted)
 
     def test_anuncio_suffix_appended_to_all_messages(self):
         offer = extract_offers(

@@ -25,8 +25,13 @@ from .store import OfferStore
 from .telegram_bot import TelegramOfferBot
 
 
-AMAZON_COUPON_HEADER_RE = re.compile(r"\bcupom\s+amazon\b", re.IGNORECASE)
-ML_COUPON_HEADER_RE = re.compile(r"\bcupons?\s+mercado\s+livre\b", re.IGNORECASE)
+AMAZON_COUPON_HEADER_RE = re.compile(r"\bcup(?:om|ons)\s+amazon\b", re.IGNORECASE)
+ML_COUPON_HEADER_RE = re.compile(r"\bcup(?:om|ons)\s+mercado\s+livre\b", re.IGNORECASE)
+SHOPEE_COUPON_HEADER_RE = re.compile(r"\bcup(?:om|ons)\b.*\bshopee\b", re.IGNORECASE)
+ALIEXPRESS_COUPON_HEADER_RE = re.compile(
+    r"\bcup(?:om|ons)\b.*\baliexpress\b", re.IGNORECASE
+)
+NOVO_ML_COUPON_RE = re.compile(r"\bnovo\s+cupom\s+mercado\s+livre\b", re.IGNORECASE)
 DETAIL_AND_CODE_RE = re.compile(r"(.+?)\s*:\s*([A-Za-z0-9]{4,})\s*$", re.IGNORECASE)
 CODE_LABEL_RE = re.compile(
     r"\b(?:c[oó]digo|cupom)\b\s*:\s*([A-Za-z0-9]{4,})", re.IGNORECASE
@@ -46,6 +51,58 @@ def _normalize_coupon_detail(text: str) -> str:
     return _normalize_money_spacing(clean)
 
 
+DISCOUNT_LINE_RE = re.compile(r"\d+%\s*(?:OFF|desconto)", re.IGNORECASE)
+R_DISCOUNT_LINE_RE = re.compile(r"R\$\s*\d+(?:[\d.,]*)\s+OFF", re.IGNORECASE)
+
+
+def _is_generic_coupon_bulletin(offer: Offer, text: str) -> bool:
+    if not offer.coupon or "cupom" not in text.lower():
+        return False
+
+    # Check parsed title for discount patterns
+    if offer.title:
+        if DISCOUNT_LINE_RE.search(offer.title):
+            return True
+        if "%" in offer.title and re.search(
+            r"(?:acima|limitado)", offer.title, re.IGNORECASE
+        ):
+            return True
+        if R_DISCOUNT_LINE_RE.search(offer.title):
+            return True
+
+    # Check raw text for discount patterns
+    for raw_line in text.splitlines():
+        line = re.sub(r"^[^\w\dR$%]+", "", raw_line).strip()
+        if not line:
+            continue
+        if DISCOUNT_LINE_RE.search(line):
+            return True
+        if R_DISCOUNT_LINE_RE.search(line):
+            return True
+        if re.search(r"\d+%\s*OFF", line, re.IGNORECASE):
+            return True
+
+    return False
+
+
+def _format_generic_coupon(offer: Offer, affiliate_url: str, text: str) -> str:
+    discount_line = ""
+    for raw_line in text.splitlines():
+        line = re.sub(r"^[^\w\dR$%]+", "", raw_line).strip()
+        if not line:
+            continue
+        if DISCOUNT_LINE_RE.search(line):
+            discount_line = line
+            break
+        if R_DISCOUNT_LINE_RE.search(line):
+            discount_line = line
+            break
+    if not discount_line:
+        discount_line = offer.title or ""
+    parts = [discount_line, f"🎟️ Cupom: {offer.coupon}", f"🔗 {affiliate_url}"]
+    return "\n\n".join(p for p in parts if p)
+
+
 def extract_resgate_anuncio_note(text: str) -> str | None:
     match = RESGATE_ANUNCIO_RE.search(text)
     if not match:
@@ -55,61 +112,116 @@ def extract_resgate_anuncio_note(text: str) -> str | None:
     return note
 
 
+def _format_novo_ml_coupon(offer: Offer, affiliate_url: str, text: str) -> str:
+    discount_line = ""
+    coupon_code = ""
+
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        if not line or "⚠️" in line or "*" in line:
+            continue
+
+        if "▪️" in line:
+            discount_line = line.replace("▪️", "🤑").strip()
+        elif not discount_line and "%" in line and "OFF" in line.upper():
+            clean = re.sub(r"^[^\w\dR$%]+", "", line).strip()
+            if clean:
+                discount_line = clean
+
+        if "cupom" in line.lower() and ":" in line:
+            code_match = CODE_LABEL_RE.search(line)
+            if code_match:
+                coupon_code = code_match.group(1).upper()
+
+    if not coupon_code and offer.coupon:
+        coupon_code = offer.coupon
+
+    parts = []
+    if discount_line:
+        parts.append(discount_line)
+    if coupon_code:
+        parts.append(f"🎟️ Cupom: {coupon_code}")
+    parts.append(f"🔗 {affiliate_url}")
+
+    return "\n\n".join(parts)
+
+
 def format_coupon_bulletin_offer(offer: Offer, affiliate_url: str) -> str | None:
     text = offer.original_text
     is_amazon_coupon = bool(AMAZON_COUPON_HEADER_RE.search(text))
     is_ml_coupon = bool(ML_COUPON_HEADER_RE.search(text))
-    if not is_amazon_coupon and not is_ml_coupon:
-        return None
+    is_shopee_coupon = bool(SHOPEE_COUPON_HEADER_RE.search(text))
+    is_aliexpress_coupon = bool(ALIEXPRESS_COUPON_HEADER_RE.search(text))
 
-    coupon_lines: list[str] = []
-    pending_detail: str | None = None
-    for raw_line in text.splitlines():
-        line = re.sub(r"^[^\w\dR$%]+", "", raw_line).strip()
-        if not line:
-            continue
+    if is_amazon_coupon or is_ml_coupon:
+        if is_ml_coupon and NOVO_ML_COUPON_RE.search(text):
+            return _format_novo_ml_coupon(offer, affiliate_url, text)
 
-        detail_and_code = DETAIL_AND_CODE_RE.match(line)
-        if detail_and_code and "%" in detail_and_code.group(1):
-            detail = _normalize_coupon_detail(detail_and_code.group(1))
-            code = detail_and_code.group(2).upper()
-            coupon_lines.append(f"🎟 {detail}: {code}")
-            pending_detail = None
-            continue
+        coupon_lines: list[str] = []
+        pending_detail: str | None = None
+        for raw_line in text.splitlines():
+            line = re.sub(r"^[^\w\dR$%]+", "", raw_line).strip()
+            if not line:
+                continue
 
-        detail_candidate = line.lower()
-        if (
-            "%" in line
-            and "off" in detail_candidate
-            and ("acima" in detail_candidate or "compras" in detail_candidate)
-        ):
-            pending_detail = _normalize_coupon_detail(line.rstrip(":"))
-            continue
-
-        code_match = CODE_LABEL_RE.search(line)
-        if code_match:
-            code = code_match.group(1).upper()
-            if pending_detail:
-                coupon_lines.append(f"🎟 {pending_detail}: {code}")
+            detail_and_code = DETAIL_AND_CODE_RE.match(line)
+            if detail_and_code and (
+                "%" in detail_and_code.group(1) or "R$" in detail_and_code.group(1)
+            ):
+                detail = _normalize_coupon_detail(detail_and_code.group(1))
+                code = detail_and_code.group(2).upper()
+                coupon_lines.append(f"🎟 {detail}: {code}")
                 pending_detail = None
-            else:
-                coupon_lines.append(f"🎟 Cupom: {code}")
+                continue
 
-    if not coupon_lines and offer.coupon and is_amazon_coupon:
-        coupon_lines.append(f"🎟 Cupom: {offer.coupon}")
+            if DISCOUNT_LINE_RE.search(line) or R_DISCOUNT_LINE_RE.search(line):
+                pending_detail = _normalize_coupon_detail(line.rstrip(":"))
+                continue
 
-    if not coupon_lines:
-        return None
+            code_match = CODE_LABEL_RE.search(line)
+            if code_match:
+                code = code_match.group(1).upper()
+                if pending_detail:
+                    coupon_lines.append(f"🎟 {pending_detail}: {code}")
+                    pending_detail = None
+                else:
+                    coupon_lines.append(f"🎟 Cupom: {code}")
 
-    title = "☑️ Cupom Amazon!" if is_amazon_coupon else "🔥 Cupons Mercado Livre!"
+        if not coupon_lines and offer.coupon and is_amazon_coupon:
+            coupon_lines.append(f"🎟 Cupom: {offer.coupon}")
 
-    return "\n\n".join(
-        [
-            title,
-            "\n".join(coupon_lines),
-            f"🛒 Resgate aqui: {affiliate_url}",
-        ]
-    )
+        if coupon_lines:
+            title = (
+                "☑️ Cupom Amazon!" if is_amazon_coupon else "🔥 Cupons Mercado Livre!"
+            )
+            return "\n\n".join(
+                [
+                    title,
+                    "\n".join(coupon_lines),
+                    f"🛒 Resgate aqui: {affiliate_url}",
+                ]
+            )
+
+    if is_shopee_coupon or is_aliexpress_coupon:
+        lines_output: list[str] = []
+        for raw_line in text.splitlines():
+            line = re.sub(r"^[^\w\dR$%]+", "", raw_line).strip()
+            if not line:
+                continue
+            detail_and_code = DETAIL_AND_CODE_RE.match(line)
+            if detail_and_code and (
+                "%" in detail_and_code.group(1) or "R$" in detail_and_code.group(1)
+            ):
+                detail = _normalize_coupon_detail(detail_and_code.group(1))
+                code = detail_and_code.group(2).upper()
+                lines_output.append(f"🎟 {detail}: {code}")
+        if lines_output:
+            return "\n\n".join(["\n".join(lines_output), f"🔗 {affiliate_url}"])
+
+    if _is_generic_coupon_bulletin(offer, text):
+        return _format_generic_coupon(offer, affiliate_url, text)
+
+    return None
 
 
 def format_offer(offer: Offer, affiliate_url: str) -> str:

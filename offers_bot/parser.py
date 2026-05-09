@@ -38,7 +38,7 @@ COUPON_RE = re.compile(
     re.IGNORECASE,
 )
 INLINE_COUPON_RE = re.compile(
-    r"(?:^|\s|-)(?:usem?\s+o\s+)?cupom\s*:\s*[^\s\n]+", re.IGNORECASE
+    r"(?:^|\s|-)(?:usem?\s+o\s+)?cup(?:om|ons)\s*:\s*[^\s\n]+", re.IGNORECASE
 )
 COUPON_CODE_RE = re.compile(r"\*+([A-Za-z0-9]{4,})\*+|\b([A-Za-z0-9]{4,})\b")
 MELI_PLUS_RE = re.compile(
@@ -294,17 +294,22 @@ def extract_coupon(text: str) -> str | None:
 
     for line in text.splitlines():
         lower_line = line.lower()
-        if "cupom" not in lower_line and "maes" not in lower_line:
+        has_cupom = "cupom" in lower_line or "cupons" in lower_line
+        if not has_cupom and "maes" not in lower_line:
             continue
 
         # Skip resgate instructions that look like coupons but have no code
         if "resgate" in lower_line and "anúncio" in lower_line:
             continue
 
-        # If line has "cupom", take everything after it.
+        # If line has "cupom" or "cupons", take everything after it.
         # If not (but has "maes"), take the whole line.
         if "cupom" in lower_line:
             coupon_segment = line[lower_line.index("cupom") :]
+        elif "cupons" in lower_line:
+            if ":" not in lower_line:
+                continue
+            coupon_segment = line[lower_line.index("cupons") :]
         else:
             coupon_segment = line
 
@@ -329,12 +334,26 @@ def extract_coupon(text: str) -> str | None:
         return best_coupon
 
     match = COUPON_RE.search(text)
-    if not match:
-        return None
-    codes = extract_coupon_codes(match.group(1))
-    if not codes:
-        return None
-    return " ou ".join(codes)
+    if match:
+        codes = extract_coupon_codes(match.group(1))
+        if codes:
+            return " ou ".join(codes)
+
+    # Fallback: catch ": CODE" after R$/OFF patterns without "cupom:" prefix
+    for line in text.splitlines():
+        line = line.strip()
+        if re.search(
+            r"(?:off|desconto).*:\s*([A-Za-z0-9]{4,})\s*$", line, re.IGNORECASE
+        ):
+            codes = extract_coupon_codes(line.split(":")[-1])
+            if codes:
+                return " ou ".join(codes)
+        if re.search(r"R\$\s*\d+.*:\s*([A-Za-z0-9]{4,})\s*$", line, re.IGNORECASE):
+            codes = extract_coupon_codes(line.split(":")[-1])
+            if codes:
+                return " ou ".join(codes)
+
+    return None
 
 
 def extract_coupon_codes(text: str) -> list[str]:
