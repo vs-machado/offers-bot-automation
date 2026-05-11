@@ -14,6 +14,7 @@ from .browser_resolver import PlaywrightProductResolver
 from .mercado_livre import MercadoLivreClient, UnsupportedOfferError
 from .parser import (
     Offer,
+    URL_RE,
     extract_offers,
     is_amazon_url,
     is_mercado_livre_url,
@@ -92,10 +93,10 @@ def _format_generic_coupon(offer: Offer, affiliate_url: str, text: str) -> str:
         if not line:
             continue
         if DISCOUNT_LINE_RE.search(line):
-            discount_line = line
+            discount_line = URL_RE.sub("", line).strip()
             break
         if R_DISCOUNT_LINE_RE.search(line):
-            discount_line = line
+            discount_line = URL_RE.sub("", line).strip()
             break
     if not discount_line:
         discount_line = offer.title or ""
@@ -123,10 +124,11 @@ def _format_novo_ml_coupon(offer: Offer, affiliate_url: str, text: str) -> str:
 
         if "▪️" in line:
             discount_line = line.replace("▪️", "🤑").strip()
+            discount_line = URL_RE.sub("", discount_line).strip()
         elif not discount_line and "%" in line and "OFF" in line.upper():
             clean = re.sub(r"^[^\w\dR$%]+", "", line).strip()
             if clean:
-                discount_line = clean
+                discount_line = URL_RE.sub("", clean).strip()
 
         if "cupom" in line.lower() and ":" in line:
             code_match = CODE_LABEL_RE.search(line)
@@ -169,6 +171,7 @@ def format_coupon_bulletin_offer(offer: Offer, affiliate_url: str) -> str | None
                 "%" in detail_and_code.group(1) or "R$" in detail_and_code.group(1)
             ):
                 detail = _normalize_coupon_detail(detail_and_code.group(1))
+                detail = URL_RE.sub("", detail).strip()
                 code = detail_and_code.group(2).upper()
                 coupon_lines.append(f"🎟 {detail}: {code}")
                 pending_detail = None
@@ -176,6 +179,7 @@ def format_coupon_bulletin_offer(offer: Offer, affiliate_url: str) -> str | None
 
             if DISCOUNT_LINE_RE.search(line) or R_DISCOUNT_LINE_RE.search(line):
                 pending_detail = _normalize_coupon_detail(line.rstrip(":"))
+                pending_detail = URL_RE.sub("", pending_detail).strip()
                 continue
 
             code_match = CODE_LABEL_RE.search(line)
@@ -213,6 +217,7 @@ def format_coupon_bulletin_offer(offer: Offer, affiliate_url: str) -> str | None
                 "%" in detail_and_code.group(1) or "R$" in detail_and_code.group(1)
             ):
                 detail = _normalize_coupon_detail(detail_and_code.group(1))
+                detail = URL_RE.sub("", detail).strip()
                 code = detail_and_code.group(2).upper()
                 lines_output.append(f"🎟 {detail}: {code}")
         if lines_output:
@@ -232,7 +237,7 @@ def format_offer(offer: Offer, affiliate_url: str) -> str:
     parts = []
     resgate_anuncio_note = extract_resgate_anuncio_note(offer.original_text)
     if offer.title:
-        title = offer.title
+        title = URL_RE.sub("", offer.title).strip()
         if offer.installment_info:
             title = f"[{offer.installment_info}] {title}"
         parts.append(f"{title}")

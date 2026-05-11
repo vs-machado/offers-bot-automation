@@ -415,7 +415,7 @@ class ParserTest(unittest.TestCase):
         self.assertEqual(len(offers), 2)
         for i, o in enumerate(offers):
             formatted = format_offer(o, f"https://s.shopee.com.br/aff{i}")
-            print(f"\n--- {self._testMethodName} (offer {i+1}) ---\n{formatted}")
+            print(f"\n--- {self._testMethodName} (offer {i + 1}) ---\n{formatted}")
             self.assertIsNone(o.coupon)
 
     def test_sample6_amazon_multilist(self):
@@ -585,6 +585,35 @@ class ParserTest(unittest.TestCase):
             ),
             ("412968566", "58207918412"),
         )
+
+    def test_original_links_not_in_formatted_output(self):
+        text = """Mesa L De Canto Para Estudo Retro Design Nórdico Mod: Pier https://other.com/badtitle
+
+R$ 109
+-CUPOM: OFFMELI
+
+https://meli.la/2RNUWDH
+https://meli.la/1zx1PDb
+https://meli.la/1k61SVq
+
+-Anúncio
+
+-Dica NEGRETYH"""
+        offers = extract_offers(text)
+        self.assertEqual(len(offers), 3)
+
+        for i, offer in enumerate(offers):
+            affiliate_url = f"https://meli.la/generated{i}"
+            formatted = format_offer(offer, affiliate_url)
+
+            # Original links should NOT be in the formatted output
+            self.assertNotIn("https://meli.la/2RNUWDH", formatted)
+            self.assertNotIn("https://meli.la/1zx1PDb", formatted)
+            self.assertNotIn("https://meli.la/1k61SVq", formatted)
+            self.assertNotIn("https://other.com/badtitle", formatted)
+
+            # Generated link SHOULD be in the formatted output
+            self.assertIn(affiliate_url, formatted)
 
 
 if __name__ == "__main__":
