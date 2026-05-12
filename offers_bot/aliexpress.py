@@ -145,14 +145,14 @@ class AliExpressClient:
                 resp_result = data.get("resp_result", {})
 
             products = (
-                resp_result.get("result", {})
-                .get("products", {})
-                .get("product", [])
+                resp_result.get("result", {}).get("products", {}).get("product", [])
             )
 
             if products:
                 product = products[0]
                 return product.get("product_main_image_url") or product.get("image_url")
         except Exception as exc:
-            LOGGER.warning("Failed to fetch AliExpress product image for %s: %s", product_id, exc)
+            LOGGER.warning(
+                "Failed to fetch AliExpress product image for %s: %s", product_id, exc
+            )
         return None

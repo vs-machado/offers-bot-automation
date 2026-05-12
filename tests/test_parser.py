@@ -149,9 +149,9 @@ class ParserTest(unittest.TestCase):
         offer = extract_offers(
             "sérum super vitamina c 20% 30ml sallve de R$ 89,90 por R$ 59,84\n\n🔗 https://meli.la/1jujZ2D\n\n🏷️ cupom *10MELIMAIS* ou *MELIMAISPROMO* (para clientes meli+)"
         )[0]
- 
+
         formatted = format_offer(offer, "https://meli.la/final123")
- 
+
         self.assertIn("🎟️ CUPOM: `10MELIMAIS` ou `MELIMAISPROMO`", formatted)
         self.assertIn("⭐ Exclusivo para clientes Meli+", formatted)
 
@@ -512,7 +512,7 @@ class ParserTest(unittest.TestCase):
         )
         offer = extract_offers(text)[0]
         formatted = format_offer(offer, "https://meli.la/aff123")
- 
+
         print(f"\n--- {self._testMethodName} ---\n{formatted}")
         self.assertIn("12% OFF em compras", formatted)
         self.assertIn("🎟️ Cupom: `RECEBIDOSPAGO`", formatted)

@@ -8,13 +8,12 @@ from telethon import TelegramClient, events
 from telethon.errors import UserAlreadyParticipantError
 from telethon.tl.functions.messages import CheckChatInviteRequest
 from telethon.tl.functions.messages import ImportChatInviteRequest
-from telethon.tl.types import ChatInviteAlready
+from telethon.tl.types import ChatInviteAlready, MessageMediaPhoto, MessageMediaDocument
 
 LOGGER = logging.getLogger(__name__)
 INVITE_HASH_RE = re.compile(r"t\.me/(?:joinchat/|\+)([^/?#]+)")
 
-
-MessageHandler = Callable[[str, int, str], Awaitable[None]]
+MessageHandler = Callable[[str, int, str, str | None], Awaitable[None]]
 
 
 class TelegramOfferBot:
@@ -55,7 +54,10 @@ class TelegramOfferBot:
             for entity in source_entities:
                 async for message in self.client.iter_messages(entity, limit=50):
                     if message.message:
-                        await handler(str(entity.id), message.id, message.message)
+                        media_path = await self._download_media(message)
+                        await handler(
+                            str(entity.id), message.id, message.message, media_path
+                        )
 
         @self.client.on(events.NewMessage(chats=source_entities))
         async def on_new_message(event: events.NewMessage.Event) -> None:
@@ -67,10 +69,22 @@ class TelegramOfferBot:
                 len(text),
             )
             if text:
-                await handler(str(event.chat_id), event.message.id, text)
+                media_path = await self._download_media(event.message)
+                await handler(str(event.chat_id), event.message.id, text, media_path)
 
         LOGGER.info("Listening to %s source chats", len(source_entities))
         await self.client.run_until_disconnected()
+
+    async def _download_media(self, message) -> str | None:
+        if message.media and (
+            isinstance(message.media, MessageMediaPhoto)
+            or isinstance(message.media, MessageMediaDocument)
+        ):
+            try:
+                return await self.client.download_media(message, file="/tmp/")
+            except Exception as exc:
+                LOGGER.warning("Failed to download media: %s", exc)
+        return None
 
     async def send_offer(self, text: str, image_file: str | None = None) -> None:
         if self._target_entity is None:

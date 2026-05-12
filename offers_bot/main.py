@@ -333,7 +333,9 @@ async def run() -> None:
         phone=settings.telegram_phone,
     )
 
-    async def handle_message(source_chat: str, message_id: int, text: str) -> None:
+    async def handle_message(
+        source_chat: str, message_id: int, text: str, original_media: str | None = None
+    ) -> None:
         offers = extract_offers(text)
         logging.info(
             "Parsed message chat=%s message=%s offers=%s",
@@ -347,6 +349,7 @@ async def run() -> None:
                 logging.info("Skipped already posted offer %s", offer.url)
                 continue
             try:
+                is_ali = is_aliexpress_url(offer.url)
                 affiliate_client = (
                     ml
                     if is_mercado_livre_url(offer.url)
@@ -355,7 +358,7 @@ async def run() -> None:
                     else shopee
                     if is_shopee_url(offer.url)
                     else aliexpress
-                    if is_aliexpress_url(offer.url)
+                    if is_ali
                     else None
                 )
                 if affiliate_client is None:
@@ -399,30 +402,30 @@ async def run() -> None:
                     continue
 
                 formatted_text = format_offer(offer, affiliate.short_url)
-                if is_aliexpress_url(offer.url):
+                if is_ali:
                     formatted_text += "\n\nObs: Abra o link pelo celular e clique no anúncio do produto desejado."
                 formatted_text += "\n\n- Anúncio"
 
                 temp_image_path = None
                 try:
-                    if affiliate.image_url:
+                    image_url = None if is_ali else affiliate.image_url
+                    image_to_send = (
+                        original_media if (is_ali and original_media) else None
+                    )
+
+                    if not image_to_send and image_url:
                         # Download the image to a temporary file
                         async with httpx.AsyncClient() as client:
-                            resp = await client.get(affiliate.image_url)
+                            resp = await client.get(image_url)
                             resp.raise_for_status()
                             fd, temp_image_path = tempfile.mkstemp(suffix=".jpg")
                             with os.fdopen(fd, "wb") as f:
                                 f.write(resp.content)
+                            image_to_send = temp_image_path
 
-                    await telegram.send_offer(
-                        formatted_text, image_file=temp_image_path
-                    )
+                    await telegram.send_offer(formatted_text, image_file=image_to_send)
                 except Exception as e:
-                    if not affiliate.image_url:
-                        raise
-                    logging.warning(
-                        "Failed to send image %s: %s", affiliate.image_url, e
-                    )
+                    logging.warning("Failed to send image: %s", e)
                     await telegram.send_offer(formatted_text)
                 finally:
                     if temp_image_path and os.path.exists(temp_image_path):
@@ -441,6 +444,15 @@ async def run() -> None:
                 store.mark(source_chat, message_id, offer.url, None)
             except Exception:
                 logging.exception("Failed to process offer %s", offer.url)
+
+        # Cleanup original media if it was downloaded
+        if original_media and os.path.exists(original_media):
+            try:
+                os.remove(original_media)
+            except Exception as exc:
+                logging.warning(
+                    "Failed to remove original media %s: %s", original_media, exc
+                )
 
     try:
         await telegram.start()
