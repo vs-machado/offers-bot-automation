@@ -86,6 +86,14 @@ def _is_generic_coupon_bulletin(offer: Offer, text: str) -> bool:
     return False
 
 
+def wrap_coupon_codes(coupon_text: str) -> str:
+    if not coupon_text:
+        return ""
+    # Split by " ou " and wrap each part in backticks
+    parts = [f"`{p.strip()}`" for p in coupon_text.split(" ou ")]
+    return " ou ".join(parts)
+
+
 def _format_generic_coupon(offer: Offer, affiliate_url: str, text: str) -> str:
     discount_line = ""
     for raw_line in text.splitlines():
@@ -100,7 +108,11 @@ def _format_generic_coupon(offer: Offer, affiliate_url: str, text: str) -> str:
             break
     if not discount_line:
         discount_line = offer.title or ""
-    parts = [discount_line, f"🎟️ Cupom: {offer.coupon}", f"🔗 {affiliate_url}"]
+    parts = [
+        discount_line,
+        f"🎟️ Cupom: {wrap_coupon_codes(offer.coupon)}",
+        f"🔗 {affiliate_url}",
+    ]
     return "\n\n".join(p for p in parts if p)
 
 
@@ -142,7 +154,7 @@ def _format_novo_ml_coupon(offer: Offer, affiliate_url: str, text: str) -> str:
     if discount_line:
         parts.append(discount_line)
     if coupon_code:
-        parts.append(f"🎟️ Cupom: {coupon_code}")
+        parts.append(f"🎟️ Cupom: {wrap_coupon_codes(coupon_code)}")
     parts.append(f"🔗 {affiliate_url}")
 
     return "\n\n".join(parts)
@@ -173,7 +185,7 @@ def format_coupon_bulletin_offer(offer: Offer, affiliate_url: str) -> str | None
                 detail = _normalize_coupon_detail(detail_and_code.group(1))
                 detail = URL_RE.sub("", detail).strip()
                 code = detail_and_code.group(2).upper()
-                coupon_lines.append(f"🎟 {detail}: {code}")
+                coupon_lines.append(f"🎟 {detail}: {wrap_coupon_codes(code)}")
                 pending_detail = None
                 continue
 
@@ -186,13 +198,15 @@ def format_coupon_bulletin_offer(offer: Offer, affiliate_url: str) -> str | None
             if code_match:
                 code = code_match.group(1).upper()
                 if pending_detail:
-                    coupon_lines.append(f"🎟 {pending_detail}: {code}")
+                    coupon_lines.append(
+                        f"🎟 {pending_detail}: {wrap_coupon_codes(code)}"
+                    )
                     pending_detail = None
                 else:
-                    coupon_lines.append(f"🎟 Cupom: {code}")
+                    coupon_lines.append(f"🎟 Cupom: {wrap_coupon_codes(code)}")
 
         if not coupon_lines and offer.coupon and is_amazon_coupon:
-            coupon_lines.append(f"🎟 Cupom: {offer.coupon}")
+            coupon_lines.append(f"🎟 Cupom: {wrap_coupon_codes(offer.coupon)}")
 
         if coupon_lines:
             title = (
@@ -219,7 +233,7 @@ def format_coupon_bulletin_offer(offer: Offer, affiliate_url: str) -> str | None
                 detail = _normalize_coupon_detail(detail_and_code.group(1))
                 detail = URL_RE.sub("", detail).strip()
                 code = detail_and_code.group(2).upper()
-                lines_output.append(f"🎟 {detail}: {code}")
+                lines_output.append(f"🎟 {detail}: {wrap_coupon_codes(code)}")
         if lines_output:
             return "\n\n".join(["\n".join(lines_output), f"🔗 {affiliate_url}"])
 
@@ -247,7 +261,7 @@ def format_offer(offer: Offer, affiliate_url: str) -> str:
             price_block = f"{price_block}\n{offer.shipping_info}"
         parts.append(price_block)
     if offer.coupon:
-        parts.append(f"🎟️ CUPOM: {offer.coupon}")
+        parts.append(f"🎟️ CUPOM: {wrap_coupon_codes(offer.coupon)}")
     if resgate_anuncio_note:
         parts.append(f"🏷️ {resgate_anuncio_note}")
     if offer.meli_plus_only:
