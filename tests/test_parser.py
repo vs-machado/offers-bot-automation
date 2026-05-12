@@ -1,6 +1,6 @@
 import unittest
 
-from offers_bot.main import format_offer
+from offers_bot.main import format_offer, format_outgoing_offer
 from offers_bot.parser import extract_ml_ids, extract_offers, extract_shopee_ids
 
 
@@ -417,6 +417,92 @@ class ParserTest(unittest.TestCase):
             formatted = format_offer(o, f"https://s.shopee.com.br/aff{i}")
             print(f"\n--- {self._testMethodName} (offer {i + 1}) ---\n{formatted}")
             self.assertIsNone(o.coupon)
+
+    def test_shopee_resgate_and_product_links_become_one_offer(self):
+        text = (
+            "🔥 Cupom Shopee\n\n"
+            "✅ Resgate aqui: https://s.shopee.com.br/resgate123\n\n"
+            "🛒 Produto: https://shopee.com.br/product/412968566/58207918412"
+        )
+
+        offers = extract_offers(text)
+
+        self.assertEqual(len(offers), 1)
+        self.assertEqual(
+            offers[0].url, "https://shopee.com.br/product/412968566/58207918412"
+        )
+
+    def test_shopee_resgate_output_preserves_original_message_formatting(self):
+        text = (
+            "🔥 Cupom Shopee\n\n"
+            "✅ Resgate aqui: https://s.shopee.com.br/resgate123\n\n"
+            "🛒 Produto: https://shopee.com.br/product/412968566/58207918412\n\n"
+            "- Anúncio"
+        )
+        offer = extract_offers(text)[0]
+
+        formatted = format_outgoing_offer(offer, "https://s.shopee.com.br/aff123")
+
+        self.assertEqual(
+            formatted,
+            "🔥 Cupom Shopee\n\n"
+            "✅ Resgate aqui: https://s.shopee.com.br/resgate123\n\n"
+            "🛒 Produto: https://s.shopee.com.br/aff123\n\n"
+            "- Anúncio",
+        )
+
+    def test_shopee_single_resgate_link_preserves_original_message_formatting(self):
+        text = (
+            "🔥 CUPONS SHOPEE\n\n"
+            "👀 Cupom de Frete Grátis\n\n"
+            "📱 APENAS PELO APLICATIVO\n\n"
+            "Resgate na Sacola no canto esquerdo (SACOLA LARANJA) dentro da live no APP.\n\n"
+            "🎯 Resgate aqui:\n"
+            "https://s.shopee.com.br/5pz2uDWQuz"
+        )
+        offer = extract_offers(text)[0]
+
+        formatted = format_outgoing_offer(offer, "https://s.shopee.com.br/9fHg7A8YKd")
+
+        self.assertEqual(
+            formatted,
+            "🔥 CUPONS SHOPEE\n\n"
+            "👀 Cupom de Frete Grátis\n\n"
+            "📱 APENAS PELO APLICATIVO\n\n"
+            "Resgate na Sacola no canto esquerdo (SACOLA LARANJA) dentro da live no APP.\n\n"
+            "🎯 Resgate aqui:\n"
+            "https://s.shopee.com.br/9fHg7A8YKd\n\n"
+            "- Anúncio",
+        )
+
+    def test_shopee_resgate_and_cart_links_preserve_original_message_formatting(self):
+        text = (
+            "☑️ Cupom Shopee - Acessórios para veículos!!!\n"
+            " \n"
+            "R$30 OFF nas compras acima de R$119\n\n"
+            "🎯 Usem o Cupom: AUTOS30G4AF\n\n"
+            "🛒 Resgate aqui: https://s.shopee.com.br/LXc7aGHOO\n\n"
+            "🛒 Link do Carrinho: https://s.shopee.com.br/2AzGIy4Uqa"
+        )
+        offers = extract_offers(text)
+        offer = offers[0]
+
+        self.assertEqual(len(offers), 1)
+        self.assertEqual(offer.coupon, "AUTOS30G4AF")
+        self.assertEqual(offer.url, "https://s.shopee.com.br/2AzGIy4Uqa")
+        formatted = format_outgoing_offer(offer, "https://s.shopee.com.br/aff1")
+
+        self.assertEqual(
+            formatted,
+            "☑️ Cupom Shopee - Acessórios para veículos!!!\n"
+            " \n"
+            "R$30 OFF nas compras acima de R$119\n\n"
+            "🎯 Usem o Cupom: AUTOS30G4AF\n\n"
+            "🛒 Resgate aqui: https://s.shopee.com.br/LXc7aGHOO\n\n"
+            "🛒 Link do Carrinho: https://s.shopee.com.br/aff1\n\n"
+            "- Anúncio",
+        )
+        self.assertNotIn("https://s.shopee.com.br/2AzGIy4Uqa", formatted)
 
     def test_sample6_amazon_multilist(self):
         text = (

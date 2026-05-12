@@ -79,13 +79,13 @@ class Offer:
     shipping_info: str | None
     coupon: str | None
     meli_plus_only: bool
+    all_urls: tuple[str, ...] = ()
 
 
 def extract_offers(text: str) -> list[Offer]:
     offers: list[Offer] = []
     seen_urls: set[str] = set()
 
-    # Find all supported URLs
     found_urls = []
     for url in [*MELI_SHORT_RE.findall(text), *URL_RE.findall(text)]:
         clean_url = clean_offer_url(url)
@@ -96,19 +96,46 @@ def extract_offers(text: str) -> list[Offer]:
         seen_urls.add(clean_url)
         found_urls.append(clean_url)
 
+    if (
+        len(found_urls) >= 2
+        and "resgate aqui" in text.lower()
+        and all(is_shopee_url(u) for u in found_urls)
+    ):
+        product_urls = [u for u in found_urls if is_shopee_product_url(u)]
+        main_url = product_urls[0] if product_urls else found_urls[-1]
+        offers.append(
+            Offer(
+                original_text=text.strip(),
+                url=main_url,
+                title=extract_title(text),
+                price=extract_price(text),
+                installment_info=extract_installment_info(text),
+                shipping_info=extract_shipping_info(text),
+                coupon=extract_coupon(text),
+                meli_plus_only=is_meli_plus_only(text),
+                all_urls=tuple(found_urls),
+            )
+        )
+        return offers
+
     # Special case: Shopee multi-link messages where one is a "Resgate" link
     # and the other is a product link. We treat it as a single offer.
     if len(found_urls) == 2 and all(is_shopee_url(u) for u in found_urls):
         resgate_idx = -1
         product_idx = -1
+        resgate_pos = text.lower().find("resgate")
         for i, u in enumerate(found_urls):
-            if "resgate" in text.lower() and u in text[text.lower().find("resgate") :]:
+            url_pos = text.find(u)
+            if (
+                resgate_pos != -1
+                and url_pos >= resgate_pos
+                and not is_shopee_product_url(u)
+            ):
                 resgate_idx = i
-            elif is_shopee_product_url(u):
+            if is_shopee_product_url(u):
                 product_idx = i
 
         if resgate_idx != -1 and product_idx != -1:
-            # Found both! Use product URL as main, but keep the resgate one for later
             offers.append(
                 Offer(
                     original_text=text.strip(),
@@ -119,6 +146,7 @@ def extract_offers(text: str) -> list[Offer]:
                     shipping_info=extract_shipping_info(text),
                     coupon=extract_coupon(text),
                     meli_plus_only=is_meli_plus_only(text),
+                    all_urls=tuple(found_urls),
                 )
             )
             return offers

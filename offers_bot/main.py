@@ -270,6 +270,59 @@ def format_offer(offer: Offer, affiliate_url: str) -> str:
     return "\n\n".join(parts)
 
 
+def _build_shopee_url_replacements(
+    offer: Offer,
+    affiliate_url: str,
+    affiliate_client: ShopeeClient | None,
+) -> dict[str, str]:
+    if not (offer.all_urls and len(offer.all_urls) > 1):
+        return {offer.url: affiliate_url}
+
+    replacements: dict[str, str] = {}
+    replacements[offer.url] = affiliate_url
+
+    for url in offer.all_urls:
+        if url == offer.url or url in replacements:
+            continue
+        try:
+            aff = affiliate_client.create_link(url) if affiliate_client else None
+            if aff:
+                replacements[url] = aff.short_url
+            else:
+                replacements[url] = url
+        except Exception:
+            replacements[url] = url
+
+    return replacements
+
+
+def format_outgoing_offer(
+    offer: Offer,
+    affiliate_url: str,
+    *,
+    is_ali: bool = False,
+    url_replacements: dict[str, str] | None = None,
+) -> str:
+    formatted_text = format_offer(offer, affiliate_url)
+    if is_ali:
+        formatted_text += (
+            "\n\nObs: Abra o link pelo celular e clique no anúncio do produto desejado."
+        )
+
+    if is_shopee_url(offer.url) and "resgate" in offer.original_text.lower():
+        replacements = _build_shopee_url_replacements(offer, affiliate_url, None)
+        if url_replacements:
+            replacements.update(url_replacements)
+        new_text = offer.original_text
+        for orig, aff in replacements.items():
+            new_text = new_text.replace(orig, aff)
+        new_text = re.sub(r"\s*- Anúncio\s*$", "", new_text)
+        new_text = re.sub(r"\n{3,}", "\n\n", new_text).strip()
+        return f"{new_text}\n\n- Anúncio"
+
+    return f"{formatted_text}\n\n- Anúncio"
+
+
 async def run() -> None:
     logging.basicConfig(
         level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s"
@@ -401,30 +454,15 @@ async def run() -> None:
                     )
                     continue
 
-                formatted_text = format_offer(offer, affiliate.short_url)
-                if is_ali:
-                    formatted_text += "\n\nObs: Abra o link pelo celular e clique no anúncio do produto desejado."
-                
-                # For Shopee "Resgate" offers, use the original message with converted link
-                if is_shopee_url(offer.url) and "resgate aqui" in offer.original_text.lower():
-                    # We have a resgate link and a product link in the original.
-                    # Usually the first link is resgate and second is product.
-                    urls = URL_RE.findall(offer.original_text)
-                    if len(urls) >= 2:
-                        resgate_orig = urls[0]
-                        product_orig = urls[1]
-                        
-                        # We need to affiliate both if possible, or at least the product one.
-                        # For now, let's just replace the product link with the affiliate one
-                        # and keep the rest of the message as is.
-                        new_text = offer.original_text.replace(product_orig, affiliate.short_url)
-                        # Remove the "Anúncio" suffix if it's already there to avoid duplicates
-                        new_text = re.sub(r"\s*- Anúncio\s*$", "", new_text)
-                        formatted_text = f"{new_text}\n\n- Anúncio"
-                    else:
-                        formatted_text += "\n\n- Anúncio"
-                else:
-                    formatted_text += "\n\n- Anúncio"
+                url_replacements = _build_shopee_url_replacements(
+                    offer, affiliate.short_url, shopee
+                )
+                formatted_text = format_outgoing_offer(
+                    offer,
+                    affiliate.short_url,
+                    is_ali=is_ali,
+                    url_replacements=url_replacements,
+                )
 
                 temp_image_path = None
                 try:
