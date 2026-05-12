@@ -63,7 +63,7 @@ def test_aliexpress_message_parsing():
 🥇 Link com moedas:
 🔗 https://s.click.aliexpress.com/e/_c4LBE5wb""",
             "expected_price": "R$ 717,51",
-            "expected_coupon": "LIBRETX5600 ou IFPAF7UN ou MAES5",
+            "expected_coupon": "`LIBRETX5600` ou `IFPAF7UN` ou `MAES5`",
             "expected_installment": "9X SEM JUROS",
         },
         {
@@ -73,7 +73,7 @@ R$279,72
 Moedas No APP + MAES3
 Link¹: https://s.click.aliexpress.com/e/_c3Goue9Z""",
             "expected_price": "R$ 279,72",
-            "expected_coupon": "MAES3",
+            "expected_coupon": "`MAES3`",
             "expected_installment": None,
         },
         {
@@ -82,7 +82,7 @@ Link¹: https://s.click.aliexpress.com/e/_c3Goue9Z""",
 💹 R$ 179 com cupom: ZH5533 + IFPIQRSZ + Moedas no App
 Link App: https://a.aliexpress.com/_c3iwj7Qj""",
             "expected_price": "R$ 179",
-            "expected_coupon": "ZH5533 ou IFPIQRSZ",
+            "expected_coupon": "`ZH5533` ou `IFPIQRSZ`",
             "expected_installment": None,
         },
         {
@@ -92,7 +92,7 @@ R$ 110~~
 -CUPOM: MAES2 + Resgate cupom do anúncio + moedas no APP
 https://s.click.aliexpress.com/e/_c2Q2ElYr""",
             "expected_price": "R$ 110",
-            "expected_coupon": "MAES2",
+            "expected_coupon": "`MAES2`",
             "expected_installment": None,
         },
         {
@@ -102,7 +102,7 @@ R$ 948
 -CUPOM: KOOTION40 ou KOOTION401 + MAES6 + 1040 moedas no APP
 https://s.click.aliexpress.com/e/_c3a2kGc3""",
             "expected_price": "R$ 948",
-            "expected_coupon": "KOOTION40 ou KOOTION401 ou MAES6",
+            "expected_coupon": "`KOOTION40` ou `KOOTION401` ou `MAES6`",
             "expected_installment": None,
         },
     ]

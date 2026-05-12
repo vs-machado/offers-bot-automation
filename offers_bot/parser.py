@@ -84,6 +84,7 @@ class Offer:
 def extract_offers(text: str) -> list[Offer]:
     offers: list[Offer] = []
     seen_urls: set[str] = set()
+
     for url in [*MELI_SHORT_RE.findall(text), *URL_RE.findall(text)]:
         clean_url = clean_offer_url(url)
         if not is_supported_offer_url(clean_url):

@@ -114,6 +114,8 @@ class AliExpressClient:
             message = links[0].get("message", "Unknown error")
             raise RuntimeError(f"AliExpress API failed to generate link: {message}")
 
+        image_url = self._get_product_image(product_id) if product_id else None
+
         key = f"ALIEXPRESS:{product_id}" if product_id else f"ALIEXPRESS:{url}"
 
         return AffiliateLink(
@@ -122,4 +124,35 @@ class AliExpressClient:
             origin_url=url,
             raw_text=None,
             product_key=key,
+            image_url=image_url,
         )
+
+    def _get_product_image(self, product_id: str) -> str | None:
+        try:
+            client = IopClient(self._endpoint, self._app_key, self._app_secret)
+            request = IopRequest("aliexpress.affiliate.product.query")
+            request.add_api_param("product_ids", product_id)
+            request.add_api_param("ship_to_country", "BR")
+            request.add_api_param("target_currency", "BRL")
+            request.add_api_param("target_language", "PT")
+
+            response = client.execute(request)
+            data = response.body
+
+            root_key = "aliexpress_affiliate_product_query_response"
+            resp_result = data.get(root_key, {}).get("resp_result", {})
+            if not resp_result:
+                resp_result = data.get("resp_result", {})
+
+            products = (
+                resp_result.get("result", {})
+                .get("products", {})
+                .get("product", [])
+            )
+
+            if products:
+                product = products[0]
+                return product.get("product_main_image_url") or product.get("image_url")
+        except Exception as exc:
+            LOGGER.warning("Failed to fetch AliExpress product image for %s: %s", product_id, exc)
+        return None

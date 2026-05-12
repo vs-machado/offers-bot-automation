@@ -341,6 +341,7 @@ async def run() -> None:
             message_id,
             len(offers),
         )
+        processed_product_keys = set()
         for offer in offers:
             if store.seen(source_chat, message_id, offer.url):
                 logging.info("Skipped already posted offer %s", offer.url)
@@ -363,6 +364,15 @@ async def run() -> None:
                 affiliate = await asyncio.to_thread(
                     affiliate_client.create_link, offer.url
                 )
+
+                if affiliate.product_key in processed_product_keys:
+                    logging.info(
+                        "Skipped duplicate product in same message: %s",
+                        affiliate.product_key,
+                    )
+                    continue
+                processed_product_keys.add(affiliate.product_key)
+
                 if store.seen_affiliate_url(affiliate.short_url):
                     logging.info(
                         "Skipped already posted affiliate offer %s", affiliate.short_url
