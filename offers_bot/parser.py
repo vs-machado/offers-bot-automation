@@ -85,6 +85,8 @@ def extract_offers(text: str) -> list[Offer]:
     offers: list[Offer] = []
     seen_urls: set[str] = set()
 
+    # Find all supported URLs
+    found_urls = []
     for url in [*MELI_SHORT_RE.findall(text), *URL_RE.findall(text)]:
         clean_url = clean_offer_url(url)
         if not is_supported_offer_url(clean_url):
@@ -92,6 +94,36 @@ def extract_offers(text: str) -> list[Offer]:
         if clean_url in seen_urls:
             continue
         seen_urls.add(clean_url)
+        found_urls.append(clean_url)
+
+    # Special case: Shopee multi-link messages where one is a "Resgate" link
+    # and the other is a product link. We treat it as a single offer.
+    if len(found_urls) == 2 and all(is_shopee_url(u) for u in found_urls):
+        resgate_idx = -1
+        product_idx = -1
+        for i, u in enumerate(found_urls):
+            if "resgate" in text.lower() and u in text[text.lower().find("resgate") :]:
+                resgate_idx = i
+            elif is_shopee_product_url(u):
+                product_idx = i
+
+        if resgate_idx != -1 and product_idx != -1:
+            # Found both! Use product URL as main, but keep the resgate one for later
+            offers.append(
+                Offer(
+                    original_text=text.strip(),
+                    url=found_urls[product_idx],
+                    title=extract_title(text),
+                    price=extract_price(text),
+                    installment_info=extract_installment_info(text),
+                    shipping_info=extract_shipping_info(text),
+                    coupon=extract_coupon(text),
+                    meli_plus_only=is_meli_plus_only(text),
+                )
+            )
+            return offers
+
+    for clean_url in found_urls:
         offers.append(
             Offer(
                 original_text=text.strip(),

@@ -404,7 +404,27 @@ async def run() -> None:
                 formatted_text = format_offer(offer, affiliate.short_url)
                 if is_ali:
                     formatted_text += "\n\nObs: Abra o link pelo celular e clique no anúncio do produto desejado."
-                formatted_text += "\n\n- Anúncio"
+                
+                # For Shopee "Resgate" offers, use the original message with converted link
+                if is_shopee_url(offer.url) and "resgate aqui" in offer.original_text.lower():
+                    # We have a resgate link and a product link in the original.
+                    # Usually the first link is resgate and second is product.
+                    urls = URL_RE.findall(offer.original_text)
+                    if len(urls) >= 2:
+                        resgate_orig = urls[0]
+                        product_orig = urls[1]
+                        
+                        # We need to affiliate both if possible, or at least the product one.
+                        # For now, let's just replace the product link with the affiliate one
+                        # and keep the rest of the message as is.
+                        new_text = offer.original_text.replace(product_orig, affiliate.short_url)
+                        # Remove the "Anúncio" suffix if it's already there to avoid duplicates
+                        new_text = re.sub(r"\s*- Anúncio\s*$", "", new_text)
+                        formatted_text = f"{new_text}\n\n- Anúncio"
+                    else:
+                        formatted_text += "\n\n- Anúncio"
+                else:
+                    formatted_text += "\n\n- Anúncio"
 
                 temp_image_path = None
                 try:
