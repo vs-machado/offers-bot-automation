@@ -316,7 +316,9 @@ def format_outgoing_offer(
         new_text = offer.original_text
         for orig, aff in replacements.items():
             new_text = new_text.replace(orig, aff)
-        new_text = re.sub(r"\s*- Anúncio\s*$", "", new_text)
+        new_text = re.sub(
+            r"\s*[-*]\s*an[uú]ncio\s*$", "", new_text, flags=re.IGNORECASE
+        )
         new_text = re.sub(r"\n{3,}", "\n\n", new_text).strip()
         return f"{new_text}\n\n- Anúncio"
 

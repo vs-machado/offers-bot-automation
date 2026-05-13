@@ -504,6 +504,38 @@ class ParserTest(unittest.TestCase):
         )
         self.assertNotIn("https://s.shopee.com.br/2AzGIy4Uqa", formatted)
 
+    def test_shopee_resgate_and_short_product_link_become_one_offer(self):
+        text = (
+            'Monitor Gamer Acer LED IPS 23,8" Full HD HDMI VGA MK241Y - Preto -\n\n'
+            "R$ 405\n"
+            "-Resgate todos os cupons na Live (sacola laranja) no APP aqui:\n"
+            "https://s.shopee.com.br/4qCQiaA0eB\n\n"
+            "-Link produto:\n"
+            "https://s.shopee.com.br/30kmXDH3d2\n\n"
+            "-Anúncio"
+        )
+
+        offers = extract_offers(text)
+
+        self.assertEqual(len(offers), 1)
+        self.assertEqual(offers[0].url, "https://s.shopee.com.br/30kmXDH3d2")
+
+    def test_shopee_resgate_output_strips_anuncio_variants(self):
+        text = (
+            "Oferta Shopee\n\n"
+            "-Resgate aqui:\n"
+            "https://s.shopee.com.br/resgate123\n\n"
+            "-Link produto:\n"
+            "https://s.shopee.com.br/prod123\n\n"
+            "-Anúncio"
+        )
+        offer = extract_offers(text)[0]
+
+        formatted = format_outgoing_offer(offer, "https://s.shopee.com.br/aff123")
+
+        self.assertEqual(formatted.count("Anúncio"), 1)
+        self.assertTrue(formatted.endswith("- Anúncio"))
+
     def test_sample6_amazon_multilist(self):
         text = (
             "⚠️ LISTA DE CUPONS AMAZON\n"

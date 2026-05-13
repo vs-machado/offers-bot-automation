@@ -67,6 +67,9 @@ PROMO_LINE_RE = re.compile(
 COUPON_STATUS_RE = re.compile(
     r"\b(?:esgot\w*|acab\w*|encerr\w*|expir\w*|ativo\w*)\b", re.IGNORECASE
 )
+SHOPEE_PRODUCT_LABEL_RE = re.compile(
+    r"\b(?:link\s+)?(?:produto|carrinho)\b", re.IGNORECASE
+)
 
 
 @dataclass(frozen=True)
@@ -96,17 +99,12 @@ def extract_offers(text: str) -> list[Offer]:
         seen_urls.add(clean_url)
         found_urls.append(clean_url)
 
-    if (
-        len(found_urls) >= 2
-        and "resgate aqui" in text.lower()
-        and all(is_shopee_url(u) for u in found_urls)
-    ):
-        product_urls = [u for u in found_urls if is_shopee_product_url(u)]
-        main_url = product_urls[0] if product_urls else found_urls[-1]
+    shopee_resgate_url = pick_shopee_resgate_offer_url(text, found_urls)
+    if shopee_resgate_url:
         offers.append(
             Offer(
                 original_text=text.strip(),
-                url=main_url,
+                url=shopee_resgate_url,
                 title=extract_title(text),
                 price=extract_price(text),
                 installment_info=extract_installment_info(text),
@@ -165,6 +163,29 @@ def extract_offers(text: str) -> list[Offer]:
             )
         )
     return offers
+
+
+def pick_shopee_resgate_offer_url(text: str, found_urls: list[str]) -> str | None:
+    if len(found_urls) < 2 or not all(is_shopee_url(u) for u in found_urls):
+        return None
+    if "resgate" not in text.lower():
+        return None
+
+    product_urls = [u for u in found_urls if is_shopee_product_url(u)]
+    if product_urls:
+        return product_urls[0]
+
+    label_match = SHOPEE_PRODUCT_LABEL_RE.search(text)
+    if label_match:
+        for url in found_urls:
+            url_pos = text.find(url)
+            if url_pos >= label_match.start():
+                return url
+
+    if "resgate aqui" in text.lower():
+        return found_urls[-1]
+
+    return None
 
 
 def clean_offer_url(url: str) -> str:
