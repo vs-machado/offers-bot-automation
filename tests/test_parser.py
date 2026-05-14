@@ -637,6 +637,21 @@ class ParserTest(unittest.TestCase):
         self.assertIn("🔗 https://meli.la/aff123", formatted)
         self.assertNotIn("*anúncio", formatted)
 
+    def test_aliexpress_multi_link_grouping(self):
+        text = (
+            "⚡ Teclado Mecânico Akko x Veekos 5075S/K75\n\n"
+            "💰 R$ 231 em 3x sem juros\n"
+            "🏷 Cupom: IFPQCADG\n\n"
+            "Link App: https://a.aliexpress.com/_c384gu15\n"
+            "Link PC: https://a.aliexpress.com/_c3lx2IcT\n\n"
+            "(anuncio)"
+        )
+        offers = extract_offers(text)
+        self.assertEqual(len(offers), 1)
+        self.assertEqual(len(offers[0].all_urls), 2)
+        self.assertIn("https://a.aliexpress.com/_c384gu15", offers[0].all_urls)
+        self.assertIn("https://a.aliexpress.com/_c3lx2IcT", offers[0].all_urls)
+
     def test_anuncio_suffix_appended_to_all_messages(self):
         offer = extract_offers(
             "Creatina Growth R$ 49,90 https://www.mercadolivre.com.br/x/p/MLB19603205"

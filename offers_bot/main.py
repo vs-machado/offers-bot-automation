@@ -272,10 +272,10 @@ def format_offer(offer: Offer, affiliate_url: str) -> str:
     return "\n\n".join(parts)
 
 
-def _build_shopee_url_replacements(
+def _build_url_replacements(
     offer: Offer,
     affiliate_url: str,
-    affiliate_client: ShopeeClient | None,
+    affiliate_client: ShopeeClient | AliExpressClient | None,
 ) -> dict[str, str]:
     if not (offer.all_urls and len(offer.all_urls) > 1):
         return {offer.url: affiliate_url}
@@ -287,7 +287,11 @@ def _build_shopee_url_replacements(
         if url == offer.url or url in replacements:
             continue
         try:
-            aff = affiliate_client.create_link(url) if affiliate_client else None
+            aff = (
+                asyncio.run(asyncio.to_thread(affiliate_client.create_link, url))
+                if affiliate_client
+                else None
+            )
             if aff:
                 replacements[url] = aff.short_url
             else:
@@ -304,22 +308,42 @@ def format_outgoing_offer(
     *,
     is_ali: bool = False,
     url_replacements: dict[str, str] | None = None,
+    affiliate_client: ShopeeClient | AliExpressClient | None = None,
 ) -> str:
     formatted_text = format_offer(offer, affiliate_url)
-    if is_ali:
+
+    # Multi-link AliExpress handling
+    if is_ali and offer.all_urls and len(offer.all_urls) > 1:
+        replacements = _build_url_replacements(offer, affiliate_url, affiliate_client)
+        new_text = offer.original_text
+        for orig, aff in replacements.items():
+            new_text = new_text.replace(orig, aff)
+        new_text = re.sub(
+            r"\s*\(?an[uú]ncio\)?\s*$", "", new_text, flags=re.IGNORECASE
+        )
+        new_text = re.sub(
+            r"\s*-\s*$", "", new_text, flags=re.IGNORECASE
+        )
+        new_text = re.sub(r"\n{3,}", "\n\n", new_text).strip()
+        formatted_text = new_text
+
+    if is_ali and not (offer.all_urls and len(offer.all_urls) > 1):
         formatted_text += (
             "\n\nObs: Abra o link pelo celular e clique no anúncio do produto desejado."
         )
 
     if is_shopee_url(offer.url) and "resgate" in offer.original_text.lower():
-        replacements = _build_shopee_url_replacements(offer, affiliate_url, None)
+        replacements = _build_url_replacements(offer, affiliate_url, affiliate_client)
         if url_replacements:
             replacements.update(url_replacements)
         new_text = offer.original_text
         for orig, aff in replacements.items():
             new_text = new_text.replace(orig, aff)
         new_text = re.sub(
-            r"\s*[-*]\s*an[uú]ncio\s*$", "", new_text, flags=re.IGNORECASE
+            r"\s*\(?an[uú]ncio\)?\s*$", "", new_text, flags=re.IGNORECASE
+        )
+        new_text = re.sub(
+            r"\s*-\s*$", "", new_text, flags=re.IGNORECASE
         )
         new_text = re.sub(r"\n{3,}", "\n\n", new_text).strip()
         return f"{new_text}\n\n- Anúncio"
@@ -458,14 +482,11 @@ async def run() -> None:
                     )
                     continue
 
-                url_replacements = _build_shopee_url_replacements(
-                    offer, affiliate.short_url, shopee
-                )
                 formatted_text = format_outgoing_offer(
                     offer,
                     affiliate.short_url,
                     is_ali=is_ali,
-                    url_replacements=url_replacements,
+                    affiliate_client=affiliate_client,
                 )
 
                 temp_image_path = None

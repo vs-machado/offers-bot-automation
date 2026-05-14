@@ -156,6 +156,24 @@ def extract_offers(text: str) -> list[Offer]:
             )
             return offers
 
+    # Special case: AliExpress multi-link messages
+    if all(is_aliexpress_url(u) for u in found_urls) and len(found_urls) > 1:
+        offers.append(
+            Offer(
+                original_text=text.strip(),
+                url=found_urls[0],
+                title=extract_title(text),
+                price=extract_price(text),
+                card_price=extract_card_price(text),
+                installment_info=extract_installment_info(text),
+                shipping_info=extract_shipping_info(text),
+                coupon=extract_coupon(text),
+                meli_plus_only=is_meli_plus_only(text),
+                all_urls=tuple(found_urls),
+            )
+        )
+        return offers
+
     for clean_url in found_urls:
         offers.append(
             Offer(
