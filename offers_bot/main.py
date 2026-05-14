@@ -257,6 +257,8 @@ def format_offer(offer: Offer, affiliate_url: str) -> str:
         parts.append(f"{title}")
     if offer.price:
         price_block = f"💰 {offer.price}"
+        if offer.card_price:
+            price_block = f"{price_block}\n💳 {offer.card_price}"
         if offer.shipping_info:
             price_block = f"{price_block}\n{offer.shipping_info}"
         parts.append(price_block)

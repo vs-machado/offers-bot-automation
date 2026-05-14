@@ -658,6 +658,35 @@ class ParserTest(unittest.TestCase):
 
         self.assertIn("🏷️ Resgate cupom do anúncio", formatted)
 
+    def test_extracts_pix_and_card_prices(self):
+        text = (
+            '📺 86" 4K\n\n'
+            "Smart Tv Philips 86 4k 86pug7019 Comando De Voz Playstore\n\n"
+            "🔥 Por: R$ 5.921,06 via Pix\n"
+            "🔥 Por: R$ 6.299,00 parcelado\n\n"
+            "🎯 Usem o cupom: TVCASASBAHIA\n"
+            "🛒 https://meli.la/1Z7GBcN"
+        )
+        offers = extract_offers(text)
+
+        self.assertEqual(len(offers), 1)
+        self.assertEqual(offers[0].price, "R$ 5.921,06 no PIX")
+        self.assertEqual(offers[0].card_price, "R$ 6.299,00 no cartão")
+        self.assertEqual(offers[0].coupon, "TVCASASBAHIA")
+
+    def test_format_offer_shows_card_price(self):
+        offer = extract_offers(
+            "Product\n"
+            "🔥 Por: R$ 100 via Pix\n"
+            "🔥 Por: R$ 110 no cartão\n"
+            "https://meli.la/123"
+        )[0]
+
+        formatted = format_offer(offer, "https://meli.la/aff")
+
+        self.assertIn("💰 R$ 100 no PIX", formatted)
+        self.assertIn("💳 R$ 110 no cartão", formatted)
+
     def test_trims_meli_short_url_before_appended_noise(self):
         offers = extract_offers(
             "Oferta https://meli.la/1vMs9xn167.51:443/TcpFull complete!"

@@ -27,6 +27,10 @@ PRICE_RE = re.compile(r"R\$\s?((?:\d{1,3}(?:\.\d{3})+|\d+)(?:,\d{2})?)", re.IGNO
 PROMO_PRICE_RE = re.compile(
     r"\bpor\s*:?\s*R\$\s*((?:\d{1,3}(?:\.\d{3})+|\d+)(?:,\d{2})?)", re.IGNORECASE
 )
+CARD_PRICE_RE = re.compile(
+    r"R\$\s?((?:\d{1,3}(?:\.\d{3})+|\d+)(?:,\d{2})?)\s*(?:no\s+cartão|parcelado|em\s+até|no\s+cartao)",
+    re.IGNORECASE,
+)
 INSTALLMENT_RE = re.compile(
     r"\b(\d{1,2})\s*x\s*(?:de\s+(?:R\$\s*)?[\d.,]+\s+)?sem\s+juros\b", re.IGNORECASE
 )
@@ -78,6 +82,7 @@ class Offer:
     url: str
     title: str | None
     price: str | None
+    card_price: str | None
     installment_info: str | None
     shipping_info: str | None
     coupon: str | None
@@ -107,6 +112,7 @@ def extract_offers(text: str) -> list[Offer]:
                 url=shopee_resgate_url,
                 title=extract_title(text),
                 price=extract_price(text),
+                card_price=extract_card_price(text),
                 installment_info=extract_installment_info(text),
                 shipping_info=extract_shipping_info(text),
                 coupon=extract_coupon(text),
@@ -140,6 +146,7 @@ def extract_offers(text: str) -> list[Offer]:
                     url=found_urls[product_idx],
                     title=extract_title(text),
                     price=extract_price(text),
+                    card_price=extract_card_price(text),
                     installment_info=extract_installment_info(text),
                     shipping_info=extract_shipping_info(text),
                     coupon=extract_coupon(text),
@@ -156,6 +163,7 @@ def extract_offers(text: str) -> list[Offer]:
                 url=clean_url,
                 title=extract_title(text),
                 price=extract_price(text),
+                card_price=extract_card_price(text),
                 installment_info=extract_installment_info(text),
                 shipping_info=extract_shipping_info(text),
                 coupon=extract_coupon(text),
@@ -337,6 +345,8 @@ def extract_price(text: str) -> str | None:
         promo_match = PROMO_PRICE_RE.search(line)
         if not promo_match:
             continue
+        if "cartão" in line.lower() or "parcelado" in line.lower():
+            continue
         price = f"R$ {promo_match.group(1)}"
         if "pix" in line.lower():
             return f"{price} no PIX"
@@ -348,6 +358,19 @@ def extract_price(text: str) -> str | None:
 
     # Standardize spacing to "R$ XXX"
     return f"R$ {match.group(1)}"
+
+
+def extract_card_price(text: str) -> str | None:
+    for line in text.splitlines():
+        match = CARD_PRICE_RE.search(line)
+        if match:
+            return f"R$ {match.group(1)} no cartão"
+
+        promo_match = PROMO_PRICE_RE.search(line)
+        if promo_match and ("cartão" in line.lower() or "parcelado" in line.lower()):
+            return f"R$ {promo_match.group(1)} no cartão"
+
+    return None
 
 
 def extract_installment_info(text: str) -> str | None:
