@@ -1,24 +1,10 @@
 version: '3.8'
 
 services:
-  ollama:
-    image: ollama/ollama:latest
-    container_name: ollama
-    ports:
-      - "11434:11434"
-    volumes:
-      - ollama_data:/root/.ollama
-    restart: unless-stopped
-    # We can pre-load or run the model pull automatically:
-    entrypoint: ["/bin/sh", "-c", "ollama serve & sleep 5 && ollama pull llama3.2:3b && wait"]
-
   bot:
     build: .
     container_name: offers_bot
-    depends_on:
-      - ollama
     environment:
-      - OLLAMA_HOST=http://ollama:11434
       # Pass telegram and other env vars from .env file
       - TELEGRAM_API_ID=${TELEGRAM_API_ID}
       - TELEGRAM_API_HASH=${TELEGRAM_API_HASH}
@@ -26,6 +12,8 @@ services:
       - TARGET_CHAT=${TARGET_CHAT}
       - TELEGRAM_SESSION=${TELEGRAM_SESSION}
       - TELEGRAM_PHONE=${TELEGRAM_PHONE}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - LITELLM_API_BASE=${LITELLM_API_BASE}
       - ML_AFFILIATE_TAG=${ML_AFFILIATE_TAG}
       - ML_COOKIE_HEADER=${ML_COOKIE_HEADER}
       - ML_CSRF_TOKEN=${ML_CSRF_TOKEN}
@@ -45,5 +33,3 @@ services:
       - ./data:/app/data
     restart: unless-stopped
 
-volumes:
-  ollama_data:

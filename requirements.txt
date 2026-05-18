@@ -3,3 +3,6 @@ playwright==1.40.0
 python-dotenv==1.2.2
 Requests==2.33.1
 telethon==1.43.2
+pydantic-ai==1.93.0
+litellm==1.85.0
+pydantic>=2.10.0

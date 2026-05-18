@@ -2,6 +2,7 @@ import unittest
 import os
 import sqlite3
 import tempfile
+from unittest.mock import patch
 from offers_bot.parser import extract_offers
 from offers_bot.main import format_offer
 from offers_bot.llm_parser import save_token_usage
@@ -33,7 +34,16 @@ class LLMParserTest(unittest.TestCase):
             if os.path.exists(temp_db):
                 os.remove(temp_db)
 
-    def test_llm_classifies_product_offer(self):
+    @patch("offers_bot.parser.parse_with_llm")
+    def test_llm_classifies_product_offer(self, mock_parse):
+        mock_parse.return_value = {
+            "classification": "product",
+            "product": {
+                "title": "Creatina Growth",
+                "price": "R$ 49,90",
+                "meli_plus_only": False,
+            },
+        }
         text = (
             "Creatina Growth R$ 49,90 https://www.mercadolivre.com.br/x/p/MLB19603205"
         )
@@ -41,12 +51,26 @@ class LLMParserTest(unittest.TestCase):
 
         self.assertEqual(len(offers), 1)
         offer = offers[0]
-        self.assertIsNotNone(offer.llm_result)
         self.assertEqual(offer.llm_result.get("classification"), "product")
         self.assertIn("Creatina", offer.title)
         self.assertIn("49,90", offer.price)
 
-    def test_llm_classifies_coupon_offer(self):
+    @patch("offers_bot.parser.parse_with_llm")
+    def test_llm_classifies_coupon_offer(self, mock_parse):
+        mock_parse.return_value = {
+            "classification": "coupon",
+            "coupon": {
+                "platform": "Mercado Livre",
+                "novo_ml_format": True,
+                "generic_format": False,
+                "coupons": [
+                    {
+                        "detail": "15% OFF em compras acima de R$199, Limitado a R$2.000",
+                        "code": "ELUX15OFF",
+                    }
+                ],
+            },
+        }
         text = (
             "🔥 Novo Cupom Mercado Livre em produtos ELECTROLUX!\n\n"
             "▪️ 15% OFF em compras acima de R$199, Limitado a R$2.000\n\n"
@@ -57,7 +81,6 @@ class LLMParserTest(unittest.TestCase):
 
         self.assertEqual(len(offers), 1)
         offer = offers[0]
-        self.assertIsNotNone(offer.llm_result)
         self.assertEqual(offer.llm_result.get("classification"), "coupon")
 
         formatted = format_offer(offer, "https://meli.la/aff123")
