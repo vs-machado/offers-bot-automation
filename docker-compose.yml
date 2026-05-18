@@ -10,7 +10,7 @@ services:
       - ollama_data:/root/.ollama
     restart: unless-stopped
     # We can pre-load or run the model pull automatically:
-    entrypoint: ["/bin/sh", "-c", "ollama serve & sleep 5 && ollama pull qwen3:4b && wait"]
+    entrypoint: ["/bin/sh", "-c", "ollama serve & sleep 5 && ollama pull llama3.2:3b && wait"]
 
   bot:
     build: .
