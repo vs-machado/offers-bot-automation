@@ -191,11 +191,14 @@ class PlaywrightProductResolver:
                 for (const img of document.images) {
                     const src = imageSrc(img);
                     const text = `${img.alt || ''} ${img.className || ''}`.toLowerCase();
+                    const lowerSrc = (src || '').toLowerCase();
                     let score = (img.naturalWidth || 0) * (img.naturalHeight || 0);
                     if (img.closest('.poly-card__portada')) score += 5000000;
                     if (img.dataset?.testid === 'picture') score += 2500000;
-                    if (text.includes('ui-pdp') || text.includes('gallery')) score += 500000;
+                    if (text.includes('ui-pdp-image') || text.includes('ui-pdp-gallery') || text.includes('gallery__figure')) score += 10000000;
+                    if (text.includes('ui-pdp') || text.includes('gallery')) score += 1000000;
                     if (text.includes('logo') || text.includes('avatar') || text.includes('icon')) score -= 1000000;
+                    if (text.includes('meli+') || text.includes('meli-plus') || text.includes('plus') || text.includes('banner') || text.includes('planos') || text.includes('beneficio') || text.includes('subscription') || text.includes('assinatura') || lowerSrc.includes('meli-plus') || lowerSrc.includes('banner') || lowerSrc.includes('plus')) score -= 10000000;
                     add(src, score);
                 }
 
