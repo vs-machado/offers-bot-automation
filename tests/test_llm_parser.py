@@ -1,7 +1,10 @@
 import unittest
 import os
+import sqlite3
+import tempfile
 from offers_bot.parser import extract_offers
 from offers_bot.main import format_offer
+from offers_bot.llm_parser import save_token_usage
 
 
 class LLMParserTest(unittest.TestCase):
@@ -10,6 +13,25 @@ class LLMParserTest(unittest.TestCase):
         # Explicitly enable LLM for this test suite
         if "DISABLE_LLM" in os.environ:
             del os.environ["DISABLE_LLM"]
+
+    def test_save_token_usage(self):
+        fd, temp_db = tempfile.mkstemp(suffix=".sqlite3")
+        os.close(fd)
+        os.environ["DATABASE_PATH"] = temp_db
+
+        try:
+            save_token_usage(150, 250)
+            conn = sqlite3.connect(temp_db)
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT prompt_tokens, completion_tokens, total_tokens FROM token_usage"
+            )
+            row = cursor.fetchone()
+            self.assertEqual(row, (150, 250, 400))
+            conn.close()
+        finally:
+            if os.path.exists(temp_db):
+                os.remove(temp_db)
 
     def test_llm_classifies_product_offer(self):
         text = (

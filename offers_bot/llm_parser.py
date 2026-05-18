@@ -45,6 +45,37 @@ JSON Schema:
 """
 
 
+def save_token_usage(prompt_tokens: int, completion_tokens: int) -> None:
+    db_path = os.getenv("DATABASE_PATH", "data/offers.sqlite3")
+    try:
+        import sqlite3
+        from pathlib import Path
+
+        db_dir = Path(db_path).parent
+        db_dir.mkdir(parents=True, exist_ok=True)
+
+        with sqlite3.connect(db_path) as conn:
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS token_usage (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    timestamp TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    prompt_tokens INTEGER NOT NULL,
+                    completion_tokens INTEGER NOT NULL,
+                    total_tokens INTEGER NOT NULL
+                )
+                """
+            )
+            total = prompt_tokens + completion_tokens
+            conn.execute(
+                "INSERT INTO token_usage (prompt_tokens, completion_tokens, total_tokens) VALUES (?, ?, ?)",
+                (prompt_tokens, completion_tokens, total),
+            )
+            conn.commit()
+    except Exception as e:
+        logger.warning("Failed to save token usage to db: %s", e)
+
+
 def parse_with_llm(text: str) -> Optional[Dict[str, Any]]:
     import os
 
@@ -63,6 +94,11 @@ def parse_with_llm(text: str) -> Optional[Dict[str, Any]]:
         resp.raise_for_status()
         result = resp.json()
         response_text = result.get("response", "")
+
+        # Save token usage
+        prompt_tokens = result.get("prompt_eval_count", 0)
+        eval_tokens = result.get("eval_count", 0)
+        save_token_usage(prompt_tokens, eval_tokens)
 
         # Extract JSON from response if it has thinking tags or extra text
         if "{" in response_text:
