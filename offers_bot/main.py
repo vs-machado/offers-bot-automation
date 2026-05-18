@@ -252,6 +252,8 @@ def format_llm_offer(offer: Offer, affiliate_url: str) -> str:
 
     if classification == "coupon":
         coupon_data = llm.get("coupon", {})
+        if not isinstance(coupon_data, dict):
+            coupon_data = {}
         platform = coupon_data.get("platform", "Generic")
         novo_ml = coupon_data.get("novo_ml_format", False)
         coupons = coupon_data.get("coupons", [])
@@ -323,6 +325,8 @@ def format_llm_offer(offer: Offer, affiliate_url: str) -> str:
 
     elif classification == "product":
         prod = llm.get("product", {})
+        if not isinstance(prod, dict):
+            prod = {}
         title = prod.get("title", "")
         price = prod.get("price", "")
         card_price = prod.get("card_price", "")

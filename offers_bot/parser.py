@@ -116,6 +116,8 @@ def extract_offers(text: str) -> list[Offer]:
 
     if llm_res and llm_res.get("classification") == "product":
         prod = llm_res.get("product", {})
+        if not isinstance(prod, dict):
+            prod = {}
         llm_title = prod.get("title") or None
         llm_price = prod.get("price") or None
         llm_card_price = prod.get("card_price") or None
