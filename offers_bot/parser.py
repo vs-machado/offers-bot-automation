@@ -88,9 +88,32 @@ class Offer:
     coupon: str | None
     meli_plus_only: bool
     all_urls: tuple[str, ...] = ()
+    llm_result: dict | None = None
 
 
 def extract_offers(text: str) -> list[Offer]:
+    from .llm_parser import parse_with_llm
+
+    llm_res = parse_with_llm(text)
+
+    llm_title = None
+    llm_price = None
+    llm_card_price = None
+    llm_installment = None
+    llm_shipping = None
+    llm_coupon = None
+    llm_meli_plus = False
+
+    if llm_res and llm_res.get("classification") == "product":
+        prod = llm_res.get("product", {})
+        llm_title = prod.get("title") or None
+        llm_price = prod.get("price") or None
+        llm_card_price = prod.get("card_price") or None
+        llm_installment = prod.get("installment_info") or None
+        llm_shipping = prod.get("shipping_info") or None
+        llm_coupon = prod.get("coupon") or None
+        llm_meli_plus = prod.get("meli_plus_only", False)
+
     offers: list[Offer] = []
     seen_urls: set[str] = set()
 
@@ -110,14 +133,21 @@ def extract_offers(text: str) -> list[Offer]:
             Offer(
                 original_text=text.strip(),
                 url=shopee_resgate_url,
-                title=extract_title(text),
-                price=extract_price(text),
-                card_price=extract_card_price(text),
-                installment_info=extract_installment_info(text),
-                shipping_info=extract_shipping_info(text),
-                coupon=extract_coupon(text),
-                meli_plus_only=is_meli_plus_only(text),
+                title=llm_title if llm_title is not None else extract_title(text),
+                price=llm_price if llm_price is not None else extract_price(text),
+                card_price=llm_card_price
+                if llm_card_price is not None
+                else extract_card_price(text),
+                installment_info=llm_installment
+                if llm_installment is not None
+                else extract_installment_info(text),
+                shipping_info=llm_shipping
+                if llm_shipping is not None
+                else extract_shipping_info(text),
+                coupon=llm_coupon if llm_coupon is not None else extract_coupon(text),
+                meli_plus_only=llm_meli_plus if llm_res else is_meli_plus_only(text),
                 all_urls=tuple(found_urls),
+                llm_result=llm_res,
             )
         )
         return offers
@@ -144,14 +174,25 @@ def extract_offers(text: str) -> list[Offer]:
                 Offer(
                     original_text=text.strip(),
                     url=found_urls[product_idx],
-                    title=extract_title(text),
-                    price=extract_price(text),
-                    card_price=extract_card_price(text),
-                    installment_info=extract_installment_info(text),
-                    shipping_info=extract_shipping_info(text),
-                    coupon=extract_coupon(text),
-                    meli_plus_only=is_meli_plus_only(text),
+                    title=llm_title if llm_title is not None else extract_title(text),
+                    price=llm_price if llm_price is not None else extract_price(text),
+                    card_price=llm_card_price
+                    if llm_card_price is not None
+                    else extract_card_price(text),
+                    installment_info=llm_installment
+                    if llm_installment is not None
+                    else extract_installment_info(text),
+                    shipping_info=llm_shipping
+                    if llm_shipping is not None
+                    else extract_shipping_info(text),
+                    coupon=llm_coupon
+                    if llm_coupon is not None
+                    else extract_coupon(text),
+                    meli_plus_only=llm_meli_plus
+                    if llm_res
+                    else is_meli_plus_only(text),
                     all_urls=tuple(found_urls),
+                    llm_result=llm_res,
                 )
             )
             return offers
@@ -162,14 +203,21 @@ def extract_offers(text: str) -> list[Offer]:
             Offer(
                 original_text=text.strip(),
                 url=found_urls[0],
-                title=extract_title(text),
-                price=extract_price(text),
-                card_price=extract_card_price(text),
-                installment_info=extract_installment_info(text),
-                shipping_info=extract_shipping_info(text),
-                coupon=extract_coupon(text),
-                meli_plus_only=is_meli_plus_only(text),
+                title=llm_title if llm_title is not None else extract_title(text),
+                price=llm_price if llm_price is not None else extract_price(text),
+                card_price=llm_card_price
+                if llm_card_price is not None
+                else extract_card_price(text),
+                installment_info=llm_installment
+                if llm_installment is not None
+                else extract_installment_info(text),
+                shipping_info=llm_shipping
+                if llm_shipping is not None
+                else extract_shipping_info(text),
+                coupon=llm_coupon if llm_coupon is not None else extract_coupon(text),
+                meli_plus_only=llm_meli_plus if llm_res else is_meli_plus_only(text),
                 all_urls=tuple(found_urls),
+                llm_result=llm_res,
             )
         )
         return offers
@@ -179,13 +227,20 @@ def extract_offers(text: str) -> list[Offer]:
             Offer(
                 original_text=text.strip(),
                 url=clean_url,
-                title=extract_title(text),
-                price=extract_price(text),
-                card_price=extract_card_price(text),
-                installment_info=extract_installment_info(text),
-                shipping_info=extract_shipping_info(text),
-                coupon=extract_coupon(text),
-                meli_plus_only=is_meli_plus_only(text),
+                title=llm_title if llm_title is not None else extract_title(text),
+                price=llm_price if llm_price is not None else extract_price(text),
+                card_price=llm_card_price
+                if llm_card_price is not None
+                else extract_card_price(text),
+                installment_info=llm_installment
+                if llm_installment is not None
+                else extract_installment_info(text),
+                shipping_info=llm_shipping
+                if llm_shipping is not None
+                else extract_shipping_info(text),
+                coupon=llm_coupon if llm_coupon is not None else extract_coupon(text),
+                meli_plus_only=llm_meli_plus if llm_res else is_meli_plus_only(text),
+                llm_result=llm_res,
             )
         )
     return offers

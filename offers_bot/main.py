@@ -243,7 +243,130 @@ def format_coupon_bulletin_offer(offer: Offer, affiliate_url: str) -> str | None
     return None
 
 
+def format_llm_offer(offer: Offer, affiliate_url: str) -> str:
+    if not offer.llm_result:
+        return ""
+
+    llm = offer.llm_result
+    classification = llm.get("classification")
+
+    if classification == "coupon":
+        coupon_data = llm.get("coupon", {})
+        platform = coupon_data.get("platform", "Generic")
+        novo_ml = coupon_data.get("novo_ml_format", False)
+        coupons = coupon_data.get("coupons", [])
+
+        if platform == "Amazon":
+            title = "☑️ Cupom Amazon!"
+            lines = []
+            for c in coupons:
+                detail = c.get("detail", "")
+                code = c.get("code", "")
+                if detail and code:
+                    detail_clean = re.sub(r"\s+", " ", detail).strip(" -:|!\t")
+                    detail_clean = re.sub(r"R\$\s*(\d)", r"R$ \1", detail_clean)
+                    lines.append(f"🎟 {detail_clean}: {wrap_coupon_codes(code)}")
+            if lines:
+                return (
+                    f"{title}\n\n"
+                    + "\n".join(lines)
+                    + f"\n\n🛒 Resgate aqui: {affiliate_url}"
+                )
+
+        elif platform == "Mercado Livre":
+            if novo_ml:
+                detail = coupons[0].get("detail", "") if coupons else ""
+                code = coupons[0].get("code", "") if coupons else ""
+                detail_clean = re.sub(r"\s+", " ", detail).strip(" -:|!\t")
+                detail_clean = re.sub(r"R\$\s*(\d)", r"R$ \1", detail_clean)
+                if detail_clean.startswith("▪️"):
+                    detail_clean = detail_clean.replace("▪️", "🤑").strip()
+                elif not detail_clean.startswith("🤑"):
+                    detail_clean = f"🤑 {detail_clean}"
+                return f"{detail_clean}\n\n🎟️ Cupom: {wrap_coupon_codes(code)}\n\n🔗 {affiliate_url}"
+            else:
+                title = "🔥 Cupons Mercado Livre!"
+                lines = []
+                for c in coupons:
+                    detail = c.get("detail", "")
+                    code = c.get("code", "")
+                    if detail and code:
+                        detail_clean = re.sub(r"\s+", " ", detail).strip(" -:|!\t")
+                        detail_clean = re.sub(r"R\$\s*(\d)", r"R$ \1", detail_clean)
+                        lines.append(f"🎟 {detail_clean}: {wrap_coupon_codes(code)}")
+                if lines:
+                    return (
+                        f"{title}\n\n"
+                        + "\n".join(lines)
+                        + f"\n\n🛒 Resgate aqui: {affiliate_url}"
+                    )
+
+        elif platform == "Shopee" or platform == "AliExpress":
+            lines = []
+            for c in coupons:
+                detail = c.get("detail", "")
+                code = c.get("code", "")
+                if detail and code:
+                    detail_clean = re.sub(r"\s+", " ", detail).strip(" -:|!\t")
+                    detail_clean = re.sub(r"R\$\s*(\d)", r"R$ \1", detail_clean)
+                    lines.append(f"🎟 {detail_clean}: {wrap_coupon_codes(code)}")
+            if lines:
+                return "\n".join(lines) + f"\n\n🔗 {affiliate_url}"
+
+        else:  # Generic
+            detail = coupons[0].get("detail", "") if coupons else ""
+            code = coupons[0].get("code", "") if coupons else ""
+            detail_clean = re.sub(r"\s+", " ", detail).strip(" -:|!\t")
+            detail_clean = re.sub(r"R\$\s*(\d)", r"R$ \1", detail_clean)
+            detail_clean = re.sub(r"^[^\w\dR$%]+", "", detail_clean).strip()
+            return f"{detail_clean}\n\n🎟️ Cupom: {wrap_coupon_codes(code)}\n\n🔗 {affiliate_url}"
+
+    elif classification == "product":
+        prod = llm.get("product", {})
+        title = prod.get("title", "")
+        price = prod.get("price", "")
+        card_price = prod.get("card_price", "")
+        installment = prod.get("installment_info", "")
+        shipping = prod.get("shipping_info", "")
+        coupon = prod.get("coupon", "")
+        resgate_note = prod.get("resgate_anuncio_note", "")
+        meli_plus = prod.get("meli_plus_only", False)
+
+        parts = []
+        if title:
+            t = URL_RE.sub("", title).strip()
+            if installment:
+                t = f"[{installment.upper()}] {t}"
+            parts.append(t)
+
+        if price:
+            price_block = f"💰 {price}"
+            if card_price:
+                price_block += f"\n💳 {card_price}"
+            if shipping:
+                price_block += f"\n{shipping.upper()}"
+            parts.append(price_block)
+
+        if coupon:
+            parts.append(f"🎟️ CUPOM: {wrap_coupon_codes(coupon)}")
+
+        if resgate_note:
+            parts.append(f"🏷️ {resgate_note}")
+
+        if meli_plus:
+            parts.append("⭐ Exclusivo para clientes Meli+")
+
+        parts.append(f"🔗 Link do produto:\n{affiliate_url}")
+        return "\n\n".join(parts)
+
+    return ""
+
+
 def format_offer(offer: Offer, affiliate_url: str) -> str:
+    llm_formatted = format_llm_offer(offer, affiliate_url)
+    if llm_formatted:
+        return llm_formatted
+
     coupon_offer = format_coupon_bulletin_offer(offer, affiliate_url)
     if coupon_offer:
         return coupon_offer
@@ -318,12 +441,8 @@ def format_outgoing_offer(
         new_text = offer.original_text
         for orig, aff in replacements.items():
             new_text = new_text.replace(orig, aff)
-        new_text = re.sub(
-            r"\s*\(?an[uú]ncio\)?\s*$", "", new_text, flags=re.IGNORECASE
-        )
-        new_text = re.sub(
-            r"\s*-\s*$", "", new_text, flags=re.IGNORECASE
-        )
+        new_text = re.sub(r"\s*\(?an[uú]ncio\)?\s*$", "", new_text, flags=re.IGNORECASE)
+        new_text = re.sub(r"\s*-\s*$", "", new_text, flags=re.IGNORECASE)
         new_text = re.sub(r"\n{3,}", "\n\n", new_text).strip()
         formatted_text = new_text
 
@@ -339,12 +458,8 @@ def format_outgoing_offer(
         new_text = offer.original_text
         for orig, aff in replacements.items():
             new_text = new_text.replace(orig, aff)
-        new_text = re.sub(
-            r"\s*\(?an[uú]ncio\)?\s*$", "", new_text, flags=re.IGNORECASE
-        )
-        new_text = re.sub(
-            r"\s*-\s*$", "", new_text, flags=re.IGNORECASE
-        )
+        new_text = re.sub(r"\s*\(?an[uú]ncio\)?\s*$", "", new_text, flags=re.IGNORECASE)
+        new_text = re.sub(r"\s*-\s*$", "", new_text, flags=re.IGNORECASE)
         new_text = re.sub(r"\n{3,}", "\n\n", new_text).strip()
         return f"{new_text}\n\n- Anúncio"
 
