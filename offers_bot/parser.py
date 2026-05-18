@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import logging
 import re
 from dataclasses import dataclass
 from urllib.parse import urlparse
+
+from .llm_parser import parse_with_llm
 
 
 MELI_SHORT_RE = re.compile(r"https?://meli\.la/[A-Za-z0-9]{7}", re.IGNORECASE)
@@ -92,9 +95,16 @@ class Offer:
 
 
 def extract_offers(text: str) -> list[Offer]:
-    from .llm_parser import parse_with_llm
+    logger = logging.getLogger(__name__)
 
     llm_res = parse_with_llm(text)
+
+    if llm_res:
+        logger.info(
+            "LLM parsing successful: classification=%s", llm_res.get("classification")
+        )
+    else:
+        logger.info("LLM parsing failed or disabled. Using fallback regex parser.")
 
     llm_title = None
     llm_price = None
