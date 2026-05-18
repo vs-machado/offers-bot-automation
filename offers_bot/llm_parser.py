@@ -130,19 +130,19 @@ def parse_with_llm(text: str) -> Optional[Dict[str, Any]]:
 
         agent = Agent(
             model=model,
-            result_type=DealParseResult,
+            output_type=DealParseResult,
             system_prompt=SYSTEM_PROMPT,
         )
 
         result = agent.run_sync(f"Analyze this Telegram message:\n\n{text}")
 
         # Save token usage
-        prompt_tokens = result.usage().request_tokens or 0
-        eval_tokens = result.usage().response_tokens or 0
+        prompt_tokens = result.usage().input_tokens or 0
+        eval_tokens = result.usage().output_tokens or 0
         save_token_usage(prompt_tokens, eval_tokens)
 
         # Return dictionary matching previous Ollama outputs
-        return result.data.model_dump()
+        return result.output.model_dump()
     except Exception as e:
         logger.warning("LLM parsing failed or timed out: %s", e)
         return None
