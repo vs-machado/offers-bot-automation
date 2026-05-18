@@ -86,12 +86,19 @@ def _is_generic_coupon_bulletin(offer: Offer, text: str) -> bool:
     return False
 
 
+MOEDAS_RE = re.compile(r"\s*\+\s*moedas?\s*$", re.IGNORECASE)
+
+
 def wrap_coupon_codes(coupon_text: str) -> str:
     if not coupon_text:
         return ""
-    # Split by " ou " and wrap each part in backticks
+    suffix = ""
+    m = MOEDAS_RE.search(coupon_text)
+    if m:
+        suffix = coupon_text[m.start() :]
+        coupon_text = coupon_text[: m.start()]
     parts = [f"`{p.strip()}`" for p in coupon_text.split(" ou ")]
-    return " ou ".join(parts)
+    return " ou ".join(parts) + suffix
 
 
 def _format_generic_coupon(offer: Offer, affiliate_url: str, text: str) -> str:
