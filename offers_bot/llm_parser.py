@@ -12,8 +12,10 @@ MODEL_NAME = "llama3.2:3b"
 
 SYSTEM_PROMPT = """You are an expert assistant that parses shopping deals and coupons from Telegram messages.
 Analyze the message and classify it into one of two categories:
-1. "product": A product deal offering a specific product for a price.
+1. "product": A product deal offering a specific product for a price (even if a coupon code is also provided for that product).
 2. "coupon": A generic coupon bulletin, a coupon list, or a coupon discount notice (not for one single specific product).
+
+CRITICAL CLASSIFICATION RULE: If the message names a specific, single product (e.g. a monitor, laptop, smartphone, etc.) with a specific price, you MUST classify it as "product", even if the message also features coupon codes. Classify as "coupon" ONLY when the message is a list/bulletin of general coupons or a discount event without one main specific product.
 
 Extract the details precisely in Portuguese. Return ONLY a valid JSON object matching the schema below. Do not include any other text, markdown formatting, or comments outside the JSON.
 
