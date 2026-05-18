@@ -5,7 +5,7 @@ import re
 from dataclasses import dataclass
 from urllib.parse import urlparse
 
-from .llm_parser import parse_with_llm
+from .llm_parser import parse_with_llm, parse_with_llm_async
 
 
 MELI_SHORT_RE = re.compile(r"https?://meli\.la/[A-Za-z0-9]{7}", re.IGNORECASE)
@@ -95,9 +95,15 @@ class Offer:
 
 
 def extract_offers(text: str) -> list[Offer]:
-    logger = logging.getLogger(__name__)
+    return _extract_offers(text, parse_with_llm(text))
 
-    llm_res = parse_with_llm(text)
+
+async def extract_offers_async(text: str) -> list[Offer]:
+    return _extract_offers(text, await parse_with_llm_async(text))
+
+
+def _extract_offers(text: str, llm_res: dict | None) -> list[Offer]:
+    logger = logging.getLogger(__name__)
 
     if llm_res:
         logger.info(

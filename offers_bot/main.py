@@ -15,7 +15,7 @@ from .mercado_livre import MercadoLivreClient, UnsupportedOfferError
 from .parser import (
     Offer,
     URL_RE,
-    extract_offers,
+    extract_offers_async,
     is_amazon_url,
     is_mercado_livre_url,
     is_shopee_url,
@@ -536,7 +536,7 @@ async def run() -> None:
     async def handle_message(
         source_chat: str, message_id: int, text: str, original_media: str | None = None
     ) -> None:
-        offers = extract_offers(text)
+        offers = await extract_offers_async(text)
         logging.info(
             "Parsed message chat=%s message=%s offers=%s",
             source_chat,
