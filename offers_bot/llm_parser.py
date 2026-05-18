@@ -7,6 +7,7 @@ from typing import List, Literal
 from pydantic_ai import Agent
 from pydantic_ai.models.gemini import GeminiModel
 from pydantic_ai.models.openai import OpenAIModel
+from pydantic_ai.providers.google_gla import GoogleGLAProvider
 
 logger = logging.getLogger(__name__)
 
@@ -124,7 +125,7 @@ def parse_with_llm(text: str) -> Optional[Dict[str, Any]]:
         else:
             model = GeminiModel(
                 model_name="gemini-2.5-flash",
-                api_key=gemini_key,
+                provider=GoogleGLAProvider(api_key=gemini_key),
             )
 
         agent = Agent(
