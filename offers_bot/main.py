@@ -94,10 +94,30 @@ COUPON_SUFFIX_RE = re.compile(
 )
 
 
+def _wrap_coupons_in_text(text: str) -> str:
+    def _process_line(m: re.Match) -> str:
+        prefix = m.group(1)
+        content = m.group(2)
+        return prefix + wrap_coupon_codes(content)
+
+    text = re.sub(
+        r"((?:cup(?:om|ons)?\s*[:：]?\s*)|(?:.*?(?:off|desconto).*?)\s*[:：]\s*)([^\n]+)",
+        _process_line,
+        text,
+        flags=re.IGNORECASE,
+    )
+    return text
+
+
 def wrap_coupon_codes(coupon_text: str) -> str:
     if not coupon_text:
         return ""
-    coupon_text = COUPON_SUFFIX_RE.sub("", coupon_text).strip()
+    suffix = ""
+    m = COUPON_SUFFIX_RE.search(coupon_text)
+    if m:
+        suffix = coupon_text[m.start() :]
+        coupon_text = coupon_text[: m.start()]
+    coupon_text = coupon_text.strip()
     coupon_text = re.sub(r"[`*]+", "", coupon_text)
 
     codes = extract_coupon_codes(coupon_text)
@@ -105,9 +125,8 @@ def wrap_coupon_codes(coupon_text: str) -> str:
         result = coupon_text
         for code in codes:
             result = result.replace(code, f"`{code}`")
-        return result
+        return result + suffix
 
-    suffix = ""
     m = MOEDAS_RE.search(coupon_text)
     if m:
         suffix = coupon_text[m.start() :]
@@ -467,6 +486,7 @@ def format_outgoing_offer(
         new_text = offer.original_text
         for orig, aff in replacements.items():
             new_text = new_text.replace(orig, aff)
+        new_text = _wrap_coupons_in_text(new_text)
         new_text = re.sub(r"\s*\(?an[uú]ncio\)?\s*$", "", new_text, flags=re.IGNORECASE)
         new_text = re.sub(r"\s*-\s*$", "", new_text, flags=re.IGNORECASE)
         new_text = re.sub(r"\n{3,}", "\n\n", new_text).strip()
@@ -484,6 +504,7 @@ def format_outgoing_offer(
         new_text = offer.original_text
         for orig, aff in replacements.items():
             new_text = new_text.replace(orig, aff)
+        new_text = _wrap_coupons_in_text(new_text)
         new_text = re.sub(r"\s*\(?an[uú]ncio\)?\s*$", "", new_text, flags=re.IGNORECASE)
         new_text = re.sub(r"\s*-\s*$", "", new_text, flags=re.IGNORECASE)
         new_text = re.sub(r"\n{3,}", "\n\n", new_text).strip()
