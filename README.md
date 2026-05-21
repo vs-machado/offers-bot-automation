@@ -35,12 +35,8 @@ flowchart TD
    - `ML_AFFILIATE_TAG`
    - `ML_COOKIE_HEADER`
    - `ML_CSRF_TOKEN`
-   - `SHOPEE_COOKIE_HEADER`
-   - `SHOPEE_CSRF_TOKEN`
-   - `SHOPEE_AF_AC_ENC_DAT`
-   - `SHOPEE_AF_AC_ENC_SZ_TOKEN`
-   - `SHOPEE_X_SAP_RI`
-   - `SHOPEE_X_SAP_SEC`
+   - `SHOPEE_APP_ID`
+   - `SHOPEE_APP_SECRET`
    - `AMAZON_AFFILIATE_TAG`
    - `AMAZON_COOKIE_HEADER`
    - `AMAZON_MARKETPLACE_ID`
@@ -168,18 +164,14 @@ The bot resolves incoming AliExpress short URLs, extracts the product id when av
 
 ## Shopee Credentials
 
-Use cookies from logged-in Shopee Affiliate session. Put them in `.env`:
+Use Shopee Affiliate Open API credentials. Put them in `.env`:
 
 ```env
-SHOPEE_COOKIE_HEADER=SPC_F=...; csrftoken=...; ...
-SHOPEE_CSRF_TOKEN=...
-SHOPEE_AF_AC_ENC_DAT=...
-SHOPEE_AF_AC_ENC_SZ_TOKEN=...
-SHOPEE_X_SAP_RI=...
-SHOPEE_X_SAP_SEC=...
+SHOPEE_APP_ID=...
+SHOPEE_APP_SECRET=...
 ```
 
-Bot resolves incoming `https://s.shopee.com.br/...` short URL, extracts final `-i.<shop_id>.<item_id>` ids from redirected product URL, opens `https://affiliate.shopee.com.br/offer/product_offer/<item_id>` in Chromium, clicks `Obter link`, then reads generated affiliate short URL from popup.
+Bot resolves incoming `https://s.shopee.com.br/...` short URL, extracts final `-i.<shop_id>.<item_id>` ids from redirected product URL when available, then calls Shopee Affiliate GraphQL API `generateShortLink` to create your short link. It also uses `productOfferV2` to fetch the product image when product ids are available.
 
 ## Notes
 
