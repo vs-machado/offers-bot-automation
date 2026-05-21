@@ -2,6 +2,27 @@
 
 Bot user account listens to source Telegram groups, extracts Mercado Livre, Amazon, and Shopee URLs, generates your affiliate link, then posts to target group.
 
+## Parsing Architecture
+
+The bot now uses an AI parsing layer first. Telegram messages are sent to a structured Pydantic AI agent backed by Gemini (`gemini-2.5-flash`), which classifies each message as either a product deal or a generic coupon bulletin and extracts clean fields such as title, price, installment info, shipping, coupon, and Meli+ restrictions.
+
+The older regex parser is still present, but it is now the fallback path. It runs only when the AI layer is disabled, missing credentials, or fails/timeouts. URL extraction and platform-specific affiliate conversion still happen after parsing.
+
+```mermaid
+flowchart TD
+    A[Telegram source message] --> B[Extract supported offer URLs]
+    B --> C{AI parser enabled?}
+    C -->|No: DISABLE_LLM=true| F[Regex fallback parser]
+    C -->|Yes| D["Pydantic AI agent<br/>Gemini 2.5 Flash"]
+    D --> E{Structured parse OK?}
+    E -->|Yes| G["Use AI fields<br/>title, price, coupon, shipping"]
+    E -->|No: error, timeout, missing key| F
+    F --> H[Extract fields with regex heuristics]
+    G --> I[Generate affiliate link]
+    H --> I
+    I --> J[Post formatted offer to target chat]
+```
+
 ## Setup
 
 1. Create Telegram API credentials at `https://my.telegram.org/apps`.
@@ -13,16 +34,19 @@ Bot user account listens to source Telegram groups, extracts Mercado Livre, Amaz
    - `TARGET_CHAT` with your group id, `@name`, or invite link
    - `ML_AFFILIATE_TAG`
    - `ML_COOKIE_HEADER`
-    - `ML_CSRF_TOKEN`
-    - `SHOPEE_COOKIE_HEADER`
-    - `SHOPEE_CSRF_TOKEN`
-    - `SHOPEE_AF_AC_ENC_DAT`
-    - `SHOPEE_AF_AC_ENC_SZ_TOKEN`
-    - `SHOPEE_X_SAP_RI`
-    - `SHOPEE_X_SAP_SEC`
-    - `AMAZON_AFFILIATE_TAG`
-    - `AMAZON_COOKIE_HEADER`
-    - `AMAZON_MARKETPLACE_ID`
+   - `ML_CSRF_TOKEN`
+   - `SHOPEE_COOKIE_HEADER`
+   - `SHOPEE_CSRF_TOKEN`
+   - `SHOPEE_AF_AC_ENC_DAT`
+   - `SHOPEE_AF_AC_ENC_SZ_TOKEN`
+   - `SHOPEE_X_SAP_RI`
+   - `SHOPEE_X_SAP_SEC`
+   - `AMAZON_AFFILIATE_TAG`
+   - `AMAZON_COOKIE_HEADER`
+   - `AMAZON_MARKETPLACE_ID`
+   - `GEMINI_API_KEY` for the AI parsing layer
+   - `LITELLM_API_BASE` only if routing Gemini through LiteLLM
+   - `DISABLE_LLM=true` only when you want to force the regex fallback parser
 4. Install deps:
 
 ```powershell
@@ -143,6 +167,7 @@ Bot resolves incoming `https://s.shopee.com.br/...` short URL, extracts final `-
 - Scraping other Telegram groups needs your user account to be member of those groups. Normal bot accounts cannot read arbitrary groups.
 - `POLL_EXISTING_MESSAGES=true` processes latest 50 messages from each source at startup.
 - SQLite dedupe lives at `data/offers.sqlite3`.
+- AI parser token usage is stored in SQLite under the `token_usage` table.
 - Private invite links can be joined/resolved by Telethon only when your account has access.
 - `BROWSER_RESOLVER_ENABLED=true` uses headless Chromium to open affiliate/profile links, find the `Ir para produto` URL, then convert that real product URL into your affiliate link.
 - `BROWSER_DEBUG_DIR=data/browser-debug` saves HTML/screenshot when Chromium cannot find the product URL.
