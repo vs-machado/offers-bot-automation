@@ -26,7 +26,7 @@ class MercadoLivreClientTest(unittest.TestCase):
                     "urls": [
                         {
                             "short_url": "https://meli.la/1BwH3aR",
-                            "long_url": "https://www.mercadolivre.com.br/social/axdxs2",
+                            "long_url": "https://www.mercadolivre.com.br/social/example-store",
                             "origin_url": "https://www.mercadolivre.com.br/x/p/MLB19603205",
                             "text": "Ou acesse o link:\nhttps://meli.la/1BwH3aR",
                         }
@@ -36,7 +36,7 @@ class MercadoLivreClientTest(unittest.TestCase):
             )
 
         client = MercadoLivreClient(
-            tag="axdxs2",
+            tag="example-store",
             cookie_header="ssid=abc",
             csrf_token="csrf",
             client=httpx.Client(
@@ -53,7 +53,7 @@ class MercadoLivreClientTest(unittest.TestCase):
                 {
                     "itemId": "MLB19603205",
                     "itemAddToList": "MLB5872060016",
-                    "tag": "axdxs2",
+                    "tag": "example-store",
                     "type": "product",
                     "urls": ["www.mercadolivre.com.br/x/p/MLB19603205"],
                     "extraCommission": "false",
@@ -72,7 +72,7 @@ class MercadoLivreClientTest(unittest.TestCase):
                     "status": 200,
                     "urls": [
                         {
-                            "origin_url": "www.mercadolivre.com.br/social/promotom?ref=abc",
+                            "origin_url": "www.mercadolivre.com.br/social/example-store?ref=abc",
                             "message": "URL not allowed in affiliates program",
                             "error_code": 111,
                             "status": 200,
@@ -85,7 +85,7 @@ class MercadoLivreClientTest(unittest.TestCase):
             )
 
         client = MercadoLivreClient(
-            tag="axdxs2",
+            tag="example-store",
             cookie_header="ssid=abc",
             csrf_token="csrf",
             client=httpx.Client(
@@ -95,7 +95,7 @@ class MercadoLivreClientTest(unittest.TestCase):
 
         with self.assertRaisesRegex(UnsupportedOfferError, "URL not allowed"):
             client.create_link(
-                "https://www.mercadolivre.com.br/social/promotom?ref=abc"
+                "https://www.mercadolivre.com.br/social/example-store?ref=abc"
             )
 
     def test_create_link_retries_with_browser_resolved_product_url(self):
@@ -121,13 +121,13 @@ class MercadoLivreClientTest(unittest.TestCase):
 
             payload = json.loads(request.content.decode())
             posts.append(payload)
-            if "social/promotom" in payload["urls"][0]:
+            if "social/example-store" in payload["urls"][0]:
                 return httpx.Response(
                     200,
                     json={
                         "urls": [
                             {
-                                "origin_url": "www.mercadolivre.com.br/social/promotom?ref=abc",
+                                "origin_url": "www.mercadolivre.com.br/social/example-store?ref=abc",
                                 "message": "URL not allowed in affiliates program",
                                 "error_code": 111,
                             }
@@ -149,7 +149,7 @@ class MercadoLivreClientTest(unittest.TestCase):
             )
 
         client = MercadoLivreClient(
-            tag="axdxs2",
+            tag="example-store",
             cookie_header="ssid=abc",
             csrf_token="csrf",
             product_url_resolver=resolver,
@@ -159,14 +159,14 @@ class MercadoLivreClientTest(unittest.TestCase):
         )
 
         link = client.create_link(
-            "https://www.mercadolivre.com.br/social/promotom?ref=abc"
+            "https://www.mercadolivre.com.br/social/example-store?ref=abc"
         )
 
         self.assertEqual(link.short_url, "https://meli.la/mine")
         self.assertEqual(link.image_url, "https://http2.mlstatic.com/image.webp")
         self.assertEqual(
             resolver.image_urls,
-            ["https://www.mercadolivre.com.br/social/promotom?ref=abc"],
+            ["https://www.mercadolivre.com.br/social/example-store?ref=abc"],
         )
         self.assertEqual(len(posts), 1)
         self.assertEqual(posts[0]["itemId"], "MLB23997577")
@@ -184,7 +184,7 @@ class MercadoLivreClientTest(unittest.TestCase):
 
             def get_image(self, url: str) -> str | None:
                 self.image_urls.append(url)
-                if "social/promotom" in url:
+                if "social/example-store" in url:
                     return None
                 return "https://http2.mlstatic.com/product.webp"
 
@@ -193,13 +193,13 @@ class MercadoLivreClientTest(unittest.TestCase):
                 return httpx.Response(200, request=request)
 
             payload = json.loads(request.content.decode())
-            if "social/promotom" in payload["urls"][0]:
+            if "social/example-store" in payload["urls"][0]:
                 return httpx.Response(
                     200,
                     json={
                         "urls": [
                             {
-                                "origin_url": "www.mercadolivre.com.br/social/promotom?ref=abc",
+                                "origin_url": "www.mercadolivre.com.br/social/example-store?ref=abc",
                                 "message": "URL not allowed in affiliates program",
                                 "error_code": 111,
                             }
@@ -222,7 +222,7 @@ class MercadoLivreClientTest(unittest.TestCase):
 
         resolver = Resolver()
         client = MercadoLivreClient(
-            tag="axdxs2",
+            tag="example-store",
             cookie_header="ssid=abc",
             csrf_token="csrf",
             product_url_resolver=resolver,
@@ -232,14 +232,14 @@ class MercadoLivreClientTest(unittest.TestCase):
         )
 
         link = client.create_link(
-            "https://www.mercadolivre.com.br/social/promotom?ref=abc"
+            "https://www.mercadolivre.com.br/social/example-store?ref=abc"
         )
 
         self.assertEqual(link.image_url, "https://http2.mlstatic.com/product.webp")
         self.assertEqual(
             resolver.image_urls,
             [
-                "https://www.mercadolivre.com.br/social/promotom?ref=abc",
+                "https://www.mercadolivre.com.br/social/example-store?ref=abc",
                 "https://www.mercadolivre.com.br/cooktop/p/MLB23997577?wid=MLB4548038861",
             ],
         )

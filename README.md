@@ -74,7 +74,7 @@ python -m offers_bot.check_link "https://www.mercadolivre.com.br/creatina-monohi
 ```
 
 ```powershell
-python -m offers_bot.check_link "https://www.amazon.com.br/dp/B0DXR6MKR8?tag=promotom05-20"
+python -m offers_bot.check_link "https://www.amazon.com.br/dp/B0DXR6MKR8?tag=yourtag-20"
 ```
 
 ```powershell
@@ -137,7 +137,7 @@ If you need to update or move your session file on a live server, always follow 
 ```env
 ML_COOKIE_HEADER=_d2id=...; ssid=...; ...
 ML_CSRF_TOKEN=...
-ML_AFFILIATE_TAG=axdxs2
+ML_AFFILIATE_TAG=your-ml-tag
 ```
 
 Cookies expire. When Mercado Livre starts returning 401/403, capture fresh cookie + CSRF from browser devtools while logged into affiliate hub.

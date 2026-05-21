@@ -1,0 +1,11 @@
+.env
+.git
+.gitignore
+.venv/
+.venv_test/
+__pycache__/
+*.py[cod]
+*.session
+*.session-journal
+data/
+venv/

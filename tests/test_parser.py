@@ -23,14 +23,14 @@ class ParserTest(unittest.TestCase):
 
     def test_extracts_amazon_offer_title_and_price(self):
         offers = extract_offers(
-            "iPhone 16 256 GB R$ 5.999 https://www.amazon.com.br/dp/B0DXR6MKR8?tag=promotom05-20"
+            "iPhone 16 256 GB R$ 5.999 https://www.amazon.com.br/dp/B0DXR6MKR8?tag=exampletag-20"
         )
 
         self.assertEqual(len(offers), 1)
         self.assertEqual(offers[0].title, "iPhone 16 256 GB")
         self.assertEqual(offers[0].price, "R$ 5.999")
         self.assertEqual(
-            offers[0].url, "https://www.amazon.com.br/dp/B0DXR6MKR8?tag=promotom05-20"
+            offers[0].url, "https://www.amazon.com.br/dp/B0DXR6MKR8?tag=exampletag-20"
         )
 
     def test_extracts_shopee_offer_title_and_price(self):
@@ -665,7 +665,7 @@ class ParserTest(unittest.TestCase):
             "Micro-ondas 35L Branco MasterCook Midea 220V\n\n"
             "R$ 355\n"
             "-Resgate cupom do anúncio\n\n"
-            "https://www.amazon.com.br/dp/B0FGZGY6VG?tag=promotom05-20\n\n"
+            "https://www.amazon.com.br/dp/B0FGZGY6VG?tag=exampletag-20\n\n"
             "-Anúncio"
         )[0]
 

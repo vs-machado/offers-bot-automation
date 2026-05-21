@@ -43,7 +43,7 @@ class AmazonClientTest(unittest.TestCase):
         )
 
         link = client.create_link(
-            "https://www.amazon.com.br/dp/B0DXR6MKR8?tag=promotom05-20"
+            "https://www.amazon.com.br/dp/B0DXR6MKR8?tag=exampletag-20"
         )
 
         self.assertEqual(link.short_url, "https://amzn.to/4abc123")
@@ -52,7 +52,7 @@ class AmazonClientTest(unittest.TestCase):
             "https://www.amazon.com.br/dp/B0DXR6MKR8?linkCode=sl2&tag=mytag-20&linkId=abc123&ref_=as_li_ss_tl",
         )
         self.assertEqual(
-            link.origin_url, "https://www.amazon.com.br/dp/B0DXR6MKR8?tag=promotom05-20"
+            link.origin_url, "https://www.amazon.com.br/dp/B0DXR6MKR8?tag=exampletag-20"
         )
         self.assertEqual(link.product_key, "AMZN:B0DXR6MKR8")
         self.assertEqual(len(seen_requests), 3)
@@ -126,12 +126,12 @@ class AmazonClientTest(unittest.TestCase):
         )
 
         link = client.create_link(
-            "https://www.amazon.com.br/dp/B0DXR6MKR8?tag=promotom05-20"
+            "https://www.amazon.com.br/dp/B0DXR6MKR8?tag=exampletag-20"
         )
 
         self.assertEqual(
             resolver.seen_url,
-            "https://www.amazon.com.br/dp/B0DXR6MKR8?tag=promotom05-20",
+            "https://www.amazon.com.br/dp/B0DXR6MKR8?tag=exampletag-20",
         )
         self.assertEqual(
             link.image_url,
@@ -172,7 +172,7 @@ class AmazonClientTest(unittest.TestCase):
         )
         try:
             link = client.create_link(
-                "https://www.amazon.com.br/dp/B0DXR6MKR8?tag=promotom05-20"
+                "https://www.amazon.com.br/dp/B0DXR6MKR8?tag=exampletag-20"
             )
         finally:
             client._resolve_short_url = original_resolve_short_url
