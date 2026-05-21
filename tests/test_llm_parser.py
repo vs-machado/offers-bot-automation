@@ -86,3 +86,26 @@ class LLMParserTest(unittest.TestCase):
         formatted = format_offer(offer, "https://meli.la/aff123")
         self.assertIn("ELUX15OFF", formatted)
         self.assertIn("15% OFF", formatted)
+
+    @patch("offers_bot.parser.parse_with_llm")
+    def test_llm_product_coupon_codes_are_individually_wrapped(self, mock_parse):
+        mock_parse.return_value = {
+            "classification": "product",
+            "product": {
+                "title": "Processador Ryzen 5 5600",
+                "price": "R$ 717,51",
+                "coupon": "LIBRETX5600 + IFPAF7UN ou MAES5 + moedas no APP",
+                "meli_plus_only": False,
+            },
+        }
+        offers = extract_offers(
+            "Processador Ryzen 5 5600\n"
+            "R$ 717,51\n"
+            "Cupom: LIBRETX5600 + IFPAF7UN ou MAES5 + moedas no APP\n"
+            "https://s.click.aliexpress.com/e/_c4LBE5wb"
+        )
+
+        formatted = format_offer(offers[0], "https://s.click.aliexpress.com/e/aff123")
+
+        self.assertIn("🎟️ CUPOM: `LIBRETX5600` + `IFPAF7UN` ou `MAES5`", formatted)
+        self.assertNotIn("LIBRETX5600 + IFPAF7UN", formatted)

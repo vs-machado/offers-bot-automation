@@ -15,6 +15,7 @@ from .mercado_livre import MercadoLivreClient, UnsupportedOfferError
 from .parser import (
     Offer,
     URL_RE,
+    extract_coupon_codes,
     extract_offers_async,
     is_amazon_url,
     is_mercado_livre_url,
@@ -87,18 +88,32 @@ def _is_generic_coupon_bulletin(offer: Offer, text: str) -> bool:
 
 
 MOEDAS_RE = re.compile(r"\s*\+\s*moedas?\s*$", re.IGNORECASE)
+COUPON_SUFFIX_RE = re.compile(
+    r"\s*\+\s*(?:(?:\d+|[\d.,]+)\s+)?(?:moedas?|resgate\b).*$",
+    re.IGNORECASE,
+)
 
 
 def wrap_coupon_codes(coupon_text: str) -> str:
     if not coupon_text:
         return ""
+    coupon_text = COUPON_SUFFIX_RE.sub("", coupon_text).strip()
+    coupon_text = re.sub(r"[`*]+", "", coupon_text)
+
+    codes = extract_coupon_codes(coupon_text)
+    if codes:
+        result = coupon_text
+        for code in codes:
+            result = result.replace(code, f"`{code}`")
+        return result
+
     suffix = ""
     m = MOEDAS_RE.search(coupon_text)
     if m:
         suffix = coupon_text[m.start() :]
         coupon_text = coupon_text[: m.start()]
-    parts = [f"`{p.strip()}`" for p in coupon_text.split(" ou ")]
-    return " ou ".join(parts) + suffix
+    parts = [p.strip() for p in re.split(r"\s+(?:ou|e)\s+|\s*\+\s*", coupon_text)]
+    return " ou ".join(f"`{p}`" for p in parts if p) + suffix
 
 
 def _format_generic_coupon(offer: Offer, affiliate_url: str, text: str) -> str:
