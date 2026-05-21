@@ -4,7 +4,7 @@ Bot user account listens to source Telegram groups, extracts Mercado Livre, Amaz
 
 ## Parsing Architecture
 
-The bot now uses an AI parsing layer first. Telegram messages are sent to a structured Pydantic AI agent backed by Gemini (`gemini-2.5-flash`), which classifies each message as either a product deal or a generic coupon bulletin and extracts clean fields such as title, price, installment info, shipping, coupon, and Meli+ restrictions.
+The bot now uses an AI parsing layer first. Telegram messages are sent to a structured Pydantic AI agent backed by Gemini (`gemini-2.5-flash-lite`), which classifies each message as either a product deal or a generic coupon bulletin and extracts clean fields such as title, price, installment info, shipping, coupon, and Meli+ restrictions.
 
 The older regex parser is still present, but it is now the fallback path. It runs only when the AI layer is disabled, missing credentials, or fails/timeouts. URL extraction and platform-specific affiliate conversion still happen after parsing.
 

@@ -111,12 +111,12 @@ def _build_agent(gemini_key: str) -> Agent:
     lite_api_base = os.getenv("LITELLM_API_BASE")
     if lite_api_base:
         model = OpenAIChatModel(
-            "gemini/gemini-2.5-flash",
+            "gemini/gemini-2.5-flash-lite",
             provider=LiteLLMProvider(api_base=lite_api_base, api_key=gemini_key),
         )
     else:
         model = GoogleModel(
-            model_name="gemini-2.5-flash",
+            model_name="gemini-2.5-flash-lite",
             provider=GoogleProvider(api_key=gemini_key),
         )
 
