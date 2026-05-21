@@ -1,6 +1,6 @@
 # Telegram Offers Bot
 
-Bot user account listens to source Telegram groups, extracts Mercado Livre, Amazon, and Shopee URLs, generates your affiliate link, then posts to target group.
+Bot user account listens to source Telegram groups, extracts Mercado Livre, Amazon, Shopee, and AliExpress URLs, generates your affiliate link, then posts to target group.
 
 ## Parsing Architecture
 
@@ -44,6 +44,9 @@ flowchart TD
    - `AMAZON_AFFILIATE_TAG`
    - `AMAZON_COOKIE_HEADER`
    - `AMAZON_MARKETPLACE_ID`
+   - `ALIEXPRESS_APP_KEY`
+   - `ALIEXPRESS_APP_SECRET`
+   - `ALIEXPRESS_TRACKING_ID`
    - `GEMINI_API_KEY` for the AI parsing layer
    - `LITELLM_API_BASE` only if routing Gemini through LiteLLM
    - `DISABLE_LLM=true` only when you want to force the regex fallback parser
@@ -76,6 +79,10 @@ python -m offers_bot.check_link "https://www.amazon.com.br/dp/B0DXR6MKR8?tag=pro
 
 ```powershell
 python -m offers_bot.check_link "https://s.shopee.com.br/LjpppnYGZ"
+```
+
+```powershell
+python -m offers_bot.check_link "https://s.click.aliexpress.com/e/_c4LBE5wb"
 ```
 
 ## Deploying to Coolify (or Docker)
@@ -146,6 +153,18 @@ AMAZON_MARKETPLACE_ID=526970
 ```
 
 The bot resolves the incoming Amazon URL, replaces any existing `tag` with your own Associates tag, adds `linkCode=sl2`, then calls the same SiteStripe shortener endpoint.
+
+## AliExpress Credentials
+
+Use AliExpress Affiliate API credentials. Put them in `.env`:
+
+```env
+ALIEXPRESS_APP_KEY=...
+ALIEXPRESS_APP_SECRET=...
+ALIEXPRESS_TRACKING_ID=default
+```
+
+The bot resolves incoming AliExpress short URLs, extracts the product id when available, builds a BR coin-index product URL, then calls `aliexpress.affiliate.link.generate` to create your promotion link.
 
 ## Shopee Credentials
 
