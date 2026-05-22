@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import pathlib
 import re
 import tempfile
 import httpx
@@ -276,7 +277,14 @@ def format_coupon_bulletin_offer(offer: Offer, affiliate_url: str) -> str | None
                 code = detail_and_code.group(2).upper()
                 lines_output.append(f"🎟 {detail}: {wrap_coupon_codes(code)}")
         if lines_output:
-            return "\n\n".join(["\n".join(lines_output), f"🔗 {affiliate_url}"])
+            title = "☑️ Cupom Shopee!" if is_shopee_coupon else "☑️ Cupom AliExpress!"
+            return "\n\n".join(
+                [
+                    title,
+                    "\n".join(lines_output),
+                    f"🔗 {affiliate_url}",
+                ]
+            )
 
     if _is_generic_coupon_bulletin(offer, text):
         return _format_generic_coupon(offer, affiliate_url, text)
@@ -354,7 +362,10 @@ def format_llm_offer(offer: Offer, affiliate_url: str) -> str:
                     detail_clean = re.sub(r"R\$\s*(\d)", r"R$ \1", detail_clean)
                     lines.append(f"🎟 {detail_clean}: {wrap_coupon_codes(code)}")
             if lines:
-                return "\n".join(lines) + f"\n\n🔗 {affiliate_url}"
+                title_header = f"☑️ Cupom {platform}!"
+                return (
+                    f"{title_header}\n\n" + "\n".join(lines) + f"\n\n🔗 {affiliate_url}"
+                )
 
         else:  # Generic
             detail = coupons[0].get("detail", "") if coupons else ""
@@ -368,14 +379,14 @@ def format_llm_offer(offer: Offer, affiliate_url: str) -> str:
         prod = llm.get("product", {})
         if not isinstance(prod, dict):
             prod = {}
-        title = prod.get("title", "")
-        price = prod.get("price", "")
-        card_price = prod.get("card_price", "")
-        installment = prod.get("installment_info", "")
-        shipping = prod.get("shipping_info", "")
-        coupon = prod.get("coupon", "")
-        resgate_note = prod.get("resgate_anuncio_note", "")
-        meli_plus = prod.get("meli_plus_only", False)
+        title = prod.get("title") or offer.title or ""
+        price = prod.get("price") or offer.price or ""
+        card_price = prod.get("card_price") or offer.card_price or ""
+        installment = prod.get("installment_info") or offer.installment_info or ""
+        shipping = prod.get("shipping_info") or offer.shipping_info or ""
+        coupon = prod.get("coupon") or offer.coupon or ""
+        resgate_note = prod.get("resgate_anuncio_note") or ""
+        meli_plus = prod.get("meli_plus_only", False) or offer.meli_plus_only
 
         parts = []
         if title:
@@ -521,7 +532,6 @@ async def run() -> None:
 
     # Ensure directories exist before attempting to create SQLite files
     settings.database_path.parent.mkdir(parents=True, exist_ok=True)
-    import pathlib
 
     session_path = pathlib.Path(settings.telegram_session)
     if str(session_path.parent) != ".":

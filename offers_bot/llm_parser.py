@@ -1,5 +1,7 @@
 import logging
 import os
+from pathlib import Path
+import sqlite3
 from typing import Dict, Any, Optional
 from pydantic import BaseModel, Field
 from typing import List, Literal
@@ -72,6 +74,8 @@ Analyze the message and classify it into one of two categories:
 
 CRITICAL CLASSIFICATION RULE: If the message names a specific, single product (e.g. a monitor, laptop, smartphone, etc.) with a specific price, you MUST classify it as "product", even if the message also features coupon codes. Classify as "coupon" ONLY when the message is a list/bulletin of general coupons or a discount event without one main specific product.
 
+CRITICAL TITLE EXTRACTION RULE: For "product" classification, you must extract a clean product title. The title must represent the main product being sold. E.g. 'Smartphone Motorola Moto g35 5G - 128GB'. Do not leave it null or empty if there is a product name. Clean the title by removing all emojis, pricing details, discount percentages, coupon codes, and URLs.
+
 Extract the details precisely in Portuguese. Return a valid JSON matching the schema of DealParseResult.
 """
 
@@ -79,9 +83,6 @@ Extract the details precisely in Portuguese. Return a valid JSON matching the sc
 def save_token_usage(prompt_tokens: int, completion_tokens: int) -> None:
     db_path = os.getenv("DATABASE_PATH", "data/offers.sqlite3")
     try:
-        import sqlite3
-        from pathlib import Path
-
         db_dir = Path(db_path).parent
         db_dir.mkdir(parents=True, exist_ok=True)
 

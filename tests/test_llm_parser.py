@@ -1,3 +1,4 @@
+import gc
 import unittest
 import os
 import sqlite3
@@ -22,17 +23,22 @@ class LLMParserTest(unittest.TestCase):
 
         try:
             save_token_usage(150, 250)
-            conn = sqlite3.connect(temp_db)
-            cursor = conn.cursor()
-            cursor.execute(
-                "SELECT prompt_tokens, completion_tokens, total_tokens FROM token_usage"
-            )
-            row = cursor.fetchone()
-            self.assertEqual(row, (150, 250, 400))
-            conn.close()
+            with sqlite3.connect(temp_db) as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    "SELECT prompt_tokens, completion_tokens, total_tokens FROM token_usage"
+                )
+                row = cursor.fetchone()
+                self.assertEqual(row, (150, 250, 400))
         finally:
+            if "DATABASE_PATH" in os.environ:
+                del os.environ["DATABASE_PATH"]
+            gc.collect()
             if os.path.exists(temp_db):
-                os.remove(temp_db)
+                try:
+                    os.remove(temp_db)
+                except Exception:
+                    pass
 
     @patch("offers_bot.parser.parse_with_llm")
     def test_llm_classifies_product_offer(self, mock_parse):
