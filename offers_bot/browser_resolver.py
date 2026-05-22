@@ -5,6 +5,9 @@ import logging
 import re
 from pathlib import Path
 
+from playwright.sync_api import sync_playwright
+from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+
 from .parser import extract_ml_ids
 
 LOGGER = logging.getLogger(__name__)
@@ -31,9 +34,6 @@ class PlaywrightProductResolver:
         self._debug_dir = debug_dir
 
     def resolve(self, url: str) -> str | None:
-        from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
-        from playwright.sync_api import sync_playwright
-
         with sync_playwright() as playwright:
             browser = playwright.chromium.launch(headless=self._headless)
             context = browser.new_context(
@@ -75,9 +75,6 @@ class PlaywrightProductResolver:
                 browser.close()
 
     def get_image(self, url: str) -> str | None:
-        from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
-        from playwright.sync_api import sync_playwright
-
         with sync_playwright() as playwright:
             browser = playwright.chromium.launch(headless=self._headless)
             context = browser.new_context(

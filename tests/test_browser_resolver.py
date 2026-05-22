@@ -1,4 +1,5 @@
 import unittest
+from playwright.sync_api import sync_playwright
 
 from offers_bot.browser_resolver import PlaywrightProductResolver
 
@@ -55,11 +56,6 @@ class BrowserResolverTest(unittest.TestCase):
         )
 
     def test_extract_product_image_prefers_featured_list_card_image(self):
-        try:
-            from playwright.sync_api import sync_playwright
-        except ImportError:
-            self.skipTest("playwright not installed")
-
         resolver = PlaywrightProductResolver()
         html = """
         <html>
@@ -98,11 +94,6 @@ class BrowserResolverTest(unittest.TestCase):
         )
 
     def test_extract_product_image_prefers_amazon_data_old_hires(self):
-        try:
-            from playwright.sync_api import sync_playwright
-        except ImportError:
-            self.skipTest("playwright not installed")
-
         resolver = PlaywrightProductResolver()
         html = """
         <html>
