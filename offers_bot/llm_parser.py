@@ -73,7 +73,11 @@ Analyze the message and classify it into one of two categories:
 1. "product": A product deal offering a specific product for a price (even if a coupon code is also provided for that product).
 2. "coupon": A generic coupon bulletin, a coupon list, or a coupon discount notice (not for one single specific product).
 
-CRITICAL CLASSIFICATION RULE: If the message names a specific, single product (e.g. a monitor, laptop, smartphone, etc.) with a specific price, you MUST classify it as "product", even if the message also features coupon codes. Classify as "coupon" ONLY when the message is a list/bulletin of general coupons or a discount event without one main specific product.
+CRITICAL CLASSIFICATION RULES:
+- If the message names a specific, single product (e.g. a monitor, laptop, smartphone, etc.) with a specific price, you MUST classify it as "product", even if the message also features coupon codes.
+- Classify as "coupon" ONLY when the message is a list/bulletin of general coupons or a discount event without one main specific product.
+- If the message contains multiple product links (e.g. multiple meli.la or shopee links) but NO explicit coupon codes, classify it as "product" (use the first/main product title and price found).
+- A "coupon" classification MUST have at least one actual coupon code in the coupons list. If there are no coupon codes, do NOT classify as "coupon".
 
 CRITICAL TITLE EXTRACTION RULE: For "product" classification, you must extract a clean product title. The title must represent the main product being sold. E.g. 'Smartphone Motorola Moto g35 5G - 128GB'. Do not leave it null or empty if there is a product name. Clean the title by removing all emojis, pricing details, discount percentages, coupon codes, and URLs.
 

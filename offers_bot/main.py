@@ -370,6 +370,8 @@ def format_llm_offer(offer: Offer, affiliate_url: str) -> str:
         else:  # Generic
             detail = coupons[0].get("detail", "") if coupons else ""
             code = coupons[0].get("code", "") if coupons else ""
+            if not detail and not code:
+                return ""
             detail_clean = re.sub(r"\s+", " ", detail).strip(" -:|!\t")
             detail_clean = re.sub(r"R\$\s*(\d)", r"R$ \1", detail_clean)
             detail_clean = re.sub(r"^[^\w\dR$%]+", "", detail_clean).strip()
