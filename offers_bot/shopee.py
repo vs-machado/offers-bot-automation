@@ -8,7 +8,7 @@ from typing import Any
 
 import httpx
 
-from .mercado_livre import AffiliateLink
+from .models import AffiliateLink
 from .parser import extract_shopee_ids
 
 LOGGER = logging.getLogger(__name__)

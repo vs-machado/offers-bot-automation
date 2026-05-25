@@ -28,7 +28,7 @@ class _FakePage:
     def locator(self, selector: str) -> _FakeLocator:
         return _FakeLocator(self._selectors.get(selector))
 
-    def evaluate(self, script: str):
+    def evaluate(self, _script: str):
         return []
 
     def content(self) -> str:

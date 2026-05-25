@@ -1,7 +1,7 @@
 import logging
 import json
 import httpx
-from .mercado_livre import AffiliateLink
+from .models import AffiliateLink
 from .iop import IopClient, IopRequest
 from .parser import extract_aliexpress_product_id
 

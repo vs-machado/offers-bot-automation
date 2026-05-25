@@ -6,7 +6,7 @@ from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
 import httpx
 
-from .mercado_livre import AffiliateLink
+from .models import AffiliateLink
 
 ASIN_RE = re.compile(r"/(?:dp|gp/product)/([A-Z0-9]{10})(?:[/?]|$)", re.IGNORECASE)
 

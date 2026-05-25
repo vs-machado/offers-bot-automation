@@ -88,7 +88,6 @@ def _is_generic_coupon_bulletin(offer: Offer, text: str) -> bool:
     return False
 
 
-MOEDAS_RE = re.compile(r"\s*\+\s*moedas?\s*$", re.IGNORECASE)
 COUPON_SUFFIX_RE = re.compile(
     r"\s*\+\s*(?:(?:\d+|[\d.,]+)\s+)?(?:moedas?|resgate\b).*$",
     re.IGNORECASE,

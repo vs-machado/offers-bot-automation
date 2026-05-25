@@ -11,7 +11,7 @@ from offers_bot.llm_parser import save_token_usage
 
 class LLMParserTest(unittest.TestCase):
     @classmethod
-    def setUpClass(cls):
+    def setUpClass(_cls):
         # Explicitly enable LLM for this test suite
         if "DISABLE_LLM" in os.environ:
             del os.environ["DISABLE_LLM"]
@@ -256,9 +256,7 @@ class LLMParserTest(unittest.TestCase):
         offers = extract_offers(text)
 
         # Havit formatted output includes R$ 119
-        formatted_havit = format_offer(
-            offers[0], "https://amzn.to/aff_havit"
-        )
+        formatted_havit = format_offer(offers[0], "https://amzn.to/aff_havit")
         self.assertIn("Havit Headphone", formatted_havit)
         self.assertIn("R$ 119", formatted_havit)
         self.assertIn("HAVIT10", formatted_havit)
@@ -266,9 +264,7 @@ class LLMParserTest(unittest.TestCase):
         self.assertNotIn("R$ 151", formatted_havit)
 
         # Fuxi formatted output includes R$ 151
-        formatted_fuxi = format_offer(
-            offers[2], "https://amzn.to/aff_fuxi"
-        )
+        formatted_fuxi = format_offer(offers[2], "https://amzn.to/aff_fuxi")
         self.assertIn("Fuxi H3", formatted_fuxi)
         self.assertIn("R$ 151", formatted_fuxi)
         self.assertNotIn("R$ 119", formatted_fuxi)

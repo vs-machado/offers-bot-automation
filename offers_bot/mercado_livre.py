@@ -1,12 +1,11 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
-from typing import Protocol
 from urllib.parse import urlparse
 
 import httpx
 
+from .models import AffiliateLink, ProductUrlResolver
 from .parser import extract_ml_ids
 
 LOGGER = logging.getLogger(__name__)
@@ -14,22 +13,6 @@ LOGGER = logging.getLogger(__name__)
 
 class UnsupportedOfferError(RuntimeError):
     """Offer cannot be converted into this account's affiliate link."""
-
-
-class ProductUrlResolver(Protocol):
-    def resolve(self, url: str) -> str | None: ...
-
-    def get_image(self, url: str) -> str | None: ...
-
-
-@dataclass(frozen=True)
-class AffiliateLink:
-    short_url: str
-    long_url: str | None
-    origin_url: str
-    raw_text: str | None
-    product_key: str
-    image_url: str | None = None
 
 
 class MercadoLivreClient:

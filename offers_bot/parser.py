@@ -132,7 +132,9 @@ def _extract_offers(text: str, llm_res: dict | None) -> list[Offer]:
                     if url and isinstance(url, str):
                         llm_product_map[url] = prod
             if not llm_product_map:
-                first = products[0] if products and isinstance(products[0], dict) else {}
+                first = (
+                    products[0] if products and isinstance(products[0], dict) else {}
+                )
                 llm_title = first.get("title") or None
                 llm_price = first.get("price") or None
                 llm_card_price = first.get("card_price") or None
@@ -243,7 +245,9 @@ def _extract_offers(text: str, llm_res: dict | None) -> list[Offer]:
                     installment_info=_ins
                     if _ins is not None
                     else extract_installment_info(text),
-                    shipping_info=_sh if _sh is not None else extract_shipping_info(text),
+                    shipping_info=_sh
+                    if _sh is not None
+                    else extract_shipping_info(text),
                     coupon=_co if _co is not None else extract_coupon(text),
                     meli_plus_only=_mp,
                     all_urls=tuple(found_urls),
