@@ -128,12 +128,7 @@ def wrap_coupon_codes(coupon_text: str) -> str:
             result = result.replace(code, f"`{code}`")
         return result + suffix
 
-    m = MOEDAS_RE.search(coupon_text)
-    if m:
-        suffix = coupon_text[m.start() :]
-        coupon_text = coupon_text[: m.start()]
-    parts = [p.strip() for p in re.split(r"\s+(?:ou|e)\s+|\s*\+\s*", coupon_text)]
-    return " ou ".join(f"`{p}`" for p in parts if p) + suffix
+    return coupon_text + suffix
 
 
 def _format_generic_coupon(offer: Offer, affiliate_url: str, text: str) -> str:

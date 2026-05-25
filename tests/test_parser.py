@@ -497,7 +497,7 @@ class ParserTest(unittest.TestCase):
             "☑️ Cupom Shopee - Acessórios para veículos!!!\n"
             " \n"
             "R$30 OFF nas compras acima de R$119\n\n"
-            "🎯 Usem o Cupom: AUTOS30G4AF\n\n"
+            "🎯 Usem o Cupom: `AUTOS30G4AF`\n\n"
             "🛒 Resgate aqui: https://s.shopee.com.br/LXc7aGHOO\n\n"
             "🛒 Link do Carrinho: https://s.shopee.com.br/aff1\n\n"
             "- Anúncio",
