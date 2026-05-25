@@ -378,9 +378,12 @@ def format_llm_offer(offer: Offer, affiliate_url: str) -> str:
             return f"{detail_clean}\n\n🎟️ Cupom: {wrap_coupon_codes(code)}\n\n🔗 {affiliate_url}"
 
     elif classification == "product":
-        prod = llm.get("product", {})
-        if not isinstance(prod, dict):
-            prod = {}
+        prod = offer.llm_product
+        if prod is None:
+            prod = llm.get("product", {})
+            if not isinstance(prod, dict) or not prod:
+                products = llm.get("products", [])
+                prod = products[0] if products and isinstance(products[0], dict) else {}
         title = prod.get("title") or offer.title or ""
         price = prod.get("price") or offer.price or ""
         card_price = prod.get("card_price") or offer.card_price or ""

@@ -48,7 +48,7 @@ class ProductSection(BaseModel):
         None, description="Installment info in uppercase if any (e.g., '10X SEM JUROS')"
     )
     shipping_info: Optional[str] = Field(
-        description="Shipping info in uppercase if any (e.g., 'FRETE GRÁTIS')"
+        None, description="Shipping info in uppercase if any (e.g., 'FRETE GRÁTIS')"
     )
     coupon: Optional[str] = Field(
         None,
@@ -59,11 +59,15 @@ class ProductSection(BaseModel):
         description="Redemption note if present, e.g. 'Resgate o cupom no anúncio do produto'",
     )
     meli_plus_only: bool
+    urls: List[str] = Field(
+        default_factory=list,
+        description="List of URLs from the message that belong to this specific product variant",
+    )
 
 
 class DealParseResult(BaseModel):
     classification: Literal["product", "coupon"]
-    product: Optional[ProductSection] = None
+    products: List[ProductSection] = Field(default_factory=list)
     coupon: Optional[CouponSection] = None
     category: Optional[Literal["tech", "home", "clothes", "other"]] = None
 
@@ -76,10 +80,12 @@ Analyze the message and classify it into one of two categories:
 CRITICAL CLASSIFICATION RULES:
 - If the message names a specific, single product (e.g. a monitor, laptop, smartphone, etc.) with a specific price, you MUST classify it as "product", even if the message also features coupon codes.
 - Classify as "coupon" ONLY when the message is a list/bulletin of general coupons or a discount event without one main specific product.
-- If the message contains multiple product links (e.g. multiple meli.la or shopee links) but NO explicit coupon codes, classify it as "product" (use the first/main product title and price found).
-- A "coupon" classification MUST have at least one actual coupon code in the coupons list. If there are no coupon codes, do NOT classify as "coupon".
+- If the message contains multiple product links (e.g. multiple meli.la or shopee links) but NO explicit coupon codes, classify it as "product".
+- A "coupon" classification MUST have at least one actual coupon code in the coupons list.
 
-CRITICAL TITLE EXTRACTION RULE: For "product" classification, you must extract a clean product title. The title must represent the main product being sold. E.g. 'Smartphone Motorola Moto g35 5G - 128GB'. Do not leave it null or empty if there is a product name. Clean the title by removing all emojis, pricing details, discount percentages, coupon codes, and URLs.
+MULTI-PRODUCT RULE: If the message describes MULTIPLE different products with DIFFERENT prices, list each product separately in the "products" array. For each product, populate its "urls" field with the URL(s) that belong to that specific product. If all URLs belong to the same product with the same price, put all URLs in a single product entry.
+
+CRITICAL TITLE EXTRACTION RULE: You must extract a clean product title for each product. Do not leave it null or empty if there is a product name. Clean the title by removing all emojis, pricing details, discount percentages, coupon codes, and URLs.
 
 CATEGORY CLASSIFICATION RULE: After classifying as "product" or "coupon", determine the product category:
 - "tech": For electronic devices like smartphones, laptops, tablets, smart watches, headphones, etc.

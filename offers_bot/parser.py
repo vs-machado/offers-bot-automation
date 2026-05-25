@@ -92,6 +92,7 @@ class Offer:
     meli_plus_only: bool
     all_urls: tuple[str, ...] = ()
     llm_result: dict | None = None
+    llm_product: dict | None = None
 
 
 def extract_offers(text: str) -> list[Offer]:
@@ -112,6 +113,7 @@ def _extract_offers(text: str, llm_res: dict | None) -> list[Offer]:
     else:
         logger.info("LLM parsing failed or disabled. Using fallback regex parser.")
 
+    llm_product_map: dict[str, dict] = {}
     llm_title = None
     llm_price = None
     llm_card_price = None
@@ -121,16 +123,34 @@ def _extract_offers(text: str, llm_res: dict | None) -> list[Offer]:
     llm_meli_plus = False
 
     if llm_res and llm_res.get("classification") == "product":
-        prod = llm_res.get("product", {})
-        if not isinstance(prod, dict):
-            prod = {}
-        llm_title = prod.get("title") or None
-        llm_price = prod.get("price") or None
-        llm_card_price = prod.get("card_price") or None
-        llm_installment = prod.get("installment_info") or None
-        llm_shipping = prod.get("shipping_info") or None
-        llm_coupon = prod.get("coupon") or None
-        llm_meli_plus = prod.get("meli_plus_only", False)
+        products = llm_res.get("products", [])
+        if isinstance(products, list):
+            for prod in products:
+                if not isinstance(prod, dict):
+                    continue
+                for url in prod.get("urls", []):
+                    if url and isinstance(url, str):
+                        llm_product_map[url] = prod
+            if not llm_product_map:
+                first = products[0] if products and isinstance(products[0], dict) else {}
+                llm_title = first.get("title") or None
+                llm_price = first.get("price") or None
+                llm_card_price = first.get("card_price") or None
+                llm_installment = first.get("installment_info") or None
+                llm_shipping = first.get("shipping_info") or None
+                llm_coupon = first.get("coupon") or None
+                llm_meli_plus = first.get("meli_plus_only", False)
+        else:
+            prod = llm_res.get("product", {})
+            if not isinstance(prod, dict):
+                prod = {}
+            llm_title = prod.get("title") or None
+            llm_price = prod.get("price") or None
+            llm_card_price = prod.get("card_price") or None
+            llm_installment = prod.get("installment_info") or None
+            llm_shipping = prod.get("shipping_info") or None
+            llm_coupon = prod.get("coupon") or None
+            llm_meli_plus = prod.get("meli_plus_only", False)
 
     offers: list[Offer] = []
     seen_urls: set[str] = set()
@@ -145,27 +165,49 @@ def _extract_offers(text: str, llm_res: dict | None) -> list[Offer]:
         seen_urls.add(clean_url)
         found_urls.append(clean_url)
 
+    def _offer_attrs(url: str):
+        matched = llm_product_map.get(url)
+        if matched:
+            return (
+                matched.get("title") or None,
+                matched.get("price") or None,
+                matched.get("card_price") or None,
+                matched.get("installment_info") or None,
+                matched.get("shipping_info") or None,
+                matched.get("coupon") or None,
+                matched.get("meli_plus_only", False),
+                matched,
+            )
+        return (
+            llm_title,
+            llm_price,
+            llm_card_price,
+            llm_installment,
+            llm_shipping,
+            llm_coupon,
+            llm_meli_plus if llm_res else is_meli_plus_only(text),
+            None,
+        )
+
     shopee_resgate_url = pick_shopee_resgate_offer_url(text, found_urls)
     if shopee_resgate_url:
+        _t, _p, _cp, _ins, _sh, _co, _mp, _prod = _offer_attrs(shopee_resgate_url)
         offers.append(
             Offer(
                 original_text=text.strip(),
                 url=shopee_resgate_url,
-                title=llm_title if llm_title is not None else extract_title(text),
-                price=llm_price if llm_price is not None else extract_price(text),
-                card_price=llm_card_price
-                if llm_card_price is not None
-                else extract_card_price(text),
-                installment_info=llm_installment
-                if llm_installment is not None
+                title=_t if _t is not None else extract_title(text),
+                price=_p if _p is not None else extract_price(text),
+                card_price=_cp if _cp is not None else extract_card_price(text),
+                installment_info=_ins
+                if _ins is not None
                 else extract_installment_info(text),
-                shipping_info=llm_shipping
-                if llm_shipping is not None
-                else extract_shipping_info(text),
-                coupon=llm_coupon if llm_coupon is not None else extract_coupon(text),
-                meli_plus_only=llm_meli_plus if llm_res else is_meli_plus_only(text),
+                shipping_info=_sh if _sh is not None else extract_shipping_info(text),
+                coupon=_co if _co is not None else extract_coupon(text),
+                meli_plus_only=_mp,
                 all_urls=tuple(found_urls),
                 llm_result=llm_res,
+                llm_product=_prod,
             )
         )
         return offers
@@ -188,77 +230,69 @@ def _extract_offers(text: str, llm_res: dict | None) -> list[Offer]:
                 product_idx = i
 
         if resgate_idx != -1 and product_idx != -1:
+            _t, _p, _cp, _ins, _sh, _co, _mp, _prod = _offer_attrs(
+                found_urls[product_idx]
+            )
             offers.append(
                 Offer(
                     original_text=text.strip(),
                     url=found_urls[product_idx],
-                    title=llm_title if llm_title is not None else extract_title(text),
-                    price=llm_price if llm_price is not None else extract_price(text),
-                    card_price=llm_card_price
-                    if llm_card_price is not None
-                    else extract_card_price(text),
-                    installment_info=llm_installment
-                    if llm_installment is not None
+                    title=_t if _t is not None else extract_title(text),
+                    price=_p if _p is not None else extract_price(text),
+                    card_price=_cp if _cp is not None else extract_card_price(text),
+                    installment_info=_ins
+                    if _ins is not None
                     else extract_installment_info(text),
-                    shipping_info=llm_shipping
-                    if llm_shipping is not None
-                    else extract_shipping_info(text),
-                    coupon=llm_coupon
-                    if llm_coupon is not None
-                    else extract_coupon(text),
-                    meli_plus_only=llm_meli_plus
-                    if llm_res
-                    else is_meli_plus_only(text),
+                    shipping_info=_sh if _sh is not None else extract_shipping_info(text),
+                    coupon=_co if _co is not None else extract_coupon(text),
+                    meli_plus_only=_mp,
                     all_urls=tuple(found_urls),
                     llm_result=llm_res,
+                    llm_product=_prod,
                 )
             )
             return offers
 
     # Special case: AliExpress multi-link messages
     if all(is_aliexpress_url(u) for u in found_urls) and len(found_urls) > 1:
+        _t, _p, _cp, _ins, _sh, _co, _mp, _prod = _offer_attrs(found_urls[0])
         offers.append(
             Offer(
                 original_text=text.strip(),
                 url=found_urls[0],
-                title=llm_title if llm_title is not None else extract_title(text),
-                price=llm_price if llm_price is not None else extract_price(text),
-                card_price=llm_card_price
-                if llm_card_price is not None
-                else extract_card_price(text),
-                installment_info=llm_installment
-                if llm_installment is not None
+                title=_t if _t is not None else extract_title(text),
+                price=_p if _p is not None else extract_price(text),
+                card_price=_cp if _cp is not None else extract_card_price(text),
+                installment_info=_ins
+                if _ins is not None
                 else extract_installment_info(text),
-                shipping_info=llm_shipping
-                if llm_shipping is not None
-                else extract_shipping_info(text),
-                coupon=llm_coupon if llm_coupon is not None else extract_coupon(text),
-                meli_plus_only=llm_meli_plus if llm_res else is_meli_plus_only(text),
+                shipping_info=_sh if _sh is not None else extract_shipping_info(text),
+                coupon=_co if _co is not None else extract_coupon(text),
+                meli_plus_only=_mp,
                 all_urls=tuple(found_urls),
                 llm_result=llm_res,
+                llm_product=_prod,
             )
         )
         return offers
 
     for clean_url in found_urls:
+        _t, _p, _cp, _ins, _sh, _co, _mp, _prod = _offer_attrs(clean_url)
         offers.append(
             Offer(
                 original_text=text.strip(),
                 url=clean_url,
-                title=llm_title if llm_title is not None else extract_title(text),
-                price=llm_price if llm_price is not None else extract_price(text),
-                card_price=llm_card_price
-                if llm_card_price is not None
-                else extract_card_price(text),
-                installment_info=llm_installment
-                if llm_installment is not None
+                title=_t if _t is not None else extract_title(text),
+                price=_p if _p is not None else extract_price(text),
+                card_price=_cp if _cp is not None else extract_card_price(text),
+                installment_info=_ins
+                if _ins is not None
                 else extract_installment_info(text),
-                shipping_info=llm_shipping
-                if llm_shipping is not None
-                else extract_shipping_info(text),
-                coupon=llm_coupon if llm_coupon is not None else extract_coupon(text),
-                meli_plus_only=llm_meli_plus if llm_res else is_meli_plus_only(text),
+                shipping_info=_sh if _sh is not None else extract_shipping_info(text),
+                coupon=_co if _co is not None else extract_coupon(text),
+                meli_plus_only=_mp,
                 llm_result=llm_res,
+                llm_product=_prod,
             )
         )
     return offers
