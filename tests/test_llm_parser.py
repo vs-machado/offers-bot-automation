@@ -115,3 +115,161 @@ class LLMParserTest(unittest.TestCase):
 
         self.assertIn("🎟️ CUPOM: `LIBRETX5600` + `IFPAF7UN` ou `MAES5`", formatted)
         self.assertNotIn("LIBRETX5600 + IFPAF7UN", formatted)
+
+    @patch("offers_bot.parser.parse_with_llm")
+    def test_multi_product_different_prices_per_url(self, mock_parse):
+        mock_parse.return_value = {
+            "classification": "product",
+            "products": [
+                {
+                    "title": "Havit Headphone Fone de Ouvido H2002d",
+                    "price": "R$ 119",
+                    "card_price": None,
+                    "installment_info": None,
+                    "shipping_info": None,
+                    "coupon": None,
+                    "resgate_anuncio_note": None,
+                    "meli_plus_only": False,
+                    "urls": [
+                        "https://amzn.to/3PyDv8h",
+                        "https://amzn.to/4fEgxHd",
+                    ],
+                },
+                {
+                    "title": "Fone de Ouvido Sem Fio Fuxi H3",
+                    "price": "R$ 151",
+                    "card_price": None,
+                    "installment_info": None,
+                    "shipping_info": None,
+                    "coupon": None,
+                    "resgate_anuncio_note": None,
+                    "meli_plus_only": False,
+                    "urls": [
+                        "https://amzn.to/4vsqtIT",
+                        "https://amzn.to/4uq2XMd",
+                        "https://amzn.to/49mxh21",
+                    ],
+                },
+                {
+                    "title": "Headphone H2030S",
+                    "price": "R$ 65",
+                    "card_price": None,
+                    "installment_info": None,
+                    "shipping_info": None,
+                    "coupon": None,
+                    "resgate_anuncio_note": None,
+                    "meli_plus_only": False,
+                    "urls": [],
+                },
+            ],
+        }
+        text = (
+            "Havit Headphone Fone de Ouvido H2002d\n\n"
+            "R$ 119\n\n"
+            "1 https://amzn.to/3PyDv8h\n"
+            "2 https://amzn.to/4fEgxHd\n\n"
+            "-Fuxi-H3  Sem Fio = R$ 151\n"
+            "https://amzn.to/4vsqtIT\n"
+            "https://amzn.to/4uq2XMd\n"
+            "https://amzn.to/49mxh21\n\n"
+            "-H2030S = R$ 65\n\n"
+            "-Anúncio"
+        )
+        offers = extract_offers(text)
+
+        self.assertEqual(len(offers), 5)
+
+        # Offer 0: first Havit URL -> R$ 119
+        self.assertEqual(offers[0].url, "https://amzn.to/3PyDv8h")
+        self.assertEqual(offers[0].title, "Havit Headphone Fone de Ouvido H2002d")
+        self.assertEqual(offers[0].price, "R$ 119")
+        self.assertIsNotNone(offers[0].llm_product)
+        self.assertEqual(offers[0].llm_product.get("price"), "R$ 119")
+
+        # Offer 1: second Havit URL -> R$ 119
+        self.assertEqual(offers[1].url, "https://amzn.to/4fEgxHd")
+        self.assertEqual(offers[1].title, "Havit Headphone Fone de Ouvido H2002d")
+        self.assertEqual(offers[1].price, "R$ 119")
+
+        # Offer 2: first Fuxi URL -> R$ 151
+        self.assertEqual(offers[2].url, "https://amzn.to/4vsqtIT")
+        self.assertEqual(offers[2].title, "Fone de Ouvido Sem Fio Fuxi H3")
+        self.assertEqual(offers[2].price, "R$ 151")
+
+        # Offer 3: second Fuxi URL -> R$ 151
+        self.assertEqual(offers[3].url, "https://amzn.to/4uq2XMd")
+        self.assertEqual(offers[3].title, "Fone de Ouvido Sem Fio Fuxi H3")
+        self.assertEqual(offers[3].price, "R$ 151")
+
+        # Offer 4: third Fuxi URL -> R$ 151
+        self.assertEqual(offers[4].url, "https://amzn.to/49mxh21")
+        self.assertEqual(offers[4].title, "Fone de Ouvido Sem Fio Fuxi H3")
+        self.assertEqual(offers[4].price, "R$ 151")
+
+    @patch("offers_bot.parser.parse_with_llm")
+    def test_multi_product_format_offer_uses_correct_price(self, mock_parse):
+        mock_parse.return_value = {
+            "classification": "product",
+            "products": [
+                {
+                    "title": "Havit Headphone Fone de Ouvido H2002d",
+                    "price": "R$ 119",
+                    "card_price": None,
+                    "installment_info": None,
+                    "shipping_info": "FRETE GRÁTIS",
+                    "coupon": "HAVIT10",
+                    "resgate_anuncio_note": None,
+                    "meli_plus_only": False,
+                    "urls": [
+                        "https://amzn.to/3PyDv8h",
+                        "https://amzn.to/4fEgxHd",
+                    ],
+                },
+                {
+                    "title": "Fone de Ouvido Sem Fio Fuxi H3",
+                    "price": "R$ 151",
+                    "card_price": None,
+                    "installment_info": None,
+                    "shipping_info": None,
+                    "coupon": None,
+                    "resgate_anuncio_note": None,
+                    "meli_plus_only": False,
+                    "urls": [
+                        "https://amzn.to/4vsqtIT",
+                        "https://amzn.to/4uq2XMd",
+                        "https://amzn.to/49mxh21",
+                    ],
+                },
+            ],
+        }
+        text = (
+            "Havit Headphone Fone de Ouvido H2002d\n\n"
+            "R$ 119\n\n"
+            "1 https://amzn.to/3PyDv8h\n"
+            "2 https://amzn.to/4fEgxHd\n\n"
+            "-Fuxi-H3  Sem Fio = R$ 151\n"
+            "https://amzn.to/4vsqtIT\n"
+            "https://amzn.to/4uq2XMd\n"
+            "https://amzn.to/49mxh21\n\n"
+            "-Anúncio"
+        )
+        offers = extract_offers(text)
+
+        # Havit formatted output includes R$ 119
+        formatted_havit = format_offer(
+            offers[0], "https://amzn.to/aff_havit"
+        )
+        self.assertIn("Havit Headphone", formatted_havit)
+        self.assertIn("R$ 119", formatted_havit)
+        self.assertIn("HAVIT10", formatted_havit)
+        self.assertIn("FRETE GRÁTIS", formatted_havit)
+        self.assertNotIn("R$ 151", formatted_havit)
+
+        # Fuxi formatted output includes R$ 151
+        formatted_fuxi = format_offer(
+            offers[2], "https://amzn.to/aff_fuxi"
+        )
+        self.assertIn("Fuxi H3", formatted_fuxi)
+        self.assertIn("R$ 151", formatted_fuxi)
+        self.assertNotIn("R$ 119", formatted_fuxi)
+        self.assertNotIn("HAVIT10", formatted_fuxi)
