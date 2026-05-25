@@ -322,6 +322,8 @@ def format_llm_offer(offer: Offer, affiliate_url: str) -> str:
             if novo_ml:
                 detail = coupons[0].get("detail", "") if coupons else ""
                 code = coupons[0].get("code", "") if coupons else ""
+                if not code:
+                    return ""
                 detail_clean = re.sub(r"\s+", " ", detail).strip(" -:|!\t")
                 detail_clean = re.sub(r"R\$\s*(\d)", r"R$ \1", detail_clean)
                 if detail_clean.startswith("▪️"):
@@ -365,6 +367,8 @@ def format_llm_offer(offer: Offer, affiliate_url: str) -> str:
             detail = coupons[0].get("detail", "") if coupons else ""
             code = coupons[0].get("code", "") if coupons else ""
             if not detail and not code:
+                return ""
+            if not code:
                 return ""
             detail_clean = re.sub(r"\s+", " ", detail).strip(" -:|!\t")
             detail_clean = re.sub(r"R\$\s*(\d)", r"R$ \1", detail_clean)

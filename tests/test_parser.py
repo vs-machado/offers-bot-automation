@@ -1,7 +1,7 @@
 import unittest
 
 from offers_bot.main import format_offer, format_outgoing_offer
-from offers_bot.parser import extract_ml_ids, extract_offers, extract_shopee_ids
+from offers_bot.parser import Offer, extract_ml_ids, extract_offers, extract_shopee_ids
 
 
 class ParserTest(unittest.TestCase):
@@ -776,6 +776,105 @@ https://meli.la/1k61SVq
 
             # Generated link SHOULD be in the formatted output
             self.assertIn(affiliate_url, formatted)
+
+    def test_ml_coupon_header_without_code_omits_cupom_line(self):
+        text = (
+            "🔥 Cupom Mercado Livre\n\n"
+            "🎟️40% OFF em Smart Home\n\n"
+            "Nossa lista de sugestões:\n"
+            "https://meli.la/1uDk4iS\n\n"
+            "Produtos mais vendidos (clique em mostrar mais):\n"
+            "https://meli.la/2k2Scmy"
+        )
+        offers = extract_offers(text)
+        self.assertEqual(len(offers), 2)
+        for offer in offers:
+            formatted = format_offer(offer, "https://meli.la/aff123")
+            self.assertNotIn("🎟️ Cupom:", formatted)
+            self.assertNotIn("🤑", formatted)
+
+    def test_llm_novo_ml_coupon_without_code_falls_back(self):
+        offer = Offer(
+            original_text=(
+                "🔥 Cupom Mercado Livre\n\n"
+                "🎟️40% OFF em Smart Home\n\n"
+                "Nossa lista de sugestões:\n"
+                "https://meli.la/1uDk4iS"
+            ),
+            url="https://meli.la/1uDk4iS",
+            title="40% OFF em Smart Home",
+            price=None,
+            card_price=None,
+            installment_info=None,
+            shipping_info=None,
+            coupon=None,
+            meli_plus_only=False,
+            llm_result={
+                "classification": "coupon",
+                "coupon": {
+                    "platform": "Mercado Livre",
+                    "novo_ml_format": True,
+                    "coupons": [],
+                },
+            },
+        )
+        formatted = format_offer(offer, "https://meli.la/aff123")
+        self.assertNotIn("🎟️ Cupom:", formatted)
+        self.assertNotIn("🤑", formatted)
+
+    def test_llm_novo_ml_coupon_detail_without_code_falls_back(self):
+        offer = Offer(
+            original_text=(
+                "🔥 Cupom Mercado Livre\n\n"
+                "🎟️40% OFF em Smart Home\n\n"
+                "https://meli.la/1uDk4iS"
+            ),
+            url="https://meli.la/1uDk4iS",
+            title="40% OFF em Smart Home",
+            price=None,
+            card_price=None,
+            installment_info=None,
+            shipping_info=None,
+            coupon=None,
+            meli_plus_only=False,
+            llm_result={
+                "classification": "coupon",
+                "coupon": {
+                    "platform": "Mercado Livre",
+                    "novo_ml_format": True,
+                    "coupons": [{"detail": "40% OFF em Smart Home", "code": ""}],
+                },
+            },
+        )
+        formatted = format_offer(offer, "https://meli.la/aff123")
+        self.assertNotIn("🎟️ Cupom:", formatted)
+        self.assertNotIn("🤑", formatted)
+
+    def test_llm_generic_coupon_without_code_falls_back(self):
+        offer = Offer(
+            original_text="🔥 15% OFF em produtos selecionados!\n\nhttps://meli.la/abc1234",
+            url="https://meli.la/abc1234",
+            title="15% OFF em produtos selecionados!",
+            price=None,
+            card_price=None,
+            installment_info=None,
+            shipping_info=None,
+            coupon=None,
+            meli_plus_only=False,
+            llm_result={
+                "classification": "coupon",
+                "coupon": {
+                    "platform": "Generic",
+                    "novo_ml_format": False,
+                    "generic_format": True,
+                    "coupons": [
+                        {"detail": "15% OFF em produtos selecionados!", "code": ""}
+                    ],
+                },
+            },
+        )
+        formatted = format_offer(offer, "https://meli.la/aff123")
+        self.assertNotIn("🎟️ Cupom:", formatted)
 
 
 if __name__ == "__main__":
