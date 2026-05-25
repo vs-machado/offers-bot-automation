@@ -584,6 +584,9 @@ async def run() -> None:
         source_chats=settings.source_chats,
         target_chat=settings.target_chat,
         phone=settings.telegram_phone,
+        tech_chat=settings.tech_chat,
+        home_chat=settings.home_chat,
+        clothes_chat=settings.clothes_chat,
     )
 
     async def handle_message(
@@ -661,6 +664,11 @@ async def run() -> None:
                     affiliate_client=affiliate_client,
                 )
 
+                # Extract category from LLM result if available
+                category = None
+                if offer.llm_result and "category" in offer.llm_result:
+                    category = offer.llm_result["category"]
+
                 temp_image_path = None
                 try:
                     image_url = None if is_ali else affiliate.image_url
@@ -678,10 +686,12 @@ async def run() -> None:
                                 f.write(resp.content)
                             image_to_send = temp_image_path
 
-                    await telegram.send_offer(formatted_text, image_file=image_to_send)
+                    await telegram.send_offer(
+                        formatted_text, image_file=image_to_send, category=category
+                    )
                 except Exception as e:
                     logging.warning("Failed to send image: %s", e)
-                    await telegram.send_offer(formatted_text)
+                    await telegram.send_offer(formatted_text, category=category)
                 finally:
                     if temp_image_path and os.path.exists(temp_image_path):
                         os.remove(temp_image_path)

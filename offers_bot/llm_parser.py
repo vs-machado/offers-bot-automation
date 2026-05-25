@@ -48,7 +48,7 @@ class ProductSection(BaseModel):
         None, description="Installment info in uppercase if any (e.g., '10X SEM JUROS')"
     )
     shipping_info: Optional[str] = Field(
-        None, description="Shipping info in uppercase if any (e.g., 'FRETE GRÁTIS')"
+        description="Shipping info in uppercase if any (e.g., 'FRETE GRÁTIS')"
     )
     coupon: Optional[str] = Field(
         None,
@@ -65,6 +65,7 @@ class DealParseResult(BaseModel):
     classification: Literal["product", "coupon"]
     product: Optional[ProductSection] = None
     coupon: Optional[CouponSection] = None
+    category: Optional[Literal["tech", "home", "clothes", "other"]] = None
 
 
 SYSTEM_PROMPT = """You are an expert assistant that parses shopping deals and coupons from Telegram messages.
@@ -75,6 +76,14 @@ Analyze the message and classify it into one of two categories:
 CRITICAL CLASSIFICATION RULE: If the message names a specific, single product (e.g. a monitor, laptop, smartphone, etc.) with a specific price, you MUST classify it as "product", even if the message also features coupon codes. Classify as "coupon" ONLY when the message is a list/bulletin of general coupons or a discount event without one main specific product.
 
 CRITICAL TITLE EXTRACTION RULE: For "product" classification, you must extract a clean product title. The title must represent the main product being sold. E.g. 'Smartphone Motorola Moto g35 5G - 128GB'. Do not leave it null or empty if there is a product name. Clean the title by removing all emojis, pricing details, discount percentages, coupon codes, and URLs.
+
+CATEGORY CLASSIFICATION RULE: After classifying as "product" or "coupon", determine the product category:
+- "tech": For electronic devices like smartphones, laptops, tablets, smart watches, headphones, etc.
+- "home": For home items like furniture, appliances, decor, kitchenware, etc.
+- "clothes": For clothing items, accessories, shoes, etc.
+- "other": For products that don't fit any of the above categories.
+
+If the classification is "coupon" (not "product"), the category should be set to None, as coupons are not product-specific.
 
 Extract the details precisely in Portuguese. Return a valid JSON matching the schema of DealParseResult.
 """

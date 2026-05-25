@@ -25,16 +25,31 @@ class TelegramOfferBot:
         source_chats: list[str],
         target_chat: str,
         phone: str | None = None,
+        tech_chat: str | None = None,
+        home_chat: str | None = None,
+        clothes_chat: str | None = None,
     ) -> None:
         self.client = TelegramClient(session_name, api_id, api_hash)
         self._source_chats = source_chats
         self._target_chat = target_chat
+        self._tech_chat = tech_chat
+        self._home_chat = home_chat
+        self._clothes_chat = clothes_chat
         self._target_entity = None
+        self._tech_entity = None
+        self._home_entity = None
+        self._clothes_entity = None
         self._phone = phone
 
     async def start(self) -> None:
         await self.client.start(phone=self._phone)
         self._target_entity = await self._resolve_chat(self._target_chat)
+        if self._tech_chat:
+            self._tech_entity = await self._resolve_chat(self._tech_chat)
+        if self._home_chat:
+            self._home_entity = await self._resolve_chat(self._home_chat)
+        if self._clothes_chat:
+            self._clothes_entity = await self._resolve_chat(self._clothes_chat)
 
     async def listen(
         self, handler: MessageHandler, poll_existing: bool = False
@@ -86,15 +101,41 @@ class TelegramOfferBot:
                 LOGGER.warning("Failed to download media: %s", exc)
         return None
 
-    async def send_offer(self, text: str, image_file: str | None = None) -> None:
+    async def send_offer(
+        self, text: str, image_file: str | None = None, category: str | None = None
+    ) -> None:
         if self._target_entity is None:
             self._target_entity = await self._resolve_chat(self._target_chat)
-        if image_file:
-            await self.client.send_message(
-                self._target_entity, text, file=image_file, link_preview=False
-            )
+
+        # Resolve category-specific entity
+        category_entity = None
+        if category == "tech":
+            category_entity = self._tech_entity
+        elif category == "home":
+            category_entity = self._home_entity
+        elif category == "clothes":
+            category_entity = self._clothes_entity
+
+        if category is None:
+            # Coupon: send to general + all configured category chats
+            targets = [self._target_entity] + [
+                e
+                for e in [self._tech_entity, self._home_entity, self._clothes_entity]
+                if e is not None
+            ]
         else:
-            await self.client.send_message(self._target_entity, text, link_preview=True)
+            # Product: send to general + its category chat (if configured)
+            targets = [self._target_entity]
+            if category_entity is not None:
+                targets.append(category_entity)
+
+        for entity in targets:
+            if image_file:
+                await self.client.send_message(
+                    entity, text, file=image_file, link_preview=False
+                )
+            else:
+                await self.client.send_message(entity, text, link_preview=True)
 
     async def _resolve_chat(self, chat: str):
         chat = chat.strip()

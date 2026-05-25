@@ -30,6 +30,9 @@ class Settings:
     amazon_affiliate_tag: str
     amazon_cookie_header: str
     amazon_marketplace_id: str
+    tech_chat: str | None
+    home_chat: str | None
+    clothes_chat: str | None
     poll_existing_messages: bool
     database_path: Path
     browser_resolver_enabled: bool
@@ -73,6 +76,9 @@ def load_settings() -> Settings:
         amazon_cookie_header=os.getenv("AMAZON_COOKIE_HEADER", "").strip(),
         amazon_marketplace_id=os.getenv("AMAZON_MARKETPLACE_ID", "526970").strip()
         or "526970",
+        tech_chat=os.getenv("TECH_CHAT", "").strip() or None,
+        home_chat=os.getenv("HOME_CHAT", "").strip() or None,
+        clothes_chat=os.getenv("CLOTHES_CHAT", "").strip() or None,
         poll_existing_messages=os.getenv("POLL_EXISTING_MESSAGES", "false").lower()
         == "true",
         database_path=Path(os.getenv("DATABASE_PATH", "data/offers.sqlite3")),
