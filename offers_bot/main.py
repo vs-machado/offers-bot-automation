@@ -667,10 +667,15 @@ async def run() -> None:
                     affiliate_client=affiliate_client,
                 )
 
-                # Extract category from LLM result if available
                 category = None
                 if offer.llm_result and "category" in offer.llm_result:
                     category = offer.llm_result["category"]
+                if (
+                    category is None
+                    and offer.llm_result
+                    and offer.llm_result.get("classification") == "product"
+                ):
+                    category = "other"
 
                 temp_image_path = None
                 try:

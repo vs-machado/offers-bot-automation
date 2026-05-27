@@ -107,27 +107,20 @@ class TelegramOfferBot:
         if self._target_entity is None:
             self._target_entity = await self._resolve_chat(self._target_chat)
 
-        # Resolve category-specific entity
-        category_entity = None
         if category == "tech":
-            category_entity = self._tech_entity
-        elif category == "home":
-            category_entity = self._home_entity
-        elif category == "clothes":
-            category_entity = self._clothes_entity
-
-        if category is None:
-            # Coupon: send to general + all configured category chats
-            targets = [self._target_entity] + [
-                e
-                for e in [self._tech_entity, self._home_entity, self._clothes_entity]
-                if e is not None
-            ]
-        else:
-            # Product: send to general + its category chat (if configured)
             targets = [self._target_entity]
-            if category_entity is not None:
-                targets.append(category_entity)
+            if self._tech_entity is not None:
+                targets.append(self._tech_entity)
+        elif category == "home":
+            targets = [self._target_entity]
+            if self._home_entity is not None:
+                targets.append(self._home_entity)
+        elif category == "clothes":
+            targets = [self._target_entity]
+            if self._clothes_entity is not None:
+                targets.append(self._clothes_entity)
+        else:
+            targets = [self._target_entity]
 
         for entity in targets:
             if image_file:
