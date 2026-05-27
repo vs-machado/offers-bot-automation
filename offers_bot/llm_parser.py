@@ -42,7 +42,12 @@ class ProductSection(BaseModel):
         None, description="Standardized price (e.g., 'R$ 844,90 no PIX' or 'R$ 49,90')"
     )
     card_price: Optional[str] = Field(
-        None, description="Card price if any (e.g., 'R$ 6.299,00 no cartão')"
+        None,
+        description=(
+            "Card price only if explicitly different from the main price "
+            "(e.g., 'R$ 6.299,00 no cartão' when Pix price differs). "
+            "Do not duplicate the main price for installments."
+        ),
     )
     installment_info: Optional[str] = Field(
         None, description="Installment info in uppercase if any (e.g., '10X SEM JUROS')"
@@ -52,7 +57,12 @@ class ProductSection(BaseModel):
     )
     coupon: Optional[str] = Field(
         None,
-        description="Coupon code(s) (e.g., 'MELIMAISPROMO' or '10MELIMAIS ou MELIMAISPROMO')",
+        description=(
+            "Only actual coupon code(s), e.g., 'MAES10' or "
+            "'10MELIMAIS ou MELIMAISPROMO'. Do not include redemption "
+            "instructions like 'Resgate cupom no anúncio'; put those in "
+            "resgate_anuncio_note."
+        ),
     )
     resgate_anuncio_note: Optional[str] = Field(
         None,
@@ -86,6 +96,15 @@ CRITICAL CLASSIFICATION RULES:
 MULTI-PRODUCT RULE: If the message describes MULTIPLE different products with DIFFERENT prices, list each product separately in the "products" array. For each product, populate its "urls" field with the URL(s) that belong to that specific product. If all URLs belong to the same product with the same price, put all URLs in a single product entry.
 
 CRITICAL TITLE EXTRACTION RULE: You must extract a clean product title for each product. Do not leave it null or empty if there is a product name. Clean the title by removing all emojis, pricing details, discount percentages, coupon codes, and URLs.
+
+FIELD RULES:
+- product.coupon must contain ONLY real coupon code(s), e.g. "MAES10", "OFF20", "10MELIMAIS ou MELIMAISPROMO".
+- Do NOT put redemption instructions in product.coupon.
+- Phrases like "Resgate cupom no anúncio", "Resgate o cupom no anúncio do produto", "Cupom no anúncio", "Ative no anúncio" are NOT coupon codes.
+- Put those phrases only in product.resgate_anuncio_note.
+- If message says "Cupom: Resgate cupom no anúncio" and gives no actual code, set product.coupon = null and product.resgate_anuncio_note = "Resgate cupom no anúncio".
+- product.card_price must be set only when text explicitly indicates a different card/parcelado price, e.g. "R$ 110 no cartão" while product.price is "R$ 100 no PIX".
+- If same price is shown with installments, e.g. "R$ 680 em 10x sem juros", set product.price = "R$ 680", product.installment_info = "10X SEM JUROS", and product.card_price = null.
 
 CATEGORY CLASSIFICATION RULE: After classifying as "product" or "coupon", determine the product category:
 - "tech": For electronic devices like smartphones, laptops, tablets, smart watches, headphones, etc.

@@ -230,6 +230,46 @@ class ParserTest(unittest.TestCase):
         self.assertIn("🏷️ Resgate o cupom no anúncio", formatted)
         self.assertNotIn("CUPOM:", formatted)
 
+    def test_llm_resgate_note_not_duplicated_as_coupon(self):
+        offer = Offer(
+            original_text=(
+                "Monitor Gamer Philips 24 Evnia Ips 200hz\n\n"
+                "💵 R$ 680 em 10x sem juros\n\n"
+                "🏷 Cupom: Resgate cupom no anuncio\n\n"
+                "https://meli.la/2Zmrzzh"
+            ),
+            url="https://meli.la/2Zmrzzh",
+            title="Monitor Gamer Philips 24 Evnia Ips 200hz",
+            price="R$ 680",
+            card_price=None,
+            installment_info="10X SEM JUROS",
+            shipping_info=None,
+            coupon=None,
+            meli_plus_only=False,
+            llm_result={
+                "classification": "product",
+                "products": [
+                    {
+                        "title": "Monitor Gamer Philips 24 Evnia Ips 200hz",
+                        "price": "R$ 680",
+                        "card_price": "R$ 680",
+                        "installment_info": "10X SEM JUROS",
+                        "shipping_info": None,
+                        "coupon": "Resgate cupom no anuncio",
+                        "resgate_anuncio_note": "Resgate cupom no anuncio",
+                        "meli_plus_only": False,
+                    }
+                ],
+            },
+        )
+
+        formatted = format_offer(offer, "https://meli.la/final123")
+
+        self.assertIn("💰 R$ 680", formatted)
+        self.assertNotIn("💳 R$ 680", formatted)
+        self.assertNotIn("CUPOM:", formatted)
+        self.assertEqual(formatted.count("Resgate cupom no anuncio"), 1)
+
     def test_ignores_non_supported_urls(self):
         self.assertEqual(extract_offers("Oferta https://example.com/item"), [])
 

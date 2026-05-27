@@ -161,6 +161,23 @@ def extract_resgate_anuncio_note(text: str) -> str | None:
     return note
 
 
+def _money_value(text: str) -> str | None:
+    match = re.search(r"R\$\s*((?:\d{1,3}(?:\.\d{3})+|\d+)(?:,\d{2})?)", text)
+    if not match:
+        return None
+    return match.group(1)
+
+
+def _is_same_price(left: str, right: str) -> bool:
+    left_value = _money_value(left)
+    right_value = _money_value(right)
+    return bool(left_value and right_value and left_value == right_value)
+
+
+def _is_resgate_note_without_code(text: str) -> bool:
+    return bool(RESGATE_ANUNCIO_RE.search(text)) and not extract_coupon_codes(text)
+
+
 def _format_novo_ml_coupon(offer: Offer, affiliate_url: str, text: str) -> str:
     discount_line = ""
     coupon_code = ""
@@ -390,6 +407,14 @@ def format_llm_offer(offer: Offer, affiliate_url: str) -> str:
         coupon = prod.get("coupon") or offer.coupon or ""
         resgate_note = prod.get("resgate_anuncio_note") or ""
         meli_plus = prod.get("meli_plus_only", False) or offer.meli_plus_only
+
+        if coupon and _is_resgate_note_without_code(coupon):
+            if not resgate_note:
+                resgate_note = extract_resgate_anuncio_note(coupon) or coupon
+            coupon = ""
+
+        if price and card_price and _is_same_price(price, card_price):
+            card_price = ""
 
         parts = []
         if title:
