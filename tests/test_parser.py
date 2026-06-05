@@ -1,3 +1,4 @@
+import asyncio
 import unittest
 
 from offers_bot.main import format_offer, format_outgoing_offer
@@ -481,7 +482,9 @@ class ParserTest(unittest.TestCase):
         )
         offer = extract_offers(text)[0]
 
-        formatted = format_outgoing_offer(offer, "https://s.shopee.com.br/aff123")
+        formatted = asyncio.run(
+            format_outgoing_offer(offer, "https://s.shopee.com.br/aff123")
+        )
 
         self.assertEqual(
             formatted,
@@ -502,7 +505,9 @@ class ParserTest(unittest.TestCase):
         )
         offer = extract_offers(text)[0]
 
-        formatted = format_outgoing_offer(offer, "https://s.shopee.com.br/9fHg7A8YKd")
+        formatted = asyncio.run(
+            format_outgoing_offer(offer, "https://s.shopee.com.br/9fHg7A8YKd")
+        )
 
         self.assertEqual(
             formatted,
@@ -530,7 +535,9 @@ class ParserTest(unittest.TestCase):
         self.assertEqual(len(offers), 1)
         self.assertEqual(offer.coupon, "AUTOS30G4AF")
         self.assertEqual(offer.url, "https://s.shopee.com.br/2AzGIy4Uqa")
-        formatted = format_outgoing_offer(offer, "https://s.shopee.com.br/aff1")
+        formatted = asyncio.run(
+            format_outgoing_offer(offer, "https://s.shopee.com.br/aff1")
+        )
 
         self.assertEqual(
             formatted,
@@ -571,7 +578,9 @@ class ParserTest(unittest.TestCase):
         )
         offer = extract_offers(text)[0]
 
-        formatted = format_outgoing_offer(offer, "https://s.shopee.com.br/aff123")
+        formatted = asyncio.run(
+            format_outgoing_offer(offer, "https://s.shopee.com.br/aff123")
+        )
 
         self.assertEqual(formatted.count("Anúncio"), 1)
         self.assertTrue(formatted.endswith("- Anúncio"))

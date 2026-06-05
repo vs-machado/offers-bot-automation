@@ -479,7 +479,7 @@ def format_offer(offer: Offer, affiliate_url: str) -> str:
     return "\n\n".join(parts)
 
 
-def _build_url_replacements(
+async def _build_url_replacements(
     offer: Offer,
     affiliate_url: str,
     affiliate_client: ShopeeClient | AliExpressClient | None,
@@ -495,7 +495,7 @@ def _build_url_replacements(
             continue
         try:
             aff = (
-                asyncio.run(asyncio.to_thread(affiliate_client.create_link, url))
+                await asyncio.to_thread(affiliate_client.create_link, url)
                 if affiliate_client
                 else None
             )
@@ -509,7 +509,7 @@ def _build_url_replacements(
     return replacements
 
 
-def format_outgoing_offer(
+async def format_outgoing_offer(
     offer: Offer,
     affiliate_url: str,
     *,
@@ -521,7 +521,9 @@ def format_outgoing_offer(
 
     # Multi-link AliExpress handling
     if is_ali and offer.all_urls and len(offer.all_urls) > 1:
-        replacements = _build_url_replacements(offer, affiliate_url, affiliate_client)
+        replacements = await _build_url_replacements(
+            offer, affiliate_url, affiliate_client
+        )
         new_text = offer.original_text
         for orig, aff in replacements.items():
             new_text = new_text.replace(orig, aff)
@@ -537,7 +539,9 @@ def format_outgoing_offer(
         )
 
     if is_shopee_url(offer.url) and "resgate" in offer.original_text.lower():
-        replacements = _build_url_replacements(offer, affiliate_url, affiliate_client)
+        replacements = await _build_url_replacements(
+            offer, affiliate_url, affiliate_client
+        )
         if url_replacements:
             replacements.update(url_replacements)
         new_text = offer.original_text
@@ -685,7 +689,7 @@ async def run() -> None:
                     )
                     continue
 
-                formatted_text = format_outgoing_offer(
+                formatted_text = await format_outgoing_offer(
                     offer,
                     affiliate.short_url,
                     is_ali=is_ali,
