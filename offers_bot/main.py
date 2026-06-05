@@ -3,9 +3,9 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
-import pathlib
 import re
 import tempfile
+
 import httpx
 
 from .amazon import AmazonClient
@@ -25,6 +25,7 @@ from .parser import (
 )
 from .shopee import ShopeeClient
 from .store import OfferStore
+from .session_store import SessionStore
 from .telegram_bot import TelegramOfferBot
 
 
@@ -565,11 +566,11 @@ async def run() -> None:
     # Ensure directories exist before attempting to create SQLite files
     settings.database_path.parent.mkdir(parents=True, exist_ok=True)
 
-    session_path = pathlib.Path(settings.telegram_session)
-    if str(session_path.parent) != ".":
-        session_path.parent.mkdir(parents=True, exist_ok=True)
-
     store = OfferStore(settings.database_path)
+    session_store = SessionStore(settings.database_path)
+
+    session_string = session_store.get_session()
+
     product_url_resolver = None
     if settings.browser_resolver_enabled:
         product_url_resolver = PlaywrightProductResolver(
@@ -613,9 +614,11 @@ async def run() -> None:
         api_id=settings.telegram_api_id,
         api_hash=settings.telegram_api_hash,
         session_name=settings.telegram_session,
+        session_string=session_string,
         source_chats=settings.source_chats,
         target_chat=settings.target_chat,
         phone=settings.telegram_phone,
+        qr_auth_port=settings.qr_auth_port,
         tech_chat=settings.tech_chat,
         home_chat=settings.home_chat,
         clothes_chat=settings.clothes_chat,
@@ -758,11 +761,18 @@ async def run() -> None:
 
     try:
         await telegram.start()
+
+        # Save session string to DB if newly created (e.g. after QR login)
+        if telegram.session_string and telegram.session_string != session_string:
+            session_store.save_session(telegram.session_string)
+            logging.info("Session string saved to database")
+
         await telegram.listen(
             handle_message, poll_existing=settings.poll_existing_messages
         )
     finally:
         store.close()
+        session_store.close()
 
 
 def main() -> None:

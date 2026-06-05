@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="refresh" content="30">
+  <title>Connect Telegram</title>
+  <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      background: #f0f2f5;
+      padding: 1rem;
+    }
+
+    .card {
+      background: white;
+      border-radius: 24px;
+      padding: 2.5rem 2rem;
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08), 0 1px 4px rgba(0, 0, 0, 0.04);
+      text-align: center;
+      max-width: 400px;
+      width: 100%;
+      transition: box-shadow 0.2s;
+    }
+
+    .card:hover {
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+    }
+
+    .icon {
+      width: 64px;
+      height: 64px;
+      margin: 0 auto 1.25rem;
+      background: #0088cc;
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .icon svg {
+      width: 36px;
+      height: 36px;
+      fill: white;
+    }
+
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: #1a1a2e;
+      margin-bottom: 0.375rem;
+    }
+
+    .subtitle {
+      color: #6b7280;
+      font-size: 0.95rem;
+      margin-bottom: 1.75rem;
+      line-height: 1.5;
+    }
+
+    .qr-wrapper {
+      background: #f8f9fb;
+      border-radius: 16px;
+      padding: 1.25rem;
+      margin-bottom: 1.75rem;
+      display: inline-block;
+    }
+
+    .qr-wrapper img {
+      display: block;
+      width: 240px;
+      height: 240px;
+      image-rendering: pixelated;
+      border-radius: 8px;
+    }
+
+    .steps {
+      text-align: left;
+      margin-bottom: 1.5rem;
+    }
+
+    .step {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.875rem;
+      padding: 0.625rem 0;
+      border-bottom: 1px solid #f3f4f6;
+    }
+
+    .step:last-child {
+      border-bottom: none;
+    }
+
+    .step-number {
+      background: #e8f4fd;
+      color: #0088cc;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.85rem;
+      font-weight: 700;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    .step-content {
+      color: #374151;
+      font-size: 0.95rem;
+      line-height: 1.5;
+    }
+
+    .step-content strong {
+      color: #1a1a2e;
+    }
+
+    .footer {
+      color: #9ca3af;
+      font-size: 0.8rem;
+      display: flex;
+      justify-content: center;
+      gap: 0.5rem;
+    }
+
+    .footer .dot {
+      color: #d1d5db;
+    }
+
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-top: 1rem;
+      padding: 0.5rem 1rem;
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      border-radius: 100px;
+      color: #166534;
+      font-size: 0.85rem;
+      font-weight: 500;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      background: #22c55e;
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    @media (max-width: 480px) {
+      .card {
+        padding: 1.5rem 1.25rem;
+        border-radius: 16px;
+      }
+
+      .qr-wrapper img {
+        width: 200px;
+        height: 200px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon">
+      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/>
+      </svg>
+    </div>
+
+    <h1>Connect Telegram</h1>
+    <p class="subtitle">Link your Telegram account to activate the bot</p>
+
+    <div class="qr-wrapper">
+      <img src="data:image/png;base64,{{QR_B64}}" alt="QR Code">
+    </div>
+
+    <div class="steps">
+      <div class="step">
+        <span class="step-number">1</span>
+        <div class="step-content">Open <strong>Telegram</strong> on your phone</div>
+      </div>
+      <div class="step">
+        <span class="step-number">2</span>
+        <div class="step-content">Go to <strong>Settings</strong> → <strong>Devices</strong> → <strong>Scan QR</strong></div>
+      </div>
+      <div class="step">
+        <span class="step-number">3</span>
+        <div class="step-content">Point your camera at the code above</div>
+      </div>
+    </div>
+
+    <div class="status">
+      <span class="status-dot"></span>
+      Waiting for scan
+    </div>
+
+    <div class="footer">
+      <span>Auto-refresh every 30s</span>
+      <span class="dot">·</span>
+      <span>Expires in {{QR_AUTH_TIMEOUT}}s</span>
+    </div>
+  </div>
+</body>
+</html>

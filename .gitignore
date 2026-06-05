@@ -7,3 +7,4 @@ __pycache__/
 *.session-journal
 data/
 venv
+.omo/

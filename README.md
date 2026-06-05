@@ -61,7 +61,10 @@ python -m playwright install chromium
 python run.py
 ```
 
-First run asks Telegram login code. Session stored as `TELEGRAM_SESSION`.
+First run in a terminal: enter phone + code interactively.
+First run in Docker/headless: **QR login** — open `http://host:8080` in browser, scan QR code with Telegram app.
+
+Session string is auto-saved to SQLite after first auth — no manual `.env` editing needed on restarts.
 
 Test one link conversion alone:
 
@@ -83,48 +86,45 @@ python -m offers_bot.check_link "https://s.click.aliexpress.com/e/_c4LBE5wb"
 
 ## Deploying to Coolify (or Docker)
 
-Because Telegram requires an interactive login code the first time you connect, you cannot perform the initial login directly inside a Coolify/Docker deployment. 
+The bot supports QR login for headless environments. No need to pre-generate session files.
 
-1. **Generate the session locally:**
-   Run the bot on your local machine first (`python run.py`). Enter your phone number and the OTP code. This will generate a file named `offers_bot.session`.
-2. **Upload the session file to your server:**
-   Use SSH or SFTP to upload `offers_bot.session` to your server. Place it in the directory where your Coolify project stores its data (e.g., `/data/coolify/applications/<app_id>/`).
-3. **Important Docker Pitfall:**
-   You **MUST** ensure the `offers_bot.session` file exists on the host server **before** you start the Coolify deployment. 
-   *Why?* If Docker tries to bind-mount a file that doesn't exist on the host, it will automatically create an empty **directory** with that name. When the bot starts, SQLite will try to open that directory as a database and crash with `sqlite3.OperationalError: unable to open database file`.
-4. **Deploy:**
-   Once the file is securely on the host server, deploy your app from Coolify.
+### First-time setup (Docker):
+
+1. Set `TELEGRAM_PHONE` in your `.env` (required for QR login).
+2. Make sure port `8080` (or your `QR_AUTH_PORT`) is exposed in docker-compose.
+3. Start the container:
+   ```bash
+   docker compose up -d
+   ```
+4. Open `http://your-server:8080` in a browser — you'll see a QR page.
+5. Open Telegram on your phone → Settings → Devices → Scan QR.
+6. Bot connects automatically. Session string is saved to the database.
+7. Restart the container. Auth is now automatic — no QR needed.
+
+### Local dev (terminal):
+
+```bash
+python run.py
+# Enter phone + code interactively (same as before)
+# Session string auto-saved to DB — no manual steps needed
+```
 
 ## Troubleshooting & Known Issues
 
-### 1. `sqlite3.OperationalError: unable to open database file`
-This usually happens due to a **Docker Bind Mount conflict**.
-*   **Cause:** If you configure a mount for `offers_bot.session` in Coolify/Docker, but the file does not exist on the host when the container starts, Docker will create a **directory** named `offers_bot.session`. When the bot tries to open it as a database file, it fails.
-*   **Fix:** 
-    1. Stop the container.
-    2. On the host, run `rm -rf offers_bot.session` to delete the incorrect directory.
-    3. Ensure your real `.session` file is placed there as a file.
-    4. Restart the container.
-*   **Pro-tip:** Use a subfolder for the session (e.g., `TELEGRAM_SESSION=data/offers_bot`). Since the `data/` folder is already a directory mount, it is much more stable than mounting individual files.
-
-### 2. `EOFError: EOF when reading a line`
-*   **Cause:** The bot is asking for a Telegram login code but cannot receive input (common in Docker). This means it **failed to find or load a valid session file**.
-*   **Check:**
-    1. Verify `TELEGRAM_SESSION` path matches your file location.
-    2. Ensure `TELEGRAM_API_ID` and `TELEGRAM_API_HASH` match the ones used to create the session file. If they differ, the session is invalidated.
-    3. Check file permissions (`chmod 664`).
-
-### 3. `telethon.errors.rpcerrorlist.FloodWaitError`
+### 1. `telethon.errors.rpcerrorlist.FloodWaitError`
 *   **Cause:** Telegram has temporarily throttled your account for making too many requests (like joining too many groups or trying to login too many times).
 *   **Fix:** You **must wait** the exact number of seconds specified in the error message. There is no workaround. Stop the bot and wait before trying again, or you risk longer bans.
 
-### 4. Safe Session Update Pattern
-If you need to update or move your session file on a live server, always follow this sequence to prevent Docker from creating "ghost" directories:
-1.  **Stop** the container (`docker stop <container_id>`).
-2.  **Delete** the old file/directory on the host.
-3.  **Copy** the new `.session` file to the destination path.
-4.  **Set permissions** (`chown ubuntu:ubuntu` and `chmod 664`).
-5.  **Start** the container again.
+### 2. QR Login fails / times out
+*   **Cause:** QR code expired (120s window) or `TELEGRAM_PHONE` not set.
+*   **Fix:** 
+    1. Ensure `TELEGRAM_PHONE=+5511999999999` is in your `.env`.
+    2. Restart the container — a new QR code is generated.
+    3. Scan promptly within 2 minutes.
+
+### 3. Session expired
+*   **Cause:** Telegram revoked the session (password change, new device, etc.).
+*   **Fix:** Delete the database file (`data/offers.sqlite3`) and restart. The bot will generate a new QR code for re-authentication.
 
 ## Mercado Livre Credentials
 
