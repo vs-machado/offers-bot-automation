@@ -5,7 +5,7 @@ services:
     build: .
     container_name: offers_bot
     ports:
-      - "${QR_AUTH_PORT:-8080}:${QR_AUTH_PORT:-8080}"  # QR auth server (first-time setup only)
+      - "${QR_AUTH_PORT:-8081}:${QR_AUTH_PORT:-8080}"  # QR auth server (first-time setup only)
     environment:
       # Pass telegram and other env vars from .env file
       - TELEGRAM_API_ID=${TELEGRAM_API_ID}

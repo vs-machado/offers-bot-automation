@@ -62,7 +62,7 @@ python run.py
 ```
 
 First run in a terminal: enter phone + code interactively.
-First run in Docker/headless: **QR login** — open `http://host:8080` in browser, scan QR code with Telegram app.
+First run in Docker/headless: **QR login** — open `http://host:8081` in browser, scan QR code with Telegram app.
 
 Session string is auto-saved to SQLite after first auth — no manual `.env` editing needed on restarts.
 
@@ -96,7 +96,7 @@ The bot supports QR login for headless environments. No need to pre-generate ses
    ```bash
    docker compose up -d
    ```
-4. Open `http://your-server:8080` in a browser — you'll see a QR page.
+4. Open `http://your-server:8081` in a browser — you'll see a QR page.
 5. Open Telegram on your phone → Settings → Devices → Scan QR.
 6. Bot connects automatically. Session string is saved to the database.
 7. Restart the container. Auth is now automatic — no QR needed.
