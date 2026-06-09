@@ -28,7 +28,7 @@ This is the high-performance, multi-tenant backend for the Telegram Offers Bot. 
 
 ## Roadmap
 ### Phase 1: Core API Expansion (Current)
-- [ ] **User Config Management**: Implement `GET`, `PUT`, and `DELETE` for `/auth/configs`.
+- [x] **User Config Management**: Implement `GET`, `POST`, `PUT`, and `DELETE` for `/users/me/configs`.
 - [ ] **Offer Management**: Implement CRUD for user's found offers.
 - [ ] **Background Worker Integration**: Implement the bridge between the API and the Telegram bot loop.
 

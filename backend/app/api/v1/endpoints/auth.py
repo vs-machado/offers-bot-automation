@@ -12,16 +12,13 @@ from backend.app.core.security import (
     SECRET_KEY,
     ACCESS_TOKEN_EXPIRE_MINUTES,
 )
-from backend.app.models.user import User, UserConfig
+from backend.app.models.user import User
 from backend.app.schemas.user import (
     UserCreate,
     LoginRequest,
     Token,
     TokenData,
-    UserConfigCreate,
-    UserConfigRead,
 )
-import json
 from jose import JWTError, jwt
 
 router = APIRouter()
@@ -91,20 +88,3 @@ async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)):
         expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
     )
     return Token(access_token=access_token, token_type="bearer")
-
-
-@router.post("/configs", response_model=UserConfigRead)
-async def create_config(
-    config_data: UserConfigCreate,
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    new_config = UserConfig(
-        user_id=current_user.id,
-        config_type=config_data.config_type,
-        config_data=json.dumps(config_data.config_data),
-    )
-    db.add(new_config)
-    await db.commit()
-    await db.refresh(new_config)
-    return new_config

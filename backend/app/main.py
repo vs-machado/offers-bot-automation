@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from backend.app.api.v1.endpoints import auth
+from backend.app.api.v1.endpoints import auth, users
 
 app = FastAPI(
     title="Offers Bot API",
@@ -15,4 +15,4 @@ async def health_check():
 
 # Include routers
 app.include_router(auth.router, prefix="/auth", tags=["Authentication"])
-# app.include_router(users.router, prefix="/users", tags=["Users"])
+app.include_router(users.router, prefix="/users", tags=["Users"])
