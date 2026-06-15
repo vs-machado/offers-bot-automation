@@ -4,7 +4,7 @@ Bot user account listens to source Telegram groups, extracts Mercado Livre, Amaz
 
 ## Parsing Architecture
 
-The bot now uses an AI parsing layer first. Telegram messages are sent to a structured Pydantic AI agent backed by Gemini (`gemini-2.5-flash-lite`), which classifies each message as either a product deal or a generic coupon bulletin and extracts clean fields such as title, price, installment info, shipping, coupon, and Meli+ restrictions.
+The bot now uses an AI parsing layer first. Telegram messages are sent to a structured Pydantic AI agent backed by DeepSeek v4 Flash through LiteLLM (`deepseek/deepseek-v4-flash`), with Gemini 2.5 Flash Lite (`gemini/gemini-2.5-flash-lite`) as fallback. It classifies each message as either a product deal or a generic coupon bulletin and extracts clean fields such as title, price, installment info, shipping, coupon, and Meli+ restrictions.
 
 The older regex parser is still present, but it is now the fallback path. It runs only when the AI layer is disabled, missing credentials, or fails/timeouts. URL extraction and platform-specific affiliate conversion still happen after parsing.
 
@@ -13,8 +13,11 @@ flowchart TD
     A[Telegram source message] --> B[Extract supported offer URLs]
     B --> C{AI parser enabled?}
     C -->|No: DISABLE_LLM=true| F[Regex fallback parser]
-    C -->|Yes| D["Pydantic AI agent<br/>Gemini 2.5 Flash"]
-    D --> E{Structured parse OK?}
+    C -->|Yes| D["Pydantic AI agent<br/>DeepSeek v4 Flash via LiteLLM"]
+    D --> K{DeepSeek parse OK?}
+    K -->|No| L["Gemini 2.5 Flash Lite fallback"]
+    K -->|Yes| E{Structured parse OK?}
+    L --> E
     E -->|Yes| G["Use AI fields<br/>title, price, coupon, shipping"]
     E -->|No: error, timeout, missing key| F
     F --> H[Extract fields with regex heuristics]
@@ -43,8 +46,9 @@ flowchart TD
    - `ALIEXPRESS_APP_KEY`
    - `ALIEXPRESS_APP_SECRET`
    - `ALIEXPRESS_TRACKING_ID`
-   - `GEMINI_API_KEY` for the AI parsing layer
-   - `LITELLM_API_BASE` only if routing Gemini through LiteLLM
+   - `DEEPSEEK_API_KEY` for the primary AI parsing layer
+   - `GEMINI_API_KEY` for the AI fallback parser
+   - `LITELLM_API_BASE` only if routing LiteLLM through a proxy/server
    - `DISABLE_LLM=true` only when you want to force the regex fallback parser
 4. Install deps:
 
