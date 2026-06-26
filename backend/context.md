@@ -42,7 +42,7 @@ This is the high-performance, multi-tenant backend for the Telegram Offers Bot. 
 - [x] **Affiliate Conversion**: Implement Amazon, Shopee, AliExpress, and Mercado Livre link generators.
 
 ### Phase 2 Follow-Ups
-- [ ] **Worker Observability**: Improve per-platform missing-credential errors, structured conversion logs, and user-facing config validation before enabling sources/destinations.
+- [x] **Worker Observability**: Improve per-platform missing-credential errors, structured conversion logs, and user-facing config validation before enabling sources/destinations.
 
 ### Phase 3: Frontend Integration
 - [ ] **Next.js Dashboard**: Implementation of the user dashboard.

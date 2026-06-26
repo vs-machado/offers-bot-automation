@@ -17,6 +17,33 @@ from backend.worker.poster import BotPoster, BotPosterError
 router = APIRouter()
 
 
+REQUIRED_CONFIG_KEYS = {
+    "telegram": ("api_id", "api_hash"),
+    "amazon": ("amazon_affiliate_tag", "amazon_cookie_header"),
+    "mercado_livre": ("ml_affiliate_tag", "ml_cookie_header", "ml_csrf_token"),
+    "shopee": ("shopee_app_id", "shopee_app_secret"),
+    "aliexpress": ("aliexpress_app_key", "aliexpress_app_secret"),
+}
+
+
+def _validate_config(config_data: UserConfigCreate) -> None:
+    required_keys = REQUIRED_CONFIG_KEYS.get(config_data.config_type)
+    if not required_keys:
+        return
+
+    missing = [
+        key for key in required_keys if not str(config_data.config_data.get(key, ""))
+    ]
+    if missing:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "message": f"Missing required {config_data.config_type} config keys",
+                "missing_keys": missing,
+            },
+        )
+
+
 async def _verify_destination_enabled(chat_id: str, enabled: bool) -> None:
     if not enabled:
         return
@@ -55,6 +82,7 @@ async def create_config(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    _validate_config(config_data)
     new_config = UserConfig(
         user_id=current_user.id,
         config_type=config_data.config_type,
@@ -74,6 +102,7 @@ async def update_config(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    _validate_config(config_data)
     statement = select(UserConfig).where(
         UserConfig.id == config_id, UserConfig.user_id == current_user.id
     )

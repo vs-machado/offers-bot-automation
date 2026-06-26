@@ -35,6 +35,14 @@ LOGGER = logging.getLogger(__name__)
 MessageHandler = Callable[[str, int, str, str | None], Awaitable[None]]
 
 
+PLATFORM_LABELS = {
+    PLATFORM_ALIEXPRESS: "AliExpress",
+    PLATFORM_AMAZON: "Amazon",
+    PLATFORM_MERCADO_LIVRE: "Mercado Livre",
+    PLATFORM_SHOPEE: "Shopee",
+}
+
+
 class UserBotInstance:
     """A single user's Telegram bot + affiliate clients + dedup store."""
 
@@ -222,22 +230,45 @@ class UserBotInstance:
 
                 try:
                     is_ali = offer.platform == PLATFORM_ALIEXPRESS
-                    affiliate_client = (
-                        self._ml
-                        if offer.platform == PLATFORM_MERCADO_LIVRE
-                        else self._amazon
-                        if offer.platform == PLATFORM_AMAZON
-                        else self._shopee
-                        if offer.platform == PLATFORM_SHOPEE
-                        else self._aliexpress
-                        if offer.platform == PLATFORM_ALIEXPRESS
-                        else None
+                    affiliate_client = self._affiliate_client_for_platform(
+                        offer.platform
                     )
                     if affiliate_client is None:
+                        LOGGER.warning(
+                            "User %s: unsupported platform=%s url=%s chat=%s message=%s",
+                            self.user_id,
+                            offer.platform or "unknown",
+                            offer.url,
+                            source_chat,
+                            message_id,
+                        )
+                        continue
+                    if not affiliate_client.ready():
+                        LOGGER.warning(
+                            "User %s: missing %s affiliate credentials for url=%s",
+                            self.user_id,
+                            PLATFORM_LABELS.get(offer.platform, offer.platform),
+                            offer.url,
+                        )
                         continue
 
+                    LOGGER.info(
+                        "User %s: converting platform=%s url=%s chat=%s message=%s",
+                        self.user_id,
+                        offer.platform,
+                        offer.url,
+                        source_chat,
+                        message_id,
+                    )
                     affiliate = await asyncio.to_thread(
                         affiliate_client.create_link, offer.url
+                    )
+                    LOGGER.info(
+                        "User %s: converted platform=%s product_key=%s short_url=%s",
+                        self.user_id,
+                        offer.platform,
+                        affiliate.product_key,
+                        affiliate.short_url,
                     )
 
                     if affiliate.product_key in processed_product_keys:
@@ -338,6 +369,17 @@ class UserBotInstance:
                     )
 
         return handle_message
+
+    def _affiliate_client_for_platform(self, platform: str):
+        if platform == PLATFORM_MERCADO_LIVRE:
+            return self._ml
+        if platform == PLATFORM_AMAZON:
+            return self._amazon
+        if platform == PLATFORM_SHOPEE:
+            return self._shopee
+        if platform == PLATFORM_ALIEXPRESS:
+            return self._aliexpress
+        return None
 
     async def _send_offer(
         self,
