@@ -61,6 +61,7 @@ class ParserTest(unittest.TestCase):
         samples = {
             "https://meli.la/1234567": PLATFORM_MERCADO_LIVRE,
             "https://amzn.to/abc123": PLATFORM_AMAZON,
+            "https://link.amazon/B01JUSTFD0": PLATFORM_AMAZON,
             "https://s.shopee.com.br/LjpppnYGZ": PLATFORM_SHOPEE,
             "https://s.click.aliexpress.com/e/_c4LBE5wb": PLATFORM_ALIEXPRESS,
         }

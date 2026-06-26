@@ -99,6 +99,45 @@ class AmazonClientTest(unittest.TestCase):
             "https://www.amazon.com.br/dp/B0DXR6MKR8?th=1&psc=1&linkCode=sl2&tag=mytag-20&linkId=abc123&ref_=as_li_ss_tl",
         )
 
+    def test_create_link_normalizes_link_amazon_asin_url(self):
+        seen_requests = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            seen_requests.append(request)
+            if request.url.path == "/dp/B01JUSTFD0":
+                return httpx.Response(200, request=request)
+            if request.url.host == "amzn.to":
+                return httpx.Response(200, request=request)
+            self.assertEqual(
+                request.url.params["longUrl"],
+                "https://www.amazon.com.br/dp/B01JUSTFD0?linkCode=sl2&tag=mytag-20",
+            )
+            return httpx.Response(
+                200,
+                json={
+                    "shortUrl": "https://amzn.to/4abc123",
+                    "longUrl": "https://www.amazon.com.br/dp/B01JUSTFD0?linkCode=sl2&tag=mytag-20",
+                },
+                request=request,
+            )
+
+        client = AmazonClient(
+            tag="mytag-20",
+            cookie_header="session-id=abc",
+            client=httpx.Client(
+                transport=httpx.MockTransport(handler), follow_redirects=True
+            ),
+        )
+
+        link = client.create_link("https://link.amazon/B01JUSTFD0")
+
+        self.assertEqual(link.short_url, "https://amzn.to/4abc123")
+        self.assertEqual(link.origin_url, "https://www.amazon.com.br/dp/B01JUSTFD0")
+        self.assertEqual(link.product_key, "AMZN:B01JUSTFD0")
+        self.assertEqual(
+            str(seen_requests[0].url), "https://www.amazon.com.br/dp/B01JUSTFD0"
+        )
+
     def test_create_link_extracts_image_with_resolver(self):
         class Resolver:
             def get_image(self, url: str) -> str | None:

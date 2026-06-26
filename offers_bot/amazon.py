@@ -9,6 +9,7 @@ import httpx
 from .models import AffiliateLink
 
 ASIN_RE = re.compile(r"/(?:dp|gp/product)/([A-Z0-9]{10})(?:[/?]|$)", re.IGNORECASE)
+LINK_AMAZON_ASIN_RE = re.compile(r"^/([A-Z0-9]{10})(?:[/?]|$)", re.IGNORECASE)
 
 
 class ImageResolver(Protocol):
@@ -180,5 +181,13 @@ class AmazonClient:
     @staticmethod
     def _normalize_url(url: str) -> str:
         if url.startswith("http://") or url.startswith("https://"):
-            return url
-        return f"https://{url}"
+            normalized_url = url
+        else:
+            normalized_url = f"https://{url}"
+
+        parsed = urlparse(normalized_url)
+        if parsed.netloc.lower().endswith("link.amazon"):
+            asin_match = LINK_AMAZON_ASIN_RE.match(parsed.path)
+            if asin_match:
+                return f"https://www.amazon.com.br/dp/{asin_match.group(1).upper()}"
+        return normalized_url

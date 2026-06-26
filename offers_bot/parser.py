@@ -11,7 +11,9 @@ from .llm_parser import parse_with_llm, parse_with_llm_async
 MELI_SHORT_RE = re.compile(r"https?://meli\.la/[A-Za-z0-9]{7}", re.IGNORECASE)
 URL_RE = re.compile(r"https?://[^\s<>()]+", re.IGNORECASE)
 ML_HOST_RE = re.compile(r"(^|\.)mercadolivre\.com\.br$|(^|\.)meli\.la$", re.IGNORECASE)
-AMAZON_HOST_RE = re.compile(r"(^|\.)amazon\.com\.br$|(^|\.)amzn\.to$", re.IGNORECASE)
+AMAZON_HOST_RE = re.compile(
+    r"(^|\.)amazon\.com\.br$|(^|\.)amzn\.to$|(^|\.)link\.amazon$", re.IGNORECASE
+)
 SHOPEE_HOST_RE = re.compile(
     r"(^|\.)shopee\.com\.br$|(^|\.)s\.shopee\.com\.br$", re.IGNORECASE
 )
