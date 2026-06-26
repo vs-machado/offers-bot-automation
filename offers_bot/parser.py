@@ -21,6 +21,10 @@ ALIEXPRESS_HOST_RE = re.compile(
 )
 ALIEXPRESS_PROD_ID_RE = re.compile(r"/item/(\d+)\.html", re.IGNORECASE)
 ALIEXPRESS_PROD_IDS_RE = re.compile(r"[?&]productIds=(\d+)")
+PLATFORM_MERCADO_LIVRE = "mercado_livre"
+PLATFORM_AMAZON = "amazon"
+PLATFORM_SHOPEE = "shopee"
+PLATFORM_ALIEXPRESS = "aliexpress"
 ML_ID_RE = re.compile(r"\bMLB-?\d{6,13}\b", re.IGNORECASE)
 SHOPEE_ID_RE = re.compile(
     r"-i\.(\d+)\.(\d+)(?:[/?#]|$)|/opaanlp/(\d+)/(\d+)(?:[/?#]|$)|/product/(\d+)/(\d+)(?:[/?#]|$)",
@@ -90,6 +94,7 @@ class Offer:
     shipping_info: str | None
     coupon: str | None
     meli_plus_only: bool
+    platform: str = ""
     all_urls: tuple[str, ...] = ()
     llm_result: dict | None = None
     llm_product: dict | None = None
@@ -207,6 +212,7 @@ def _extract_offers(text: str, llm_res: dict | None) -> list[Offer]:
                 shipping_info=_sh if _sh is not None else extract_shipping_info(text),
                 coupon=_co if _co is not None else extract_coupon(text),
                 meli_plus_only=_mp,
+                platform=detect_platform(shopee_resgate_url) or "",
                 all_urls=tuple(found_urls),
                 llm_result=llm_res,
                 llm_product=_prod,
@@ -250,6 +256,7 @@ def _extract_offers(text: str, llm_res: dict | None) -> list[Offer]:
                     else extract_shipping_info(text),
                     coupon=_co if _co is not None else extract_coupon(text),
                     meli_plus_only=_mp,
+                    platform=detect_platform(found_urls[product_idx]) or "",
                     all_urls=tuple(found_urls),
                     llm_result=llm_res,
                     llm_product=_prod,
@@ -273,6 +280,7 @@ def _extract_offers(text: str, llm_res: dict | None) -> list[Offer]:
                 shipping_info=_sh if _sh is not None else extract_shipping_info(text),
                 coupon=_co if _co is not None else extract_coupon(text),
                 meli_plus_only=_mp,
+                platform=detect_platform(found_urls[0]) or "",
                 all_urls=tuple(found_urls),
                 llm_result=llm_res,
                 llm_product=_prod,
@@ -295,6 +303,7 @@ def _extract_offers(text: str, llm_res: dict | None) -> list[Offer]:
                 shipping_info=_sh if _sh is not None else extract_shipping_info(text),
                 coupon=_co if _co is not None else extract_coupon(text),
                 meli_plus_only=_mp,
+                platform=detect_platform(clean_url) or "",
                 llm_result=llm_res,
                 llm_product=_prod,
             )
@@ -355,6 +364,18 @@ def is_aliexpress_url(url: str) -> bool:
     return bool(parsed.netloc and ALIEXPRESS_HOST_RE.search(parsed.netloc))
 
 
+def detect_platform(url: str) -> str | None:
+    if is_mercado_livre_url(url):
+        return PLATFORM_MERCADO_LIVRE
+    if is_amazon_url(url):
+        return PLATFORM_AMAZON
+    if is_shopee_url(url):
+        return PLATFORM_SHOPEE
+    if is_aliexpress_url(url):
+        return PLATFORM_ALIEXPRESS
+    return None
+
+
 def is_shopee_product_url(url: str) -> bool:
     return is_shopee_url(url) and bool(SHOPEE_ID_RE.search(url))
 
@@ -370,12 +391,7 @@ def extract_aliexpress_product_id(url: str) -> str | None:
 
 
 def is_supported_offer_url(url: str) -> bool:
-    return (
-        is_mercado_livre_url(url)
-        or is_amazon_url(url)
-        or is_shopee_url(url)
-        or is_aliexpress_url(url)
-    )
+    return detect_platform(url) is not None
 
 
 def extract_ml_ids(text: str) -> list[str]:

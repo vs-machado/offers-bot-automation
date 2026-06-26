@@ -38,7 +38,7 @@ This is the high-performance, multi-tenant backend for the Telegram Offers Bot. 
 - [ ] **Shared Telegram Listener**: Implement one shared listener account/pool for subscribed source groups, deduplicating source ingestion across users.
 - [x] **Destination Bot Posting**: Replace user-account posting with Telegram Bot API posting to user destination groups/channels where the bot has permission.
 - [x] **Destination Management**: Implement CRUD for `/users/me/destinations` and verify bot access before enabling posting.
-- [ ] **Platform Parsers**: Integrate Gemini AI parsing and regex fallback.
+- [x] **Platform Parsers**: Integrate DeepSeek-first AI parsing, Gemini fallback, regex fallback, and canonical platform detection.
 - [ ] **Affiliate Conversion**: Implement Amazon, Shopee, AliExpress, and Mercado Livre link generators.
 
 ### Phase 3: Frontend Integration

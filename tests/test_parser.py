@@ -2,7 +2,17 @@ import asyncio
 import unittest
 
 from offers_bot.main import format_offer, format_outgoing_offer
-from offers_bot.parser import Offer, extract_ml_ids, extract_offers, extract_shopee_ids
+from offers_bot.parser import (
+    PLATFORM_ALIEXPRESS,
+    PLATFORM_AMAZON,
+    PLATFORM_MERCADO_LIVRE,
+    PLATFORM_SHOPEE,
+    Offer,
+    detect_platform,
+    extract_ml_ids,
+    extract_offers,
+    extract_shopee_ids,
+)
 
 
 class ParserTest(unittest.TestCase):
@@ -21,6 +31,7 @@ class ParserTest(unittest.TestCase):
         self.assertEqual(
             offers[0].url, "https://www.mercadolivre.com.br/x/p/MLB19603205"
         )
+        self.assertEqual(offers[0].platform, PLATFORM_MERCADO_LIVRE)
 
     def test_extracts_amazon_offer_title_and_price(self):
         offers = extract_offers(
@@ -33,6 +44,7 @@ class ParserTest(unittest.TestCase):
         self.assertEqual(
             offers[0].url, "https://www.amazon.com.br/dp/B0DXR6MKR8?tag=exampletag-20"
         )
+        self.assertEqual(offers[0].platform, PLATFORM_AMAZON)
 
     def test_extracts_shopee_offer_title_and_price(self):
         offers = extract_offers(
@@ -43,6 +55,19 @@ class ParserTest(unittest.TestCase):
         self.assertEqual(offers[0].title, "Liquidificador portátil Mondial")
         self.assertEqual(offers[0].price, "R$ 89,90")
         self.assertEqual(offers[0].url, "https://s.shopee.com.br/LjpppnYGZ")
+        self.assertEqual(offers[0].platform, PLATFORM_SHOPEE)
+
+    def test_detects_supported_platforms(self):
+        samples = {
+            "https://meli.la/1234567": PLATFORM_MERCADO_LIVRE,
+            "https://amzn.to/abc123": PLATFORM_AMAZON,
+            "https://s.shopee.com.br/LjpppnYGZ": PLATFORM_SHOPEE,
+            "https://s.click.aliexpress.com/e/_c4LBE5wb": PLATFORM_ALIEXPRESS,
+        }
+
+        for url, platform in samples.items():
+            with self.subTest(url=url):
+                self.assertEqual(detect_platform(url), platform)
 
     def test_removes_leading_status_text_from_inline_title(self):
         offers = extract_offers(

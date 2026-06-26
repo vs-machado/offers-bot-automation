@@ -17,10 +17,10 @@ from offers_bot.browser_resolver import PlaywrightProductResolver
 from offers_bot.mercado_livre import MercadoLivreClient, UnsupportedOfferError
 from offers_bot.parser import (
     extract_offers_async,
-    is_amazon_url,
-    is_mercado_livre_url,
-    is_shopee_url,
-    is_aliexpress_url,
+    PLATFORM_ALIEXPRESS,
+    PLATFORM_AMAZON,
+    PLATFORM_MERCADO_LIVRE,
+    PLATFORM_SHOPEE,
 )
 from offers_bot.shopee import ShopeeClient
 from offers_bot.telegram_bot import TelegramOfferBot
@@ -221,16 +221,16 @@ class UserBotInstance:
                     continue
 
                 try:
-                    is_ali = is_aliexpress_url(offer.url)
+                    is_ali = offer.platform == PLATFORM_ALIEXPRESS
                     affiliate_client = (
                         self._ml
-                        if is_mercado_livre_url(offer.url)
+                        if offer.platform == PLATFORM_MERCADO_LIVRE
                         else self._amazon
-                        if is_amazon_url(offer.url)
+                        if offer.platform == PLATFORM_AMAZON
                         else self._shopee
-                        if is_shopee_url(offer.url)
+                        if offer.platform == PLATFORM_SHOPEE
                         else self._aliexpress
-                        if is_ali
+                        if offer.platform == PLATFORM_ALIEXPRESS
                         else None
                     )
                     if affiliate_client is None:
