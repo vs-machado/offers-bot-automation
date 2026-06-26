@@ -33,6 +33,24 @@ class UserConfigRead(UserConfigBase):
     model_config = ConfigDict(from_attributes=True)
 
 
+class DestinationChannelBase(BaseModel):
+    chat_id: str
+    title: Optional[str] = None
+    chat_type: str = "channel"
+    enabled: bool = True
+
+
+class DestinationChannelCreate(DestinationChannelBase):
+    pass
+
+
+class DestinationChannelRead(DestinationChannelBase):
+    id: int
+    user_id: int
+    created_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+
 class LoginRequest(BaseModel):
     email: str
     password: str

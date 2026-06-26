@@ -3,12 +3,35 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from backend.app.core.db.session import get_db
-from backend.app.models.user import User, UserConfig, Offer
-from backend.app.schemas.user import UserConfigCreate, UserConfigRead
+from backend.app.models.user import DestinationChannel, Offer, User, UserConfig
+from backend.app.schemas.user import (
+    DestinationChannelCreate,
+    DestinationChannelRead,
+    UserConfigCreate,
+    UserConfigRead,
+)
 from backend.app.schemas.offer import OfferCreate, OfferRead
 from backend.app.api.v1.endpoints.auth import get_current_user
+from backend.worker.poster import BotPoster, BotPosterError
 
 router = APIRouter()
+
+
+async def _verify_destination_enabled(chat_id: str, enabled: bool) -> None:
+    if not enabled:
+        return
+    try:
+        can_post = await BotPoster().can_post(chat_id)
+    except BotPosterError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+    if not can_post:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Telegram bot cannot post to this destination",
+        )
 
 
 @router.get("/me/configs", response_model=list[UserConfigRead])
@@ -86,6 +109,98 @@ async def delete_config(
         )
 
     await db.delete(config)
+    await db.commit()
+
+
+@router.get("/me/destinations", response_model=list[DestinationChannelRead])
+async def list_destinations(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    statement = select(DestinationChannel).where(
+        DestinationChannel.user_id == current_user.id
+    )
+    result = await db.execute(statement)
+    return result.scalars().all()
+
+
+@router.post(
+    "/me/destinations",
+    response_model=DestinationChannelRead,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_destination(
+    destination_data: DestinationChannelCreate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    await _verify_destination_enabled(
+        destination_data.chat_id, destination_data.enabled
+    )
+    new_destination = DestinationChannel(
+        user_id=current_user.id,
+        chat_id=destination_data.chat_id,
+        title=destination_data.title,
+        chat_type=destination_data.chat_type,
+        enabled=destination_data.enabled,
+    )
+    db.add(new_destination)
+    await db.commit()
+    await db.refresh(new_destination)
+    return new_destination
+
+
+@router.put("/me/destinations/{destination_id}", response_model=DestinationChannelRead)
+async def update_destination(
+    destination_id: int,
+    destination_data: DestinationChannelCreate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    statement = select(DestinationChannel).where(
+        DestinationChannel.id == destination_id,
+        DestinationChannel.user_id == current_user.id,
+    )
+    result = await db.execute(statement)
+    destination = result.scalar_one_or_none()
+    if not destination:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Destination not found"
+        )
+
+    await _verify_destination_enabled(
+        destination_data.chat_id, destination_data.enabled
+    )
+
+    destination.chat_id = destination_data.chat_id
+    destination.title = destination_data.title
+    destination.chat_type = destination_data.chat_type
+    destination.enabled = destination_data.enabled
+    await db.commit()
+    await db.refresh(destination)
+    return destination
+
+
+@router.delete(
+    "/me/destinations/{destination_id}", status_code=status.HTTP_204_NO_CONTENT
+)
+async def delete_destination(
+    destination_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    statement = select(DestinationChannel).where(
+        DestinationChannel.id == destination_id,
+        DestinationChannel.user_id == current_user.id,
+    )
+    result = await db.execute(statement)
+    destination = result.scalar_one_or_none()
+    if not destination:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Destination not found"
+        )
+
+    await db.delete(destination)
     await db.commit()
 
 

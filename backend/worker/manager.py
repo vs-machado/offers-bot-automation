@@ -9,7 +9,7 @@ import httpx
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from backend.app.models.user import UserConfig
+from backend.app.models.user import DestinationChannel, UserConfig
 
 from offers_bot.amazon import AmazonClient
 from offers_bot.aliexpress import AliExpressClient
@@ -28,6 +28,7 @@ from offers_bot.main import format_outgoing_offer
 
 from backend.worker.store import PgOfferStore
 from backend.worker.session import PgSessionStore
+from backend.worker.poster import BotPoster
 
 LOGGER = logging.getLogger(__name__)
 
@@ -47,6 +48,8 @@ class UserBotInstance:
         self._aliexpress: AliExpressClient | None = None
         self._store: PgOfferStore | None = None
         self._session_store: PgSessionStore | None = None
+        self._poster = BotPoster()
+        self._destination_chat_ids: list[str] = []
         self._handle_message: MessageHandler | None = None
         self._task: asyncio.Task | None = None
 
@@ -65,6 +68,7 @@ class UserBotInstance:
             session_string = await self._session_store.get_session()
 
         source_chats = self._parse_chats(configs.get("source_chats", []))
+        self._destination_chat_ids = await self._load_destination_chat_ids(db)
         target_chat = configs.get("target_chat", "")
         tech_chat = configs.get("tech_chat", "")
         home_chat = configs.get("home_chat", "")
@@ -182,6 +186,14 @@ class UserBotInstance:
                 configs[row.config_type] = row.config_data
         return configs
 
+    async def _load_destination_chat_ids(self, db: AsyncSession) -> list[str]:
+        stmt = select(DestinationChannel).where(
+            DestinationChannel.user_id == self.user_id,
+            DestinationChannel.enabled.is_(True),
+        )
+        result = await db.execute(stmt)
+        return [destination.chat_id for destination in result.scalars().all()]
+
     def _parse_chats(self, raw: list[str] | str) -> list[str]:
         if isinstance(raw, list):
             return raw
@@ -284,16 +296,14 @@ class UserBotInstance:
                                     f.write(resp.content)
                                 image_to_send = temp_image_path
 
-                        await self.telegram.send_offer(
+                        await self._send_offer(
                             formatted_text, image_file=image_to_send, category=category
                         )
                     except Exception as e:
                         LOGGER.warning(
                             "User %s: failed to send image: %s", self.user_id, e
                         )
-                        await self.telegram.send_offer(
-                            formatted_text, category=category
-                        )
+                        await self._send_offer(formatted_text, category=category)
                     finally:
                         if temp_image_path and os.path.exists(temp_image_path):
                             os.remove(temp_image_path)
@@ -328,6 +338,19 @@ class UserBotInstance:
                     )
 
         return handle_message
+
+    async def _send_offer(
+        self,
+        text: str,
+        image_file: str | None = None,
+        category: str | None = None,
+    ) -> None:
+        if self._destination_chat_ids:
+            for chat_id in self._destination_chat_ids:
+                await self._poster.send_offer(chat_id, text, image_file=image_file)
+            return
+
+        await self.telegram.send_offer(text, image_file=image_file, category=category)
 
     async def _listen(self) -> None:
         try:

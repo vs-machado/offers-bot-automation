@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import List, Optional
 from sqlalchemy import ForeignKey, String, DateTime, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from backend.app.core.db.session import Base
+from backend.app.core.db.base import Base
 
 
 class User(Base):
@@ -21,6 +21,9 @@ class User(Base):
         back_populates="user", cascade="all, delete-orphan"
     )
     offers: Mapped[List["Offer"]] = relationship(back_populates="user")
+    destinations: Mapped[List["DestinationChannel"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
 
 
 class UserConfig(Base):
@@ -54,3 +57,19 @@ class Offer(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     user: Mapped["User"] = relationship(back_populates="offers")
+
+
+class DestinationChannel(Base):
+    __tablename__ = "destination_channels"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    chat_id: Mapped[str] = mapped_column(String(100), index=True)
+    title: Mapped[Optional[str]] = mapped_column(String(255))
+    chat_type: Mapped[str] = mapped_column(String(50), default="channel")
+    enabled: Mapped[bool] = mapped_column(default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+    user: Mapped["User"] = relationship(back_populates="destinations")
