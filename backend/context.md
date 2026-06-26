@@ -39,7 +39,10 @@ This is the high-performance, multi-tenant backend for the Telegram Offers Bot. 
 - [x] **Destination Bot Posting**: Replace user-account posting with Telegram Bot API posting to user destination groups/channels where the bot has permission.
 - [x] **Destination Management**: Implement CRUD for `/users/me/destinations` and verify bot access before enabling posting.
 - [x] **Platform Parsers**: Integrate DeepSeek-first AI parsing, Gemini fallback, regex fallback, and canonical platform detection.
-- [ ] **Affiliate Conversion**: Implement Amazon, Shopee, AliExpress, and Mercado Livre link generators.
+- [x] **Affiliate Conversion**: Implement Amazon, Shopee, AliExpress, and Mercado Livre link generators.
+
+### Phase 2 Follow-Ups
+- [ ] **Worker Observability**: Improve per-platform missing-credential errors, structured conversion logs, and user-facing config validation before enabling sources/destinations.
 
 ### Phase 3: Frontend Integration
 - [ ] **Next.js Dashboard**: Implementation of the user dashboard.
