@@ -22,6 +22,7 @@ import { FormEvent, InputHTMLAttributes, ReactNode, useState } from "react";
 import { Button } from "@/components/ui/button";
 
 type FormState = "idle" | "submitting" | "success" | "error";
+type AuthMode = "register" | "signin";
 
 const benefits = [
   {
@@ -100,15 +101,66 @@ function Field({
 
 export default function Home() {
   const router = useRouter();
+  const [authMode, setAuthMode] = useState<AuthMode>("register");
   const [formState, setFormState] = useState<FormState>("idle");
   const [message, setMessage] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+
+  async function handleRegister(formData: FormData, email: string, password: string) {
+    const fullName = String(formData.get("fullName") ?? "").trim();
+
+    const passwordError = getPasswordError(password);
+    if (passwordError) {
+      setFormState("error");
+      setMessage(passwordError);
+      return;
+    }
+
+    const response = await fetch("/api/register", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        email,
+        full_name: fullName || null,
+        password,
+      }),
+    });
+
+    if (!response.ok) {
+      const data = await response.json().catch(() => null);
+      const detail = data?.detail;
+      throw new Error(
+        typeof detail === "string" ? detail : "Could not create account."
+      );
+    }
+  }
+
+  async function handleCredentialsSignIn(email: string, password: string) {
+    if (!password) {
+      setFormState("error");
+      setMessage("Password is required.");
+      return false;
+    }
+
+    const signInResult = await signIn("credentials", {
+      email,
+      password,
+      redirect: false,
+    });
+
+    if (signInResult?.error) {
+      throw new Error("Incorrect email or password.");
+    }
+
+    return true;
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     const formData = new FormData(event.currentTarget);
-    const fullName = String(formData.get("fullName") ?? "").trim();
     const email = String(formData.get("email") ?? "").trim();
     const password = String(formData.get("password") ?? "");
 
@@ -119,56 +171,43 @@ export default function Home() {
       return;
     }
 
-    const passwordError = getPasswordError(password);
-    if (passwordError) {
-      setFormState("error");
-      setMessage(passwordError);
-      return;
-    }
-
     setFormState("submitting");
     setMessage("");
 
     try {
-      const response = await fetch("/api/register", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email,
-          full_name: fullName || null,
-          password,
-        }),
-      });
-
-      if (!response.ok) {
-        const data = await response.json().catch(() => null);
-        const detail = data?.detail;
-        throw new Error(
-          typeof detail === "string" ? detail : "Could not create account."
-        );
+      if (authMode === "register") {
+        await handleRegister(formData, email, password);
       }
 
-      const signInResult = await signIn("credentials", {
-        email,
-        password,
-        redirect: false,
-      });
-
-      if (signInResult?.error) {
-        throw new Error("Account created, but sign in failed.");
+      const signedIn = await handleCredentialsSignIn(email, password);
+      if (!signedIn) {
+        return;
       }
 
       setFormState("success");
-      setMessage("Account created. Redirecting to dashboard...");
+      setMessage(
+        authMode === "register"
+          ? "Account created. Redirecting to dashboard..."
+          : "Signed in. Redirecting to dashboard..."
+      );
       router.push("/dashboard");
     } catch (error) {
       setFormState("error");
       setMessage(
-        error instanceof Error ? error.message : "Could not create account."
+        error instanceof Error
+          ? error.message
+          : authMode === "register"
+            ? "Could not create account."
+            : "Could not sign in."
       );
     }
+  }
+
+  function switchAuthMode(mode: AuthMode) {
+    setAuthMode(mode);
+    setFormState("idle");
+    setMessage("");
+    setShowPassword(false);
   }
 
   return (
@@ -240,13 +279,23 @@ export default function Home() {
             <div className="hidden size-12 items-center justify-center rounded-xl border border-emerald-300/20 bg-emerald-500/10 text-emerald-400 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] sm:flex">
               <UserRoundPlus className="size-6" strokeWidth={1.8} />
             </div>
-            <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-emerald-400 sm:mt-6">Registration</p>
-            <h2 className="mt-2 text-2xl font-bold tracking-[-0.04em] text-slate-100 sm:mt-3 sm:text-3xl">Create your account</h2>
-            <p className="mt-2 text-sm text-slate-400 sm:mt-3">Use your email and password to create your workspace.</p>
+            <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-emerald-400 sm:mt-6">
+              {authMode === "register" ? "Registration" : "Sign in"}
+            </p>
+            <h2 className="mt-2 text-2xl font-bold tracking-[-0.04em] text-slate-100 sm:mt-3 sm:text-3xl">
+              {authMode === "register" ? "Create your account" : "Welcome back"}
+            </h2>
+            <p className="mt-2 text-sm text-slate-400 sm:mt-3">
+              {authMode === "register"
+                ? "Use your email and password to create your workspace."
+                : "Sign in with your email and password."}
+            </p>
           </div>
 
           <form className="space-y-4 sm:space-y-5" noValidate onSubmit={handleSubmit}>
-            <Field icon={User} label="Full name" name="fullName" placeholder="Jane Doe" type="text" />
+            {authMode === "register" ? (
+              <Field icon={User} label="Full name" name="fullName" placeholder="Jane Doe" type="text" />
+            ) : null}
 
             <Field
               icon={Mail}
@@ -279,6 +328,7 @@ export default function Home() {
               type={showPassword ? "text" : "password"}
             />
 
+            {authMode === "register" ? (
             <div className="rounded-xl border border-emerald-400/10 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-100 sm:px-4 sm:py-3 sm:text-sm">
               <p className="font-semibold text-emerald-300">Password must contain:</p>
               <div className="mt-1.5 space-y-1 text-[11px] text-slate-300 sm:mt-2 sm:space-y-1.5 sm:text-xs">
@@ -294,6 +344,7 @@ export default function Home() {
                 ))}
               </div>
             </div>
+            ) : null}
 
             <Button
               className="h-12 w-full bg-emerald-500 px-5 text-sm font-bold text-emerald-950 transition hover:bg-emerald-400 active:translate-y-px disabled:cursor-not-allowed disabled:bg-emerald-700 disabled:text-emerald-950/60"
@@ -301,7 +352,13 @@ export default function Home() {
               size="lg"
               type="submit"
             >
-              {formState === "submitting" ? "Creating account..." : "Create account"}
+              {formState === "submitting"
+                ? authMode === "register"
+                  ? "Creating account..."
+                  : "Signing in..."
+                : authMode === "register"
+                  ? "Create account"
+                  : "Sign in"}
             </Button>
 
             {message ? (
@@ -334,13 +391,14 @@ export default function Home() {
           </Button>
 
           <p className="mt-7 text-center text-sm text-slate-400">
-            Already have an account?{" "}
+            {authMode === "register" ? "Already have an account?" : "Need an account?"}{" "}
             <Button
               className="h-auto rounded-none p-0 font-bold text-emerald-400 hover:bg-transparent hover:text-emerald-300 hover:no-underline"
+              onClick={() => switchAuthMode(authMode === "register" ? "signin" : "register")}
               type="button"
               variant="link"
             >
-              Sign in
+              {authMode === "register" ? "Sign in" : "Create account"}
             </Button>
           </p>
           </div>
