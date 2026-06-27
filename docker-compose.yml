@@ -1,6 +1,15 @@
-version: '3.8'
-
 services:
+  frontend:
+    build:
+      context: ./frontend
+    container_name: offers_frontend
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    environment:
+      - NEXT_TELEMETRY_DISABLED=1
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+    restart: unless-stopped
+
   bot:
     build: .
     container_name: offers_bot
