@@ -12,8 +12,10 @@ class User(Base):
     email: Mapped[str] = mapped_column(
         String(255), unique=True, index=True, nullable=False
     )
-    hashed_password: Mapped[str] = mapped_column(String(500), nullable=False)
+    hashed_password: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     full_name: Mapped[Optional[str]] = mapped_column(String(255))
+    auth_provider: Mapped[str] = mapped_column(String(50), default="credentials")
+    provider_account_id: Mapped[Optional[str]] = mapped_column(String(255), index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     # Relationships

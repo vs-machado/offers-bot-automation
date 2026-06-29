@@ -1,6 +1,16 @@
 from datetime import datetime
-from typing import Optional, Dict, Any
-from pydantic import BaseModel, EmailStr, ConfigDict
+from typing import Any, Dict, Optional
+
+from pydantic import BaseModel, ConfigDict, EmailStr, field_validator
+
+
+COMMON_PASSWORDS = {
+    "12345678",
+    "password",
+    "password1",
+    "qwerty123",
+    "admin123",
+}
 
 
 class UserBase(BaseModel):
@@ -11,11 +21,32 @@ class UserBase(BaseModel):
 class UserCreate(UserBase):
     password: str
 
+    @field_validator("password")
+    @classmethod
+    def validate_password(cls, value: str) -> str:
+        if len(value) < 8:
+            raise ValueError("Password must be at least 8 characters.")
+        if value.lower() in COMMON_PASSWORDS:
+            raise ValueError("Password is too common.")
+        if not any(char.isupper() for char in value):
+            raise ValueError("Password must include one uppercase letter.")
+        if not any(char.isdigit() or not char.isalnum() for char in value):
+            raise ValueError("Password must include one number or symbol.")
+        return value
+
 
 class UserRead(UserBase):
     id: int
     created_at: datetime
     model_config = ConfigDict(from_attributes=True)
+
+
+class SessionExchangeRequest(BaseModel):
+    email: EmailStr
+    provider: str
+    provider_account_id: str
+    full_name: Optional[str] = None
+    secret: str
 
 
 class UserConfigBase(BaseModel):

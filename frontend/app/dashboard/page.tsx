@@ -19,7 +19,7 @@ export default async function DashboardPage() {
         </h1>
         <p className="mt-4 text-slate-300">
           Session ready for {session.user?.email}. Dashboard features can use
-          the stored FastAPI access token from Auth.js.
+          server routes to attach the stored FastAPI access token.
         </p>
       </section>
     </main>

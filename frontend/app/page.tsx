@@ -157,6 +157,12 @@ export default function Home() {
     return true;
   }
 
+  async function handleGoogleSignIn() {
+    setFormState("submitting");
+    setMessage("");
+    await signIn("google", { callbackUrl: "/dashboard" });
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -382,6 +388,8 @@ export default function Home() {
 
           <Button
             className="flex h-12 w-full items-center justify-center gap-3 border-white/15 bg-transparent px-4 text-sm font-bold text-slate-100 transition hover:border-emerald-400/30 hover:bg-white/[0.04] active:translate-y-px"
+            disabled={formState === "submitting"}
+            onClick={handleGoogleSignIn}
             size="lg"
             type="button"
             variant="outline"
