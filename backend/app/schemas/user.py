@@ -3,6 +3,8 @@ from typing import Any, Dict, Optional
 
 from pydantic import BaseModel, ConfigDict, EmailStr, field_validator
 
+from backend.app.core.security import BCRYPT_MAX_PASSWORD_BYTES
+
 
 COMMON_PASSWORDS = {
     "12345678",
@@ -26,6 +28,8 @@ class UserCreate(UserBase):
     def validate_password(cls, value: str) -> str:
         if len(value) < 8:
             raise ValueError("Password must be at least 8 characters.")
+        if len(value.encode("utf-8")) > BCRYPT_MAX_PASSWORD_BYTES:
+            raise ValueError("Password must be at most 72 bytes when UTF-8 encoded.")
         if value.lower() in COMMON_PASSWORDS:
             raise ValueError("Password is too common.")
         if not any(char.isupper() for char in value):

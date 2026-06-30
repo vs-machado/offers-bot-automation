@@ -6,6 +6,7 @@ const apiBaseUrl =
   process.env.API_BASE_URL?.replace(/\/$/, "") ?? "http://localhost:8000";
 
 export const authOptions: NextAuthOptions = {
+  secret: process.env.NEXTAUTH_SECRET,
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID ?? "",
@@ -96,7 +97,12 @@ export const authOptions: NextAuthOptions = {
       }
       return token;
     },
-    async session({ session }) {
+    async session({ session, token }) {
+      session.user = {
+        ...session.user,
+        email: token.email,
+      };
+      session.accessToken = token.accessToken;
       return session;
     },
   },

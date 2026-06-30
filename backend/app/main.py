@@ -1,6 +1,9 @@
 from fastapi import FastAPI
 from backend.app.api.v1.endpoints import auth, users
+from backend.app.core.db.base import Base
+from backend.app.core.db.session import engine
 from backend.app.core.security import validate_auth_config
+from backend.app.models import user, worker  # noqa: F401
 
 app = FastAPI(
     title="Offers Bot API",
@@ -12,6 +15,8 @@ app = FastAPI(
 @app.on_event("startup")
 async def validate_config_on_startup():
     validate_auth_config()
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
 
 
 @app.get("/health")
