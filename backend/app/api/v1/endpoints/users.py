@@ -9,6 +9,7 @@ from backend.app.schemas.user import (
     DestinationChannelRead,
     UserConfigCreate,
     UserConfigRead,
+    UserRead,
 )
 from backend.app.schemas.offer import OfferCreate, OfferRead
 from backend.app.api.v1.endpoints.auth import get_current_user
@@ -72,6 +73,13 @@ async def list_configs(
     for c in configs:
         c.config_data = json.loads(c.config_data)
     return configs
+
+
+@router.get("/me", response_model=UserRead)
+async def read_current_user(
+    current_user: User = Depends(get_current_user),
+):
+    return current_user
 
 
 @router.post(

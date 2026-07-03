@@ -172,6 +172,38 @@ class BackendAuthTest(unittest.TestCase):
         self.assertEqual(valid_response.status_code, 200)
         self.assertEqual(valid_response.json(), [])
 
+    def test_current_user_requires_token_and_ignores_payload_identity(self):
+        missing_response = self.client.get("/users/me")
+        self.assertEqual(missing_response.status_code, 401)
+
+        user = User(
+            email="user@example.com",
+            hashed_password="hash",
+            full_name="Current User",
+            auth_provider="credentials",
+        )
+        other_user = User(
+            email="other@example.com",
+            hashed_password="hash",
+            full_name="Other User",
+            auth_provider="credentials",
+        )
+        self.db.add(user)
+        self.db.add(other_user)
+        token = create_access_token({"sub": user.email, "user_id": user.id})
+
+        response = self.client.request(
+            "GET",
+            "/users/me?email=other@example.com",
+            headers={"Authorization": f"Bearer {token}"},
+            json={"email": other_user.email},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["email"], user.email)
+        self.assertEqual(data["full_name"], user.full_name)
+
     def test_google_session_exchange_creates_and_links_backend_user(self):
         os.environ["NEXTAUTH_BACKEND_SECRET"] = "exchange-secret"
 
