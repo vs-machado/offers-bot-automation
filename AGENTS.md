@@ -44,3 +44,11 @@ Types: `feat`, `fix`, `refactor`, `test`, `docs`, `chore`.
 - **Analyze:** Check if the failure was caused by a recent code change or a change in external API behavior.
 - **Do not modify tests silently:** If you believe the test itself needs to be updated to match new requirements, **always ask the user/developer for confirmation** before changing any existing test logic.
 - **Fix Code First:** Priority should always be given to fixing the code to satisfy the existing tests before considering a change to the test itself.
+
+## TypeScript / TSX Warnings
+When editing `.ts` or `.tsx` files in `frontend`, always run:
+```bash
+npm run lint
+```
+
+Fix all warnings and errors reported for touched `.ts` and `.tsx` files before finishing. Do not leave unused imports, unused variables, missing hook dependencies, type errors, or ESLint warnings. If a warning cannot be fixed safely, explain the blocker in the final response.
