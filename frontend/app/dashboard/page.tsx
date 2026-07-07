@@ -387,7 +387,7 @@ export default async function DashboardPage() {
                 <Button
                   className={
                     item.active
-                      ? "group h-12 w-full justify-start gap-4 bg-accent text-sm font-semibold text-accent-foreground shadow-none hover:bg-accent/80"
+                      ? "group h-12 w-full justify-start gap-4 bg-sidebar-primary/10 text-sm font-semibold text-sidebar-primary shadow-none hover:bg-sidebar-primary/15 dark:bg-sidebar-primary/18 dark:hover:bg-sidebar-primary/24"
                       : "group h-12 w-full justify-start gap-4 border-transparent bg-transparent text-sm font-medium text-muted-foreground shadow-none hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                   }
                   key={item.label}
@@ -401,52 +401,29 @@ export default async function DashboardPage() {
             })}
           </nav>
 
-          <Card className="mt-auto border border-sidebar-border bg-gradient-to-br from-sidebar-primary/10 to-card px-4 py-3 shadow-none dark:from-emerald-400/10 dark:to-white/[0.03]">
-            <CardContent className="p-0">
-              <div className="flex items-start gap-3">
-                <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-sidebar-primary/15 text-sidebar-primary">
-                  <Sparkles className="size-4" />
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-card-foreground">
-                    Need help getting started?
-                  </p>
-                  <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                    See the quick start guide
-                  </p>
-                  <Button
-                    className="mt-1 h-auto gap-2 p-0 text-xs font-semibold text-emerald-600 hover:text-emerald-500 dark:text-emerald-300 dark:hover:text-emerald-200"
-                    type="button"
-                    variant="link"
-                  >
-                    View guide <ArrowRight className="size-3.5" />
-                  </Button>
-                </div>
+          <div className="mt-auto">
+            <Separator className="my-4" />
+
+            <div className="flex items-center gap-3 px-1">
+              <div className="relative">
+                <Avatar className="size-11 bg-sidebar-primary/15">
+                  <AvatarFallback className="bg-sidebar-primary/15 font-semibold text-sidebar-primary">
+                    {userInitial}
+                  </AvatarFallback>
+                </Avatar>
+                <span className="absolute -bottom-0.5 -right-0.5 block size-3 rounded-full border-2 border-sidebar bg-emerald-500" />
               </div>
-            </CardContent>
-          </Card>
-
-          <Separator className="my-4" />
-
-          <div className="flex items-center gap-3 px-1">
-            <div className="relative">
-              <Avatar className="size-11 bg-sidebar-primary/15">
-                <AvatarFallback className="bg-sidebar-primary/15 font-semibold text-sidebar-primary">
-                  {userInitial}
-                </AvatarFallback>
-              </Avatar>
-              <span className="absolute -bottom-0.5 -right-0.5 block size-3 rounded-full border-2 border-sidebar bg-emerald-500" />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-semibold text-sidebar-foreground">{userName}</p>
+                <p className="truncate text-xs text-muted-foreground">{userEmail}</p>
+              </div>
+              <UserCircle2 className="size-5 text-muted-foreground" />
             </div>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-semibold text-sidebar-foreground">{userName}</p>
-              <p className="truncate text-xs text-muted-foreground">{userEmail}</p>
-            </div>
-            <UserCircle2 className="size-5 text-muted-foreground" />
-          </div>
 
-          <Separator className="my-4" />
-          <div className="[&_button]:text-muted-foreground">
-            <LogoutButton />
+            <Separator className="my-4" />
+            <div className="[&_button]:text-muted-foreground">
+              <LogoutButton />
+            </div>
           </div>
         </div>
       </aside>
@@ -569,22 +546,24 @@ export default async function DashboardPage() {
                       Your bot automatically finds, formats and posts offers for you.
                     </p>
                   </CardHeader>
-                  <CardContent className="flex-1 p-6 pt-3">
-                    <div className="space-y-4">
+                  <CardContent className="flex flex-1 items-center p-6 pt-4">
+                    <div className="w-full space-y-2">
                     {workflowSteps.map((step, index) => {
                       const Icon = step.icon;
 
+                      const iconColor = onboardingSteps[index]?.color ?? onboardingSteps[0].color;
+
                       return (
-                        <div className="flex gap-4" key={step.title}>
-                          <div className="flex flex-col items-center">
-                            <div className="flex size-12 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-600 dark:bg-emerald-400/20 dark:text-emerald-300">
+                        <div className="-mx-3 flex min-h-[72px] items-center gap-4 p-3" key={step.title}>
+                          <div className="relative flex size-12 shrink-0 items-center justify-center">
+                            <div className={`flex size-12 items-center justify-center rounded-2xl ${iconColor}`}>
                               <Icon className="size-5" strokeWidth={2} />
                             </div>
                             {index < workflowSteps.length - 1 ? (
-                              <div className="dash-flow-line mt-2 h-6 w-px text-emerald-500/70 dark:text-emerald-300/70" />
+                              <div className="dash-flow-line absolute top-[calc(100%+0.5rem)] h-6 w-px text-emerald-500/70 dark:text-emerald-300/70" />
                             ) : null}
                           </div>
-                          <div>
+                          <div className="min-w-0 flex-1">
                             <h3 className="font-semibold text-card-foreground">
                               {index + 1}. {step.title}
                             </h3>
@@ -599,7 +578,7 @@ export default async function DashboardPage() {
                   </CardContent>
                 </div>
 
-                <div className="hidden min-h-[500px] items-center justify-center p-4 md:flex xl:min-h-[560px]">
+                <div className="hidden min-h-[500px] items-center justify-center p-4 pt-12 md:flex xl:min-h-[560px] xl:pt-16">
                   <Image
                     alt="How the bot clones offers, converts links, and publishes them to your groups"
                     className="h-auto max-h-full w-full scale-110 object-contain object-center dark:opacity-90"
@@ -621,15 +600,8 @@ export default async function DashboardPage() {
                       Complete steps below to activate your automation.
                     </p>
                   </div>
-                  <Button
-                    className="h-11 w-full gap-3 border-transparent bg-emerald-600 px-7 text-sm font-bold text-white shadow-[0_10px_22px_rgba(22,163,74,0.14)] transition hover:bg-emerald-700 active:translate-y-px dark:bg-emerald-500 dark:text-emerald-950 dark:hover:bg-emerald-400 sm:w-auto"
-                    type="button"
-                    variant="outline"
-                  >
-                    Start setup <ArrowRight className="size-4" />
-                  </Button>
                 </CardHeader>
-                <CardContent className="flex flex-1 flex-col p-6 pt-4">
+                <CardContent className="flex flex-1 flex-col justify-center p-6 pt-4">
                   <div className="space-y-2">
                     {onboardingSteps.map((step) => {
                       const Icon = step.icon;
@@ -637,7 +609,7 @@ export default async function DashboardPage() {
 
                       return (
                         <div
-                          className="group -mx-3 flex items-center gap-4 rounded-2xl p-3 transition-colors hover:bg-muted/50"
+                          className="group -mx-3 flex items-center gap-4 rounded-2xl p-3"
                           key={step.id}
                         >
                           <div
@@ -671,7 +643,7 @@ export default async function DashboardPage() {
               </Card>
             </div>
 
-            <Card className="relative mt-5 overflow-hidden border border-border bg-gradient-to-br from-primary/5 via-card to-card py-0 shadow-[0_16px_50px_rgba(15,23,42,0.04)] dark:border-white/10 dark:from-emerald-400/10 dark:via-white/[0.035] dark:to-white/[0.035] dark:shadow-[0_24px_80px_rgba(0,0,0,0.24)]">
+            <Card className="relative mt-5 overflow-hidden border border-border bg-card py-0 shadow-[0_16px_50px_rgba(15,23,42,0.04)] dark:border-white/10 dark:bg-white/[0.035] dark:shadow-[0_24px_80px_rgba(0,0,0,0.24)]">
               <CardContent className="grid gap-6 p-6 md:grid-cols-[auto_1fr] lg:grid-cols-[auto_1fr] xl:grid-cols-[auto_1fr_repeat(3,minmax(0,1fr))] xl:items-center">
                 <div className="relative flex size-20 shrink-0 items-center justify-center justify-self-center lg:justify-self-start">
                   <span className="absolute size-20 rounded-full border border-primary/15" />
