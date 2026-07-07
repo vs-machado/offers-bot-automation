@@ -29,12 +29,14 @@ flowchart TD
 ## Setup
 
 1. Create Telegram API credentials at `https://my.telegram.org/apps`.
-2. Copy `.env.example` to `.env`.
-3. Fill:
+2. Create one platform Telegram bot with `@BotFather` and copy its token.
+3. Copy `.env.example` to `.env`.
+4. Fill:
    - `TELEGRAM_API_ID`
    - `TELEGRAM_API_HASH`
+   - `TELEGRAM_BOT_TOKEN`
    - `SOURCE_CHATS` with comma-separated source groups/channels
-   - `TARGET_CHAT` with your group id, `@name`, or invite link
+   - `TARGET_CHAT` with your fallback group id, `@name`, or invite link
    - `ML_AFFILIATE_TAG`
    - `ML_COOKIE_HEADER`
    - `ML_CSRF_TOKEN`
@@ -50,7 +52,10 @@ flowchart TD
    - `GEMINI_API_KEY` for the AI fallback parser
    - `LITELLM_API_BASE` only if routing LiteLLM through a proxy/server
    - `DISABLE_LLM=true` only when you want to force the regex fallback parser
-4. Install deps:
+
+Users do not need to create their own bots. Ask each user to add your platform bot to their destination group/channel, promote it with posting permission, then save that destination chat ID in the dashboard.
+
+5. Install deps:
 
 ```powershell
 python -m venv .venv
@@ -59,7 +64,7 @@ pip install -r requirements.txt
 python -m playwright install chromium
 ```
 
-5. Run:
+6. Run:
 
 ```powershell
 python run.py

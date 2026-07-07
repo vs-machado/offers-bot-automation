@@ -85,9 +85,9 @@ const mockedOnboardingState = {
 const onboardingSteps: OnboardingStep[] = [
   {
     id: "connectedTelegram",
-    title: "Create your Telegram bot",
-    shortTitle: "Create bot",
-    description: "Use BotFather to create a bot, then keep the token private.",
+    title: "Add platform Telegram bot",
+    shortTitle: "Add bot",
+    description: "Add @tgtestoffersbot to the destination where offers should appear.",
     icon: Send,
     color: "bg-sky-100 text-sky-600 dark:bg-sky-400/15 dark:text-sky-300",
   },
@@ -167,8 +167,8 @@ const sidebarItems: Array<{
 
 const workflowSteps = [
   {
-    title: "Create one Telegram bot",
-    description: "Use BotFather once. The app posts through that bot, not your Telegram user account.",
+    title: "Use platform Telegram bot",
+    description: "The app posts through @tgtestoffersbot, not your Telegram user account.",
     icon: UsersRound,
   },
   {

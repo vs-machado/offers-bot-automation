@@ -5,10 +5,12 @@ import { FormEvent, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 
+const platformBotUsername = "tgtestoffersbot";
+const platformBotUrl = `https://t.me/${platformBotUsername}`;
+
 const setupSteps = [
-  "Open BotFather if you need to create or inspect the configured workspace bot.",
-  "Add the configured bot to your destination group or channel.",
-  "Promote the bot to admin with permission to post messages.",
+  `Add @${platformBotUsername} to your destination group or channel.`,
+  "Promote that bot to admin with permission to post messages and photos.",
   "Paste the destination chat ID below and confirm setup.",
 ];
 
@@ -110,7 +112,7 @@ export function SetupDialog() {
                   Connect your destination
                 </h2>
                 <p className="mt-2 max-w-xl text-sm leading-6 text-muted-foreground">
-                  Prepare the configured Telegram bot, add it to your destination, then save the destination chat ID.
+                  Add the platform Telegram bot to your destination, then save the destination chat ID.
                 </p>
               </div>
               <Button
@@ -128,15 +130,7 @@ export function SetupDialog() {
             <div className="mt-6 grid gap-4 lg:grid-cols-[1fr_0.95fr]">
               <div className="rounded-3xl border border-border bg-muted/35 p-4 dark:border-white/10 dark:bg-white/[0.03]">
                 <div className="flex items-center justify-between gap-3">
-                  <p className="text-sm font-bold">BotFather instructions</p>
-                  <a
-                    className="inline-flex items-center gap-1 rounded-full bg-card px-3 py-1.5 text-xs font-bold text-primary shadow-sm hover:underline"
-                    href="https://t.me/BotFather"
-                    rel="noreferrer"
-                    target="_blank"
-                  >
-                    Open BotFather <ExternalLink className="size-3" />
-                  </a>
+                  <p className="text-sm font-bold">Platform bot instructions</p>
                 </div>
                 <ol className="mt-4 space-y-3 text-sm leading-6 text-muted-foreground">
                   {setupSteps.map((step) => (
@@ -189,7 +183,7 @@ export function SetupDialog() {
 
               <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <p className="text-xs leading-5 text-muted-foreground">
-                  Backend verifies the configured bot is admin before enabling this destination.
+                  Backend verifies the platform bot can post before enabling this destination.
                 </p>
                 <Button
                   className="h-12 gap-2 bg-emerald-600 px-6 text-sm font-bold text-white hover:bg-emerald-700 dark:bg-emerald-500 dark:text-emerald-950 dark:hover:bg-emerald-400"
