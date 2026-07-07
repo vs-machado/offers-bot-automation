@@ -1,6 +1,5 @@
 import {
   Activity,
-  ArrowRight,
   CalendarClock,
   Check,
   Clock,
@@ -29,6 +28,7 @@ import { Separator } from "@/components/ui/separator";
 import { ThemeToggle } from "@/components/theme-toggle";
 
 import { LogoutButton } from "./logout-button";
+import { SetupDialog } from "./setup-dialog";
 
 const apiBaseUrl =
   process.env.API_BASE_URL?.replace(/\/$/, "") ?? "http://localhost:8000";
@@ -85,9 +85,9 @@ const mockedOnboardingState = {
 const onboardingSteps: OnboardingStep[] = [
   {
     id: "connectedTelegram",
-    title: "Connect Telegram",
-    shortTitle: "Connect Telegram",
-    description: "Link your Telegram account so the bot can post on your behalf.",
+    title: "Create your Telegram bot",
+    shortTitle: "Create bot",
+    description: "Use BotFather to create a bot, then keep the token private.",
     icon: Send,
     color: "bg-sky-100 text-sky-600 dark:bg-sky-400/15 dark:text-sky-300",
   },
@@ -95,7 +95,7 @@ const onboardingSteps: OnboardingStep[] = [
     id: "addedFirstGroup",
     title: "Add your first group",
     shortTitle: "Add group",
-    description: "Pick the group where offers should appear.",
+    description: "Add the bot to the group or channel where offers should appear.",
     icon: UsersRound,
     color: "bg-emerald-100 text-emerald-600 dark:bg-emerald-400/15 dark:text-emerald-300",
   },
@@ -109,17 +109,17 @@ const onboardingSteps: OnboardingStep[] = [
   },
   {
     id: "selectedMessageTemplate",
-    title: "Create your first offer",
-    shortTitle: "Create offer",
-    description: "Create a message template for your offers.",
+    title: "Add destination chat ID",
+    shortTitle: "Add chat ID",
+    description: "Paste the destination chat ID so we can verify bot posting access.",
     icon: MessageSquareText,
     color: "bg-orange-100 text-orange-600 dark:bg-orange-400/15 dark:text-orange-300",
   },
   {
     id: "addedBotToGroup",
-    title: "Schedule or send",
-    shortTitle: "Schedule or send",
-    description: "Schedule your message or send it right away.",
+    title: "Send a test offer",
+    shortTitle: "Test posting",
+    description: "Confirm the bot can publish before automation goes live.",
     icon: CalendarClock,
     color: "bg-blue-100 text-blue-600 dark:bg-blue-400/15 dark:text-blue-300",
   },
@@ -167,24 +167,24 @@ const sidebarItems: Array<{
 
 const workflowSteps = [
   {
-    title: "Connect your favorite offer channels",
-    description: "Pick Telegram groups where great offers already appear.",
+    title: "Create one Telegram bot",
+    description: "Use BotFather once. The app posts through that bot, not your Telegram user account.",
     icon: UsersRound,
   },
   {
-    title: "Customize your brand",
-    description: "Choose the message template your audience will receive.",
+    title: "Add bot to destinations",
+    description: "Make the bot admin in every group or channel where offers should be published.",
     icon: MessageSquareText,
   },
   {
-    title: "Our bot does the work",
+    title: "Verify posting access",
     description:
-      "Every new offer is cloned, converted, tracked, and personalized automatically.",
+      "Save the destination chat ID. Backend checks the bot can post before enabling it.",
     icon: Link2,
   },
   {
     title: "Offers are published instantly",
-    description: "The bot posts final messages to your selected Telegram groups.",
+    description: "The bot posts final messages to verified Telegram destinations.",
     icon: Send,
   },
 ];
@@ -522,12 +522,7 @@ export default async function DashboardPage() {
                 </div>
 
                 <div className="xl:col-span-2 xl:justify-self-end 2xl:col-span-1">
-                  <Button
-                    className="h-12 w-full max-w-[180px] gap-3 bg-emerald-600 px-7 text-base font-bold text-white shadow-[0_14px_30px_rgba(22,163,74,0.18)] transition-colors hover:bg-emerald-700 active:translate-y-px dark:bg-emerald-500 dark:text-emerald-950 dark:hover:bg-emerald-400 sm:w-[172px]"
-                    type="button"
-                  >
-                    Start setup <ArrowRight className="size-4" />
-                  </Button>
+                  <SetupDialog />
                 </div>
               </CardContent>
             </Card>
@@ -590,7 +585,7 @@ export default async function DashboardPage() {
                 </div>
               </Card>
 
-              <Card className="h-full border border-border bg-card py-0 shadow-[0_16px_50px_rgba(15,23,42,0.04)] dark:border-white/10 dark:bg-white/[0.035] dark:shadow-[0_24px_80px_rgba(0,0,0,0.24)]">
+              <Card className="scroll-mt-6 h-full border border-border bg-card py-0 shadow-[0_16px_50px_rgba(15,23,42,0.04)] dark:border-white/10 dark:bg-white/[0.035] dark:shadow-[0_24px_80px_rgba(0,0,0,0.24)]" id="setup-checklist">
                 <CardHeader className="flex flex-col gap-4 p-6 pb-2 sm:flex-row sm:items-start sm:justify-between">
                   <div>
                     <CardTitle className="text-2xl font-semibold tracking-tight">
