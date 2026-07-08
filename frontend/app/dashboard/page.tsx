@@ -43,6 +43,12 @@ type Destination = {
   enabled: boolean;
 };
 
+type UserConfig = {
+  id: number;
+  config_type: string;
+  config_data?: Record<string, unknown>;
+};
+
 type OnboardingStepId =
   | "connectedTelegram"
   | "addedFirstGroup"
@@ -95,6 +101,29 @@ async function getDestinations(accessToken?: string): Promise<Destination[]> {
     }
 
     return (await response.json()) as Destination[];
+  } catch {
+    return [];
+  }
+}
+
+async function getUserConfigs(accessToken?: string): Promise<UserConfig[]> {
+  if (!accessToken) {
+    return [];
+  }
+
+  try {
+    const response = await fetch(`${apiBaseUrl}/users/me/configs`, {
+      cache: "no-store",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+
+    if (!response.ok) {
+      return [];
+    }
+
+    return (await response.json()) as UserConfig[];
   } catch {
     return [];
   }
@@ -397,12 +426,17 @@ export default async function DashboardPage() {
 
   const dbUser = await getDashboardUser(session.accessToken);
   const destinations = await getDestinations(session.accessToken);
+  const configs = await getUserConfigs(session.accessToken);
   const hasEnabledDestination = destinations.some((destination) => destination.enabled);
+  const hasAffiliateConfig = configs.some((config) =>
+    ["amazon", "shopee", "mercado_livre", "aliexpress"].includes(config.config_type)
+  );
   const onboardingState: OnboardingState = {
     ...defaultOnboardingState,
     connectedTelegram: hasEnabledDestination,
     addedFirstGroup: hasEnabledDestination,
     selectedMessageTemplate: hasEnabledDestination,
+    configuredAffiliates: hasAffiliateConfig,
   };
   const dbFullName = dbUser?.full_name?.trim();
   const userEmail = dbUser?.email || session.user?.email || "Signed in";
@@ -583,7 +617,11 @@ export default async function DashboardPage() {
                 </div>
 
                 <div className="xl:col-span-2 xl:justify-self-end 2xl:col-span-1">
-                  <SetupDialog />
+                  <SetupDialog
+                    configs={configs}
+                    destinations={destinations}
+                    hasEnabledDestination={hasEnabledDestination}
+                  />
                 </div>
               </CardContent>
             </Card>
