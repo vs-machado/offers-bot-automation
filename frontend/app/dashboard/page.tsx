@@ -38,6 +38,20 @@ type DashboardUser = {
   full_name?: string | null;
 };
 
+type Destination = {
+  id: number;
+  enabled: boolean;
+};
+
+type OnboardingStepId =
+  | "connectedTelegram"
+  | "addedFirstGroup"
+  | "configuredAffiliates"
+  | "selectedMessageTemplate"
+  | "addedBotToGroup";
+
+type OnboardingState = Record<OnboardingStepId, boolean>;
+
 async function getDashboardUser(
   accessToken?: string
 ): Promise<DashboardUser | null> {
@@ -63,8 +77,31 @@ async function getDashboardUser(
   }
 }
 
+async function getDestinations(accessToken?: string): Promise<Destination[]> {
+  if (!accessToken) {
+    return [];
+  }
+
+  try {
+    const response = await fetch(`${apiBaseUrl}/users/me/destinations`, {
+      cache: "no-store",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+
+    if (!response.ok) {
+      return [];
+    }
+
+    return (await response.json()) as Destination[];
+  } catch {
+    return [];
+  }
+}
+
 type OnboardingStep = {
-  id: keyof typeof mockedOnboardingState.steps;
+  id: OnboardingStepId;
   title: string;
   shortTitle: string;
   description: string;
@@ -72,14 +109,12 @@ type OnboardingStep = {
   color: string;
 };
 
-const mockedOnboardingState = {
-  steps: {
-    connectedTelegram: false,
-    addedFirstGroup: false,
-    configuredAffiliates: false,
-    selectedMessageTemplate: false,
-    addedBotToGroup: false,
-  },
+const defaultOnboardingState: OnboardingState = {
+  connectedTelegram: false,
+  addedFirstGroup: false,
+  configuredAffiliates: false,
+  selectedMessageTemplate: false,
+  addedBotToGroup: false,
 };
 
 const onboardingSteps: OnboardingStep[] = [
@@ -100,20 +135,20 @@ const onboardingSteps: OnboardingStep[] = [
     color: "bg-emerald-100 text-emerald-600 dark:bg-emerald-400/15 dark:text-emerald-300",
   },
   {
-    id: "configuredAffiliates",
-    title: "Configure affiliate sources",
-    shortTitle: "Configure affiliates",
-    description: "Add affiliate sources and tracking settings.",
-    icon: Link2,
-    color: "bg-violet-100 text-violet-600 dark:bg-violet-400/15 dark:text-violet-300",
-  },
-  {
     id: "selectedMessageTemplate",
     title: "Add destination chat ID",
     shortTitle: "Add chat ID",
     description: "Paste the destination chat ID so we can verify bot posting access.",
     icon: MessageSquareText,
     color: "bg-orange-100 text-orange-600 dark:bg-orange-400/15 dark:text-orange-300",
+  },
+  {
+    id: "configuredAffiliates",
+    title: "Configure affiliate sources",
+    shortTitle: "Configure affiliates",
+    description: "Add affiliate sources and tracking settings.",
+    icon: Link2,
+    color: "bg-violet-100 text-violet-600 dark:bg-violet-400/15 dark:text-violet-300",
   },
   {
     id: "addedBotToGroup",
@@ -177,15 +212,14 @@ const workflowSteps = [
     icon: MessageSquareText,
   },
   {
-    title: "Verify posting access",
-    description:
-      "Save the destination chat ID. Backend checks the bot can post before enabling it.",
-    icon: Link2,
+    title: "Configure affiliate sources",
+    description: "Add affiliate sources and tracking settings before offers go live.",
+    icon: Sparkles,
   },
   {
-    title: "Offers are published instantly",
-    description: "The bot posts final messages to verified Telegram destinations.",
-    icon: Send,
+    title: "Verify posting access",
+    description: "Save the destination chat ID so the bot can publish there.",
+    icon: Link2,
   },
 ];
 
@@ -240,6 +274,15 @@ function DashboardMotionStyles() {
       @keyframes dash-flow {
         to { background-position: 0 28px; }
       }
+      @keyframes dash-step-in {
+        from { opacity: 0; transform: translateY(8px) scale(.96); }
+        to { opacity: 1; transform: translateY(0) scale(1); }
+      }
+      @keyframes dash-check-in {
+        0% { opacity: 0; transform: scale(.55) rotate(-8deg); }
+        70% { transform: scale(1.08) rotate(0); }
+        100% { opacity: 1; transform: scale(1) rotate(0); }
+      }
       @keyframes dash-pulse {
         0%, 100% { opacity: .45; transform: scale(1); }
         50% { opacity: 1; transform: scale(1.08); }
@@ -256,9 +299,11 @@ function DashboardMotionStyles() {
         background-size: 100% 28px;
         animation: dash-flow 1s linear infinite;
       }
+      .dash-step-in { animation: dash-step-in .42s ease-out both; }
+      .dash-check-in { animation: dash-check-in .28s ease-out both; }
       .dash-status-dot { animation: dash-pulse 2.2s ease-in-out infinite; }
       @media (prefers-reduced-motion: reduce) {
-        .dash-mascot-float, .dash-flow-line, .dash-status-dot { animation: none; }
+        .dash-mascot-float, .dash-flow-line, .dash-step-in, .dash-check-in, .dash-status-dot { animation: none; }
       }
     `}</style>
   );
@@ -351,6 +396,14 @@ export default async function DashboardPage() {
   }
 
   const dbUser = await getDashboardUser(session.accessToken);
+  const destinations = await getDestinations(session.accessToken);
+  const hasEnabledDestination = destinations.some((destination) => destination.enabled);
+  const onboardingState: OnboardingState = {
+    ...defaultOnboardingState,
+    connectedTelegram: hasEnabledDestination,
+    addedFirstGroup: hasEnabledDestination,
+    selectedMessageTemplate: hasEnabledDestination,
+  };
   const dbFullName = dbUser?.full_name?.trim();
   const userEmail = dbUser?.email || session.user?.email || "Signed in";
   const userName = dbFullName || session.user?.name || userEmail || "Workspace user";
@@ -359,7 +412,7 @@ export default async function DashboardPage() {
     .charAt(0)
     .toUpperCase();
   const completedCount = onboardingSteps.filter(
-    (step) => mockedOnboardingState.steps[step.id]
+    (step) => onboardingState[step.id]
   ).length;
   const totalSteps = onboardingSteps.length;
   const allStepsCompleted = completedCount === totalSteps;
@@ -483,7 +536,7 @@ export default async function DashboardPage() {
                   </div>
                   <div className="mt-3 h-3 w-full max-w-52 overflow-hidden rounded-full bg-muted">
                     <div
-                      className="h-full rounded-full bg-primary transition-all duration-700 ease-out"
+                      className="h-full rounded-full bg-primary transition-all duration-700 ease-out dark:bg-primary/75"
                       style={{ width: `${progressPercent}%` }}
                     />
                   </div>
@@ -491,27 +544,35 @@ export default async function DashboardPage() {
 
                 <div className="grid gap-5 sm:grid-cols-5 lg:gap-4 xl:gap-5">
                   {onboardingSteps.map((step, index) => {
-                    const isCompleted = mockedOnboardingState.steps[step.id];
+                    const isCompleted = onboardingState[step.id];
                     const previousCompleted =
-                      index > 0 && mockedOnboardingState.steps[onboardingSteps[index - 1].id];
+                      index > 0 && onboardingState[onboardingSteps[index - 1].id];
 
                     return (
-                      <div className="relative text-center" key={step.id}>
+                      <div
+                        className="dash-step-in relative text-center"
+                        key={step.id}
+                        style={{ animationDelay: `${index * 70}ms` }}
+                      >
                         {index > 0 ? (
-                          <div
-                            className={`absolute left-[-50%] right-1/2 top-5 hidden h-px transition-colors duration-500 sm:block ${
-                              previousCompleted ? "bg-primary" : "bg-border"
-                            }`}
-                          />
+                          <div className="absolute left-[-50%] right-1/2 top-5 hidden h-1 overflow-hidden bg-muted sm:block">
+                            <span
+                              className={
+                                previousCompleted
+                                  ? "block h-full w-full origin-left scale-x-100 bg-primary transition-transform duration-700 ease-out"
+                                  : "block h-full w-full origin-left scale-x-0 bg-primary transition-transform duration-700 ease-out"
+                              }
+                            />
+                          </div>
                         ) : null}
                         <div
                           className={
                             isCompleted
-                              ? "relative mx-auto flex size-11 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground shadow-[0_0_24px_rgba(16,185,129,0.22)]"
-                              : "relative mx-auto flex size-11 items-center justify-center rounded-full border border-border bg-card text-sm font-bold text-foreground"
+                              ? "relative z-10 mx-auto flex size-11 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground transition duration-300"
+                              : "relative z-10 mx-auto flex size-11 items-center justify-center rounded-full border border-border bg-card text-sm font-bold text-foreground transition duration-300"
                           }
                         >
-                          {isCompleted ? <Check className="size-5" /> : index + 1}
+                          {isCompleted ? <Check className="dash-check-in size-5" /> : index + 1}
                         </div>
                         <p className="mt-4 text-sm font-semibold text-card-foreground">
                           {step.shortTitle}
@@ -600,7 +661,7 @@ export default async function DashboardPage() {
                   <div className="space-y-2">
                     {onboardingSteps.map((step) => {
                       const Icon = step.icon;
-                      const isCompleted = mockedOnboardingState.steps[step.id];
+                      const isCompleted = onboardingState[step.id];
 
                       return (
                         <div

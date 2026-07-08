@@ -1,12 +1,12 @@
 "use client";
 
-import { ArrowRight, Check, Copy, ExternalLink, Loader2, Send, X } from "lucide-react";
+import { ArrowRight, Check, Copy, Loader2, Send, X } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 
 const platformBotUsername = "tgtestoffersbot";
-const platformBotUrl = `https://t.me/${platformBotUsername}`;
 
 const setupSteps = [
   `Add @${platformBotUsername} to your destination group or channel.`,
@@ -22,6 +22,7 @@ const chatIdSteps = [
 ];
 
 export function SetupDialog() {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [chatId, setChatId] = useState("");
   const [status, setStatus] = useState<"idle" | "saving" | "success" | "error">("idle");
@@ -65,7 +66,10 @@ export function SetupDialog() {
       }
 
       setStatus("success");
-      setMessage("Destination saved. Bot can post there.");
+      setMessage("Destination saved. Setup steps updated.");
+      setChatId("");
+      setOpen(false);
+      router.refresh();
     } catch (error) {
       setStatus("error");
       setMessage(
@@ -84,13 +88,33 @@ export function SetupDialog() {
 
   return (
     <>
-      <Button
-        className="h-12 w-full max-w-[180px] gap-3 bg-emerald-600 px-7 text-base font-bold text-white shadow-[0_14px_30px_rgba(22,163,74,0.18)] transition-colors hover:bg-emerald-700 active:translate-y-px dark:bg-emerald-500 dark:text-emerald-950 dark:hover:bg-emerald-400 sm:w-[172px]"
-        onClick={() => setOpen(true)}
-        type="button"
-      >
-        Start setup <ArrowRight className="size-4" />
-      </Button>
+      <div className="w-full max-w-sm space-y-3">
+        <Button
+          className="h-12 w-full gap-3 bg-primary px-7 text-base font-bold text-primary-foreground shadow-[0_14px_30px_rgba(22,163,74,0.18)] transition-colors hover:bg-primary/90 active:translate-y-px dark:shadow-none sm:w-[172px]"
+          onClick={() => setOpen(true)}
+          type="button"
+        >
+          Start setup <ArrowRight className="size-4" />
+        </Button>
+
+        {!open && status === "success" && message ? (
+          <div className="rounded-2xl border border-emerald-500/25 bg-emerald-500/10 px-4 py-3 text-left shadow-sm">
+            <div className="flex items-start gap-3">
+              <span className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-white dark:bg-emerald-400 dark:text-emerald-950">
+                <Check className="size-3.5" />
+              </span>
+              <div>
+                <p className="text-sm font-bold text-emerald-700 dark:text-emerald-200">
+                  Destination connected
+                </p>
+                <p className="mt-0.5 text-xs leading-5 text-emerald-700/80 dark:text-emerald-100/75">
+                  {message}
+                </p>
+              </div>
+            </div>
+          </div>
+        ) : null}
+      </div>
 
       {open ? (
         <div
@@ -181,12 +205,9 @@ export function SetupDialog() {
                 </p>
               ) : null}
 
-              <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <p className="text-xs leading-5 text-muted-foreground">
-                  Backend verifies the platform bot can post before enabling this destination.
-                </p>
+              <div className="mt-4 flex justify-end">
                 <Button
-                  className="h-12 gap-2 bg-emerald-600 px-6 text-sm font-bold text-white hover:bg-emerald-700 dark:bg-emerald-500 dark:text-emerald-950 dark:hover:bg-emerald-400"
+                  className="h-12 gap-2 bg-primary px-6 text-sm font-bold text-primary-foreground hover:bg-primary/90"
                   disabled={status === "saving"}
                   type="submit"
                 >
