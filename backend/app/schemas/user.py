@@ -68,6 +68,10 @@ class UserConfigRead(UserConfigBase):
     model_config = ConfigDict(from_attributes=True)
 
 
+class SourceGroupPreviewRequest(BaseModel):
+    chat: str
+
+
 class DestinationChannelBase(BaseModel):
     chat_id: str
     title: Optional[str] = None

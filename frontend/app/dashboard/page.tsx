@@ -40,6 +40,7 @@ type DashboardUser = {
 
 type Destination = {
   id: number;
+  chat_id: string;
   enabled: boolean;
 };
 
@@ -181,9 +182,9 @@ const onboardingSteps: OnboardingStep[] = [
   },
   {
     id: "addedBotToGroup",
-    title: "Send a test offer",
-    shortTitle: "Test posting",
-    description: "Confirm the bot can publish before automation goes live.",
+    title: "Choose source groups",
+    shortTitle: "Choose sources",
+    description: "Select which Telegram groups the bot should copy offers from.",
     icon: CalendarClock,
     color: "bg-blue-100 text-blue-600 dark:bg-blue-400/15 dark:text-blue-300",
   },
@@ -431,12 +432,17 @@ export default async function DashboardPage() {
   const hasAffiliateConfig = configs.some((config) =>
     ["amazon", "shopee", "mercado_livre", "aliexpress"].includes(config.config_type)
   );
+  const hasSourceChatsConfig = configs.some((config) => {
+    const sourceChats = config.config_data?.source_chats;
+    return config.config_type === "source_chats" && Array.isArray(sourceChats) && sourceChats.length > 0;
+  });
   const onboardingState: OnboardingState = {
     ...defaultOnboardingState,
     connectedTelegram: hasEnabledDestination,
     addedFirstGroup: hasEnabledDestination,
     selectedMessageTemplate: hasEnabledDestination,
     configuredAffiliates: hasAffiliateConfig,
+    addedBotToGroup: hasSourceChatsConfig,
   };
   const dbFullName = dbUser?.full_name?.trim();
   const userEmail = dbUser?.email || session.user?.email || "Signed in";
