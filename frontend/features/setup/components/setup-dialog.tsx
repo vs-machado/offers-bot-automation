@@ -6,19 +6,18 @@ import { useRouter } from "next/navigation";
 import { FormEvent, Fragment, useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import { useSourceGroupPreviews } from "@/hooks/use-source-group-previews";
-import { useTelegramPostEmbed } from "@/hooks/use-telegram-post-embed";
-import { saveDestination, saveUserConfig } from "@/lib/api/setup-client";
-import type {
-  ConfigSummary,
-  DestinationSummary,
-  SourceGroup,
-  SourceMessage,
-} from "@/lib/api/types";
-import { getTelegramPostId } from "@/lib/telegram";
+import { saveDestination, saveUserConfig } from "@/features/setup/api/setup-client";
+import {
+  MessagePreviewSkeleton,
+  SourceGroupsSkeleton,
+} from "@/features/setup/components/source-preview-skeletons";
+import { TelegramPostEmbed } from "@/features/setup/components/telegram-post-embed";
+import { useSourceGroupPreviews } from "@/features/setup/hooks/use-source-group-previews";
+import { getTelegramPostId } from "@/features/setup/lib/telegram";
+import type { SourceGroup, SourceMessage } from "@/features/setup/types";
+import type { ConfigSummary, DestinationSummary } from "@/shared/contracts/user-config";
 
 const platformBotUsername = "tgtestoffersbot";
-const telegramEmbedScale = 0.86;
 
 type ProviderType = "amazon" | "shopee" | "mercado_livre" | "aliexpress";
 
@@ -165,89 +164,6 @@ function renderLinkedText(text: string) {
 function getHiddenMessageLinks(message: SourceMessage) {
   return (message.links ?? []).filter(
     (link) => link.url && !message.text.includes(link.url)
-  );
-}
-
-function TelegramPostEmbed({
-  onReady,
-  postId,
-}: {
-  onReady: (postId: string) => void;
-  postId: string;
-}) {
-  const { containerRef, scaledHeight } = useTelegramPostEmbed({
-    onReady,
-    postId,
-    scale: telegramEmbedScale,
-  });
-
-  return (
-    <div
-      className="overflow-hidden"
-      style={scaledHeight ? { height: scaledHeight } : undefined}
-    >
-      <div
-        className="origin-top-left [&_.telegram-post]:mx-0 [&_.telegram-post]:my-0 [&_iframe]:mx-0 [&_iframe]:my-0"
-        ref={containerRef}
-        style={{
-          transform: `scale(${telegramEmbedScale})`,
-          width: `${100 / telegramEmbedScale}%`,
-        }}
-      />
-    </div>
-  );
-}
-
-function SourceGroupsSkeleton() {
-  return (
-    <div className="space-y-2">
-      {Array.from({ length: 7 }).map((_, index) => (
-        <div className="flex items-center gap-3 rounded-2xl p-2" key={index}>
-          <div className="size-10 shrink-0 animate-pulse rounded-full bg-muted dark:bg-white/10" />
-          <div className="h-4 w-24 animate-pulse rounded-full bg-muted dark:bg-white/10" />
-          <div className="ml-auto size-8 shrink-0 animate-pulse rounded-full bg-muted dark:bg-white/10" />
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function MessagePreviewSkeleton({ count = 3 }: { count?: number }) {
-  return (
-    <div className="space-y-3">
-      {Array.from({ length: count }).map((_, index) => (
-        <div className="mx-auto flex w-full max-w-[560px] items-start gap-2" key={index}>
-          <div className="mt-3 size-9 shrink-0 animate-pulse rounded-full bg-muted dark:bg-white/10" />
-          <div className="min-w-0 flex-1 overflow-hidden rounded-[1rem] border border-border bg-background shadow-sm dark:border-white/10 dark:bg-[#111d2a]">
-            <div className="flex items-center gap-2 px-3 pt-3">
-              <div className="h-3.5 w-24 animate-pulse rounded-full bg-sky-200 dark:bg-sky-400/25" />
-              <div className="ml-auto size-5 shrink-0 animate-pulse rounded-full bg-sky-200 dark:bg-sky-400/25" />
-            </div>
-            <div className="space-y-3 px-3 py-3">
-              <div className="space-y-2.5">
-                <div className="h-3.5 w-11/12 animate-pulse rounded-full bg-muted dark:bg-white/10" />
-                <div className="h-3.5 w-3/4 animate-pulse rounded-full bg-muted dark:bg-white/10" />
-                <div className="h-3.5 w-5/6 animate-pulse rounded-full bg-muted dark:bg-white/10" />
-              </div>
-              {index % 2 === 1 ? (
-                <div className="flex gap-3 rounded-lg border-l-2 border-sky-300 bg-muted/60 p-2 dark:border-sky-500/50 dark:bg-white/5">
-                  <div className="min-w-0 flex-1 space-y-2">
-                    <div className="h-3 w-16 animate-pulse rounded-full bg-sky-200 dark:bg-sky-400/25" />
-                    <div className="h-3 w-11/12 animate-pulse rounded-full bg-muted-foreground/20 dark:bg-white/10" />
-                    <div className="h-3 w-2/3 animate-pulse rounded-full bg-muted-foreground/20 dark:bg-white/10" />
-                  </div>
-                  <div className="size-14 shrink-0 animate-pulse rounded-md bg-muted dark:bg-white/10" />
-                </div>
-              ) : null}
-              <div className="flex items-center gap-2">
-                <div className="h-3 w-20 animate-pulse rounded-full bg-sky-200 dark:bg-sky-400/25" />
-                <div className="ml-auto h-3 w-28 animate-pulse rounded-full bg-muted dark:bg-white/10" />
-              </div>
-            </div>
-          </div>
-        </div>
-      ))}
-    </div>
   );
 }
 

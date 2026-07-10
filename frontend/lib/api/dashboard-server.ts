@@ -1,6 +1,8 @@
 import "server-only";
 
-import type { ConfigSummary, DashboardUser, DestinationSummary } from "./types";
+import type { ConfigSummary, DestinationSummary } from "@/shared/contracts/user-config";
+
+import type { DashboardUser } from "./types";
 
 const apiBaseUrl =
   process.env.API_BASE_URL?.replace(/\/$/, "") ?? "http://localhost:8000";

@@ -1,4 +1,5 @@
-import type { ConfigSummary, DestinationSummary, SourceGroup } from "./types";
+import type { SourceGroup } from "@/features/setup/types";
+import type { ConfigSummary, DestinationSummary } from "@/shared/contracts/user-config";
 
 type SaveConfigInput = {
   configData: Record<string, unknown>;

@@ -33,7 +33,7 @@ import {
 } from "@/lib/api/dashboard-server";
 
 import { LogoutButton } from "./logout-button";
-import { SetupDialog } from "./setup-dialog";
+import { SetupDialog } from "@/features/setup/components/setup-dialog";
 
 type OnboardingStepId =
   | "connectedTelegram"

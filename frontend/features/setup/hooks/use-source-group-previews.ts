@@ -2,9 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { getSourceGroups, previewSourceGroup } from "@/lib/api/setup-client";
-import type { ConfigSummary, SourceGroup } from "@/lib/api/types";
-import { getTelegramPostId } from "@/lib/telegram";
+import { getSourceGroups, previewSourceGroup } from "@/features/setup/api/setup-client";
+import { getTelegramPostId } from "@/features/setup/lib/telegram";
+import type { SourceGroup } from "@/features/setup/types";
+import type { ConfigSummary } from "@/shared/contracts/user-config";
 
 type UseSourceGroupPreviewsInput = {
   configs: ConfigSummary[];
