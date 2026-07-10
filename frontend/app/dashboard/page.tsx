@@ -26,29 +26,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { ThemeToggle } from "@/components/theme-toggle";
+import {
+  getDashboardUser,
+  getDestinations,
+  getUserConfigs,
+} from "@/lib/api/dashboard-server";
 
 import { LogoutButton } from "./logout-button";
 import { SetupDialog } from "./setup-dialog";
-
-const apiBaseUrl =
-  process.env.API_BASE_URL?.replace(/\/$/, "") ?? "http://localhost:8000";
-
-type DashboardUser = {
-  email: string;
-  full_name?: string | null;
-};
-
-type Destination = {
-  id: number;
-  chat_id: string;
-  enabled: boolean;
-};
-
-type UserConfig = {
-  id: number;
-  config_type: string;
-  config_data?: Record<string, unknown>;
-};
 
 type OnboardingStepId =
   | "connectedTelegram"
@@ -58,77 +43,6 @@ type OnboardingStepId =
   | "addedBotToGroup";
 
 type OnboardingState = Record<OnboardingStepId, boolean>;
-
-async function getDashboardUser(
-  accessToken?: string
-): Promise<DashboardUser | null> {
-  if (!accessToken) {
-    return null;
-  }
-
-  try {
-    const response = await fetch(`${apiBaseUrl}/users/me`, {
-      cache: "no-store",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
-    });
-
-    if (!response.ok) {
-      return null;
-    }
-
-    return (await response.json()) as DashboardUser;
-  } catch {
-    return null;
-  }
-}
-
-async function getDestinations(accessToken?: string): Promise<Destination[]> {
-  if (!accessToken) {
-    return [];
-  }
-
-  try {
-    const response = await fetch(`${apiBaseUrl}/users/me/destinations`, {
-      cache: "no-store",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
-    });
-
-    if (!response.ok) {
-      return [];
-    }
-
-    return (await response.json()) as Destination[];
-  } catch {
-    return [];
-  }
-}
-
-async function getUserConfigs(accessToken?: string): Promise<UserConfig[]> {
-  if (!accessToken) {
-    return [];
-  }
-
-  try {
-    const response = await fetch(`${apiBaseUrl}/users/me/configs`, {
-      cache: "no-store",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
-    });
-
-    if (!response.ok) {
-      return [];
-    }
-
-    return (await response.json()) as UserConfig[];
-  } catch {
-    return [];
-  }
-}
 
 type OnboardingStep = {
   id: OnboardingStepId;

@@ -6,40 +6,23 @@ import { useRouter } from "next/navigation";
 import { FormEvent, Fragment, useCallback, useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import {
+  getSourceGroups,
+  previewSourceGroup,
+  saveDestination,
+  saveUserConfig,
+} from "@/lib/api/setup-client";
+import type {
+  ConfigSummary,
+  DestinationSummary,
+  SourceGroup,
+  SourceMessage,
+} from "@/lib/api/types";
 
 const platformBotUsername = "tgtestoffersbot";
 const telegramEmbedScale = 0.86;
 
 type ProviderType = "amazon" | "shopee" | "mercado_livre" | "aliexpress";
-
-type ConfigSummary = {
-  id: number;
-  config_type: string;
-  config_data?: Record<string, unknown>;
-};
-
-type DestinationSummary = {
-  id: number;
-  chat_id: string;
-  enabled: boolean;
-};
-
-type SourceGroup = {
-  id: string;
-  label: string;
-  messages?: SourceMessage[];
-};
-
-type SourceMessage = {
-  id: number;
-  text: string;
-  image_url?: string;
-  post_url?: string;
-  links?: Array<{
-    text?: string;
-    url: string;
-  }>;
-};
 
 type ProviderField = {
   key: string;
@@ -465,14 +448,8 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
 
     async function loadSourceGroups() {
       try {
-        const response = await fetch("/api/backend/users/me/source-groups/messages");
-        if (!response.ok) {
-          return;
-        }
-
-        const data = (await response.json()) as { groups?: SourceGroup[] };
+        const groups = await getSourceGroups();
         if (!cancelled) {
-          const groups = data.groups ?? [];
           setSourceGroups(groups);
           setActiveSourceId((current) => current ?? groups[0]?.id ?? null);
           setMountedSourceGroupIds((current) =>
@@ -635,17 +612,7 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
     setCustomSourcePreviewLoading(true);
 
     try {
-      const response = await fetch("/api/backend/users/me/source-groups/preview", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ chat: trimmedChat }),
-      });
-      const data = response.ok
-        ? ((await response.json()) as { groups?: SourceGroup[] })
-        : null;
-      const customGroup = data?.groups?.[0] ?? {
+      const customGroup = (await previewSourceGroup(trimmedChat)) ?? {
         id: trimmedChat,
         label: "Custom source",
         messages: [],
@@ -700,31 +667,12 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
     const existingConfig = savedConfigs.find((config) => config.config_type === "source_chats");
 
     try {
-      const response = await fetch(
-        existingConfig
-          ? `/api/backend/users/me/configs/${existingConfig.id}`
-          : "/api/backend/users/me/configs",
-        {
-          method: existingConfig ? "PUT" : "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            config_type: "source_chats",
-            config_data: {
-              source_chats: selectedSourceChats,
-            },
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        const data = await response.json().catch(() => null);
-        const detail = data?.detail;
-        throw new Error(typeof detail === "string" ? detail : "Could not save source groups.");
-      }
-
-      const savedConfig = (await response.json()) as ConfigSummary;
+      const savedConfig = await saveUserConfig({
+        configData: { source_chats: selectedSourceChats },
+        configType: "source_chats",
+        errorMessage: "Could not save source groups.",
+        id: existingConfig?.id,
+      });
       setSavedConfigs((current) => [
         ...current.filter((config) => config.config_type !== "source_chats"),
         savedConfig,
@@ -753,34 +701,10 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
     setMessage("");
 
     try {
-      const response = await fetch(
-        savedDestination
-          ? `/api/backend/users/me/destinations/${savedDestination.id}`
-          : "/api/backend/users/me/destinations",
-        {
-        method: savedDestination ? "PUT" : "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          chat_id: trimmedChatId,
-          title: null,
-          chat_type: "group",
-          enabled: true,
-        }),
+      const saved = await saveDestination({
+        chatId: trimmedChatId,
+        id: savedDestination?.id,
       });
-
-      if (!response.ok) {
-        const data = await response.json().catch(() => null);
-        const detail = data?.detail;
-        throw new Error(
-          typeof detail === "string"
-            ? detail
-            : "Could not verify bot access to this destination."
-        );
-      }
-
-      const saved = (await response.json()) as DestinationSummary;
 
       setSavedDestination(saved);
       setStatus("success");
@@ -820,35 +744,12 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
     const existingConfig = getExistingConfig(savedConfigs, provider.type);
 
     try {
-      const response = await fetch(
-        existingConfig
-          ? `/api/backend/users/me/configs/${existingConfig.id}`
-          : "/api/backend/users/me/configs",
-        {
-          method: existingConfig ? "PUT" : "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            config_type: provider.type,
-            config_data: configData,
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        const data = await response.json().catch(() => null);
-        const detail = data?.detail;
-        const detailMessage =
-          typeof detail === "string"
-            ? detail
-            : typeof detail?.message === "string"
-              ? detail.message
-              : `Could not save ${provider.name} credentials.`;
-        throw new Error(detailMessage);
-      }
-
-      const savedConfig = (await response.json()) as ConfigSummary;
+      const savedConfig = await saveUserConfig({
+        configData,
+        configType: provider.type,
+        errorMessage: `Could not save ${provider.name} credentials.`,
+        id: existingConfig?.id,
+      });
 
       setSavedConfigs((current) => [
         ...current.filter((config) => config.config_type !== provider.type),

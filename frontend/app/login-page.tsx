@@ -20,6 +20,7 @@ import { useRouter } from "next/navigation";
 import { FormEvent, InputHTMLAttributes, ReactNode, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { registerUser } from "@/lib/api/auth-client";
 
 type FormState = "idle" | "submitting" | "success" | "error";
 type AuthMode = "register" | "signin";
@@ -116,25 +117,11 @@ export function LoginPage() {
       return;
     }
 
-    const response = await fetch("/api/register", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        email,
-        full_name: fullName || null,
-        password,
-      }),
+    await registerUser({
+      email,
+      full_name: fullName || null,
+      password,
     });
-
-    if (!response.ok) {
-      const data = await response.json().catch(() => null);
-      const detail = data?.detail;
-      throw new Error(
-        typeof detail === "string" ? detail : "Could not create account."
-      );
-    }
   }
 
   async function handleCredentialsSignIn(email: string, password: string) {
