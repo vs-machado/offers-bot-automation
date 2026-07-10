@@ -3,37 +3,31 @@
 import { ArrowLeft, ArrowRight, Check, Copy, KeyRound, Loader2, Send, X } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { FormEvent, Fragment, useState } from "react";
+import { FormEvent, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { saveDestination, saveUserConfig } from "@/features/setup/api/setup-client";
+import { LinkedText } from "@/features/setup/components/LinkedText";
 import {
   MessagePreviewSkeleton,
   SourceGroupsSkeleton,
 } from "@/features/setup/components/SourcePreviewSkeletons";
 import { TelegramPostEmbed } from "@/features/setup/components/TelegramPostEmbed";
 import { useSourceGroupPreviews } from "@/features/setup/hooks/use-source-group-previews";
+import {
+  getExistingConfig,
+  getProviderData,
+  type Provider,
+  type ProviderType,
+} from "@/features/setup/lib/providers";
+import {
+  getHiddenMessageLinks,
+  getSourceDisplayLabel,
+} from "@/features/setup/lib/source-messages";
 import { getTelegramPostId } from "@/features/setup/lib/telegram";
-import type { SourceGroup, SourceMessage } from "@/features/setup/types";
 import type { ConfigSummary, DestinationSummary } from "@/shared/contracts/user-config";
 
 const platformBotUsername = "tgtestoffersbot";
-
-type ProviderType = "amazon" | "shopee" | "mercado_livre" | "aliexpress";
-
-type ProviderField = {
-  key: string;
-  label: string;
-  placeholder?: string;
-  required?: boolean;
-};
-
-type Provider = {
-  type: ProviderType;
-  name: string;
-  description: string;
-  fields: ProviderField[];
-};
 
 type SetupDialogProps = {
   hasEnabledDestination: boolean;
@@ -95,77 +89,6 @@ const providers: Provider[] = [
     ],
   },
 ];
-
-function getExistingConfig(configs: ConfigSummary[], providerType: ProviderType) {
-  return configs.find((config) => config.config_type === providerType);
-}
-
-function getProviderData(
-  provider: Provider,
-  configs: ConfigSummary[]
-): Record<string, string> {
-  const existingConfig = getExistingConfig(configs, provider.type);
-  return provider.fields.reduce<Record<string, string>>((data, field) => {
-    const value = existingConfig?.config_data?.[field.key];
-    data[field.key] = typeof value === "string" ? value : "";
-    return data;
-  }, {});
-}
-
-function getSourceDisplayLabel(group: SourceGroup) {
-  const sourceOption = group.label.match(/^Source option (\d+)$/);
-  if (sourceOption?.[1]) {
-    return `Group ${sourceOption[1]}`;
-  }
-
-  const customSource = group.label.match(/^Custom source (\d+)$/);
-  if (customSource?.[1]) {
-    return `Custom group ${customSource[1]}`;
-  }
-
-  return group.label;
-}
-
-function renderLinkedText(text: string) {
-  return text.split(/(https?:\/\/[^\s]+)/g).map((part, index) => {
-    if (!part) {
-      return null;
-    }
-
-    if (part.startsWith("http://") || part.startsWith("https://")) {
-      const trailingMatch = part.match(/[),.;:!?]+$/);
-      const trailing = trailingMatch?.[0] ?? "";
-      const url = trailing ? part.slice(0, -trailing.length) : part;
-
-      return (
-        <Fragment key={`${part}-${index}`}>
-          <a
-            className="break-all font-semibold text-sky-700 underline decoration-sky-300 underline-offset-2 hover:text-sky-900 dark:text-sky-300 dark:decoration-sky-500/70 dark:hover:text-sky-100"
-            href={url}
-            rel="noreferrer"
-            target="_blank"
-          >
-            {url}
-          </a>
-          {trailing}
-        </Fragment>
-      );
-    }
-
-    return part.split("\n").map((line, lineIndex) => (
-      <Fragment key={`${part}-${index}-${lineIndex}`}>
-        {lineIndex > 0 ? <br /> : null}
-        {line}
-      </Fragment>
-    ));
-  });
-}
-
-function getHiddenMessageLinks(message: SourceMessage) {
-  return (message.links ?? []).filter(
-    (link) => link.url && !message.text.includes(link.url)
-  );
-}
 
 export function SetupDialog({ hasEnabledDestination, destinations, configs }: SetupDialogProps) {
   const router = useRouter();
@@ -728,6 +651,7 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
                         {sourceGroups.map((group) => {
                           const selected = selectedSourceChats.includes(group.id);
                           const active = activeSourceGroup?.id === group.id;
+                          const displayLabel = getSourceDisplayLabel(group);
 
                           return (
                             <div
@@ -750,12 +674,12 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
                                 </span>
                                 <span className="min-w-0 flex-1">
                                   <span className="block truncate font-bold text-card-foreground">
-                                    {getSourceDisplayLabel(group)}
+                                    {displayLabel}
                                   </span>
                                 </span>
                               </button>
                               <button
-                                aria-label={selected ? `Remove ${getSourceDisplayLabel(group)}` : `Select ${getSourceDisplayLabel(group)}`}
+                                aria-label={selected ? `Remove ${displayLabel}` : `Select ${displayLabel}`}
                                 className={
                                   selected
                                     ? "flex size-8 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground"
@@ -869,6 +793,8 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
                                       );
                                     }
 
+                                    const hiddenMessageLinks = getHiddenMessageLinks(previewMessage);
+
                                     return (
                                       <div
                                         className="relative max-w-[760px] overflow-hidden rounded-[1.25rem] rounded-tl-md bg-white text-sm leading-6 text-slate-800 shadow-sm ring-1 ring-sky-900/5 before:absolute before:left-[-6px] before:top-0 before:size-3 before:rounded-br-xl before:bg-white dark:bg-slate-900 dark:text-slate-100 dark:ring-white/10 dark:before:bg-slate-900"
@@ -894,12 +820,12 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
                                         <div className="px-4 py-3">
                                           {previewMessage.text ? (
                                             <p className="whitespace-pre-wrap break-words">
-                                              {renderLinkedText(previewMessage.text)}
+                                              <LinkedText text={previewMessage.text} />
                                             </p>
                                           ) : null}
-                                          {getHiddenMessageLinks(previewMessage).length > 0 ? (
+                                          {hiddenMessageLinks.length > 0 ? (
                                             <div className="mt-3 flex flex-wrap gap-2">
-                                              {getHiddenMessageLinks(previewMessage).map((link) => (
+                                              {hiddenMessageLinks.map((link) => (
                                                 <a
                                                   className="rounded-full bg-sky-50 px-3 py-1 text-xs font-semibold text-sky-700 ring-1 ring-sky-100 hover:bg-sky-100 dark:bg-sky-400/10 dark:text-sky-200 dark:ring-sky-400/20"
                                                   href={link.url}
