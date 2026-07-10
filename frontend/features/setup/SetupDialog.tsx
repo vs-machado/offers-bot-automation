@@ -3,7 +3,7 @@
 import { ArrowLeft, ArrowRight, Check, Copy, KeyRound, Loader2, Send, X } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { saveDestination, saveUserConfig } from "@/features/setup/api/setup-client";
@@ -104,6 +104,7 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
   );
   const [status, setStatus] = useState<"idle" | "saving" | "success" | "error">("idle");
   const [message, setMessage] = useState("");
+  const [isCompleting, setIsCompleting] = useState(false);
   const [savedDestination, setSavedDestination] = useState<DestinationSummary | undefined>(enabledDestination);
   const [savedConfigs, setSavedConfigs] = useState<ConfigSummary[]>(configs);
   const [connectedProviderTypes, setConnectedProviderTypes] = useState<ProviderType[]>(
@@ -162,9 +163,26 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
 
   function closeDialog() {
     setOpen(false);
+    setIsCompleting(false);
     setStatus("idle");
     setMessage("");
   }
+
+  useEffect(() => {
+    if (!isCompleting) {
+      return;
+    }
+
+    const completionTimeout = window.setTimeout(() => {
+      setOpen(false);
+      setIsCompleting(false);
+      setStatus("idle");
+      setMessage("");
+      router.refresh();
+    }, 1800);
+
+    return () => window.clearTimeout(completionTimeout);
+  }, [isCompleting, router]);
 
   function selectProvider(providerType: ProviderType) {
     const nextProvider = providers.find((item) => item.type === providerType) ?? providers[0];
@@ -228,9 +246,8 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
         savedConfig,
       ]);
       setStatus("success");
-      setMessage("Source groups saved. Offers from selected groups will be copied.");
-      closeDialog();
-      router.refresh();
+      setMessage("Setup complete. Your bot will now copy offers from these source groups.");
+      setIsCompleting(true);
     } catch (error) {
       setStatus("error");
       setMessage(error instanceof Error ? error.message : "Could not save source groups.");
@@ -353,7 +370,7 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
           role="dialog"
         >
           <div
-            className={`flex w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-border bg-card text-card-foreground shadow-[0_30px_120px_rgba(15,23,42,0.35)] dark:border-white/10 dark:bg-[#0c1414] ${
+            className={`relative flex w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-border bg-card text-card-foreground shadow-[0_30px_120px_rgba(15,23,42,0.35)] dark:border-white/10 dark:bg-[#0c1414] ${
               screen === "sources" ? "h-[min(94dvh,880px)]" : "max-h-[min(94dvh,880px)]"
             }`}
           >
@@ -903,6 +920,22 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
               </div>
             )}
             </div>
+            {isCompleting ? (
+              <div className="absolute inset-0 z-10 flex items-center justify-center bg-card/95 p-6 text-center backdrop-blur-sm dark:bg-[#0c1414]/95">
+                <div className="max-w-md space-y-4">
+                  <span className="mx-auto flex size-16 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/20">
+                    <Check className="size-8" />
+                  </span>
+                  <div>
+                    <p className="text-2xl font-black tracking-tight">Setup complete</p>
+                    <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                      Your bot is ready to copy offers from selected source groups.
+                    </p>
+                  </div>
+                  <p className="text-xs font-semibold text-primary">Opening your dashboard…</p>
+                </div>
+              </div>
+            ) : null}
           </div>
         </div>
       ) : null}
