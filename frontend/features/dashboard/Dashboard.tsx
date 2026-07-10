@@ -32,6 +32,7 @@ import {
   getUserConfigs,
 } from "@/features/dashboard/api/dashboard-server";
 import { LogoutButton } from "@/features/dashboard/components/LogoutButton";
+import { MobileSidebar } from "@/features/dashboard/components/MobileSidebar";
 import { SetupDialog } from "@/features/setup/SetupDialog";
 
 type OnboardingStepId =
@@ -256,7 +257,6 @@ function RobotMascot() {
   return (
     <div className="pointer-events-none relative h-36 w-[300px] md:h-44 md:w-[440px] xl:w-[520px]">
       <div className="dash-mascot-float absolute inset-0">
-        <div className="absolute right-10 top-1/2 -z-10 size-40 -translate-y-1/2 rounded-full bg-primary/20 blur-3xl dark:bg-primary/10" />
         <Image
           alt=""
           aria-hidden="true"
@@ -372,10 +372,10 @@ export async function Dashboard() {
   const progressPercent = Math.round((completedCount / totalSteps) * 100);
 
   return (
-    <main className="relative isolate min-h-[100dvh] overflow-hidden bg-background text-foreground lg:h-[100dvh]">
+    <main className="relative isolate min-h-[100dvh] overflow-x-clip bg-background text-foreground lg:h-[100dvh]">
       <DashboardMotionStyles />
 
-      <aside className="hidden border-sidebar-border bg-sidebar/95 p-4 text-sidebar-foreground shadow-[12px_0_40px_rgba(15,23,42,0.04)] backdrop-blur dark:shadow-[18px_0_60px_rgba(0,0,0,0.28)] lg:fixed lg:inset-y-0 lg:left-0 lg:z-20 lg:block lg:w-[292px] lg:border-r">
+      <aside className="hidden border-sidebar-border bg-sidebar p-4 text-sidebar-foreground lg:fixed lg:inset-y-0 lg:left-0 lg:z-20 lg:block lg:w-64 lg:border-r">
         <div className="flex h-full min-h-[calc(100dvh-2rem)] flex-col lg:min-h-0">
           <div className="flex items-center justify-between gap-3 px-2 py-2 text-sm font-bold tracking-tight">
             <div className="flex items-center gap-3">
@@ -434,10 +434,26 @@ export async function Dashboard() {
         </div>
       </aside>
 
-      <section className="relative px-4 py-5 lg:ml-[292px] lg:h-[100dvh] lg:overflow-y-auto lg:px-7 lg:py-4">
-        <header className="relative min-h-36 pr-0 lg:min-h-40 lg:pr-[360px] xl:pr-[470px]">
+      <section className="relative pb-8 lg:ml-64 lg:h-[100dvh] lg:overflow-y-auto lg:px-7 lg:py-4">
+        <div className="sticky top-0 z-20 flex h-14 items-center justify-between border-b border-border bg-background/95 px-4 backdrop-blur lg:hidden">
+          <div className="flex min-w-0 items-center gap-2">
+            <MobileSidebar
+              userEmail={userEmail}
+              userInitial={userInitial}
+              userName={userName}
+            />
+            <div className="flex min-w-0 items-center gap-2 text-sm font-bold tracking-tight">
+              <Send className="size-5 shrink-0 fill-primary text-primary" />
+              <span className="truncate">TG OFFERS BOT</span>
+            </div>
+          </div>
+          <ThemeToggle />
+        </div>
+
+        <div className="px-4 pt-5 lg:px-0 lg:pt-0">
+        <header className="relative pb-6 pr-0 md:min-h-36 md:pr-[300px] lg:min-h-40 lg:pr-[360px] xl:pr-[470px]">
           <div className="relative z-10 pt-1">
-            <h1 className="text-3xl font-semibold tracking-tight text-foreground md:text-[2.1rem]">
+            <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl md:text-[2.1rem]">
               Good morning, {userName}! <span aria-hidden="true">👋</span>
             </h1>
             <p className="mt-2 max-w-md text-base text-muted-foreground">
@@ -445,7 +461,7 @@ export async function Dashboard() {
                 ? "Your bot is live and posting offers to your groups automatically."
                 : "Finish setup and your bot starts posting offers on its own."}
             </p>
-            <div className="mt-4 inline-flex items-center gap-2 rounded-full border border-border bg-card/80 px-3 py-1.5 text-xs font-semibold text-muted-foreground shadow-sm backdrop-blur">
+            <div className="mt-4 inline-flex items-center gap-2 rounded-full border border-border bg-muted/50 px-3 py-1.5 text-xs font-semibold text-muted-foreground">
               {allStepsCompleted ? (
                 <>
                   <Activity className="dash-status-dot size-3.5 text-emerald-600 dark:text-emerald-300" />
@@ -467,8 +483,8 @@ export async function Dashboard() {
           <OperationalDashboard />
         ) : (
           <>
-            <Card className="mt-2 border border-border bg-card py-0 shadow-[0_16px_50px_rgba(15,23,42,0.04)] dark:border-white/10 dark:bg-white/[0.035] dark:shadow-[0_24px_80px_rgba(0,0,0,0.24)]">
-              <CardContent className="grid gap-7 p-6 xl:grid-cols-[220px_1fr] xl:items-center 2xl:grid-cols-[220px_1fr_auto]">
+            <Card className="border border-border bg-card py-0 shadow-sm dark:bg-white/[0.025]">
+              <CardContent className="grid gap-6 p-5 sm:p-6 xl:grid-cols-[200px_1fr] xl:items-center 2xl:grid-cols-[200px_1fr_auto]">
                 <div>
                   <CardTitle className="text-2xl font-semibold tracking-tight">
                     Let&apos;s set up your bot
@@ -487,7 +503,7 @@ export async function Dashboard() {
                       {progressPercent}%
                     </span>
                   </div>
-                  <div className="mt-3 h-3 w-full max-w-52 overflow-hidden rounded-full bg-muted">
+                  <div className="mt-3 h-2 w-full max-w-52 overflow-hidden rounded-full bg-muted">
                     <div
                       className="h-full rounded-full bg-primary transition-all duration-700 ease-out dark:bg-primary/75"
                       style={{ width: `${progressPercent}%` }}
@@ -495,7 +511,7 @@ export async function Dashboard() {
                   </div>
                 </div>
 
-                <div className="grid gap-5 sm:grid-cols-5 lg:gap-4 xl:gap-5">
+                <div className="grid grid-cols-5 gap-2 sm:gap-4 xl:gap-5">
                   {onboardingSteps.map((step, index) => {
                     const isCompleted = onboardingState[step.id];
                     const previousCompleted =
@@ -508,7 +524,7 @@ export async function Dashboard() {
                         style={{ animationDelay: `${index * 70}ms` }}
                       >
                         {index > 0 ? (
-                          <div className="absolute left-[-50%] right-1/2 top-5 hidden h-1 overflow-hidden bg-muted sm:block">
+                          <div className="absolute left-[-50%] right-1/2 top-[18px] h-0.5 overflow-hidden bg-muted sm:top-5 sm:h-1">
                             <span
                               className={
                                 previousCompleted
@@ -521,13 +537,13 @@ export async function Dashboard() {
                         <div
                           className={
                             isCompleted
-                              ? "relative z-10 mx-auto flex size-11 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground transition duration-300"
-                              : "relative z-10 mx-auto flex size-11 items-center justify-center rounded-full border border-border bg-card text-sm font-bold text-foreground transition duration-300"
+                              ? "relative z-10 mx-auto flex size-9 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground transition duration-300 sm:size-11 sm:text-sm"
+                              : "relative z-10 mx-auto flex size-9 items-center justify-center rounded-full border border-border bg-card text-xs font-bold text-foreground transition duration-300 sm:size-11 sm:text-sm"
                           }
                         >
                           {isCompleted ? <Check className="dash-check-in size-5" /> : index + 1}
                         </div>
-                        <p className="mt-4 text-sm font-semibold text-card-foreground">
+                        <p className="mt-2 text-[11px] font-semibold leading-4 text-card-foreground sm:mt-4 sm:text-sm">
                           {step.shortTitle}
                         </p>
                       </div>
@@ -535,7 +551,7 @@ export async function Dashboard() {
                   })}
                 </div>
 
-                <div className="xl:col-span-2 xl:justify-self-end 2xl:col-span-1">
+                <div className="w-full [&>div]:max-w-none [&>div>button]:w-full sm:[&>div>button]:w-[172px] xl:col-span-2 xl:justify-self-end 2xl:col-span-1">
                   <SetupDialog
                     configs={configs}
                     destinations={destinations}
@@ -545,8 +561,8 @@ export async function Dashboard() {
               </CardContent>
             </Card>
 
-            <div className="mt-5 grid items-stretch gap-5 xl:grid-cols-2">
-              <Card className="h-full border border-border bg-card py-0 shadow-[0_16px_50px_rgba(15,23,42,0.04)] dark:border-white/10 dark:bg-white/[0.035] dark:shadow-[0_24px_80px_rgba(0,0,0,0.24)] xl:grid xl:grid-cols-[minmax(0,0.95fr)_minmax(340px,1.05fr)] xl:items-stretch">
+            <div className="mt-4 grid items-stretch gap-4 xl:grid-cols-2">
+              <Card className="h-full border border-border bg-card py-0 shadow-sm dark:bg-white/[0.025] xl:grid xl:grid-cols-[minmax(0,0.95fr)_minmax(340px,1.05fr)] xl:items-stretch">
                 <div className="flex flex-col">
                   <CardHeader className="p-6 pb-2">
                     <div className="flex items-center gap-3">
@@ -603,7 +619,7 @@ export async function Dashboard() {
                 </div>
               </Card>
 
-              <Card className="scroll-mt-6 h-full border border-border bg-card py-0 shadow-[0_16px_50px_rgba(15,23,42,0.04)] dark:border-white/10 dark:bg-white/[0.035] dark:shadow-[0_24px_80px_rgba(0,0,0,0.24)]" id="setup-checklist">
+              <Card className="scroll-mt-6 h-full border border-border bg-card py-0 shadow-sm dark:bg-white/[0.025]" id="setup-checklist">
                 <CardHeader className="flex flex-col gap-4 p-6 pb-2 sm:flex-row sm:items-start sm:justify-between">
                   <div>
                     <CardTitle className="text-2xl font-semibold tracking-tight">
@@ -622,11 +638,11 @@ export async function Dashboard() {
 
                       return (
                         <div
-                          className="group -mx-3 flex items-center gap-4 rounded-2xl p-3"
+                          className="group -mx-3 flex items-start gap-3 rounded-lg p-3 sm:items-center sm:gap-4"
                           key={step.id}
                         >
                           <div
-                            className={`flex size-12 shrink-0 items-center justify-center rounded-2xl transition-transform duration-200 group-hover:scale-105 ${step.color}`}
+                            className={`flex size-10 shrink-0 items-center justify-center rounded-lg transition-transform duration-200 group-hover:scale-105 sm:size-12 ${step.color}`}
                           >
                             <Icon className="size-5" strokeWidth={2} />
                           </div>
@@ -637,12 +653,15 @@ export async function Dashboard() {
                             <p className="mt-1 text-sm text-muted-foreground">
                               {step.description}
                             </p>
+                            <span className="mt-2 inline-flex rounded-md bg-muted px-2 py-1 text-[11px] font-semibold text-muted-foreground sm:hidden">
+                              {isCompleted ? "Completed" : "Not started"}
+                            </span>
                           </div>
                           <span
                             className={
                               isCompleted
-                                ? "shrink-0 rounded-xl bg-primary/15 px-4 py-2 text-xs font-semibold text-primary"
-                                : "shrink-0 rounded-xl bg-muted px-4 py-2 text-xs font-semibold text-muted-foreground"
+                                ? "hidden shrink-0 rounded-md bg-primary/15 px-3 py-1.5 text-xs font-semibold text-primary sm:inline-flex"
+                                : "hidden shrink-0 rounded-md bg-muted px-3 py-1.5 text-xs font-semibold text-muted-foreground sm:inline-flex"
                             }
                           >
                             {isCompleted ? "Completed" : "Not started"}
@@ -656,7 +675,7 @@ export async function Dashboard() {
               </Card>
             </div>
 
-            <Card className="relative mt-5 overflow-hidden border border-border bg-card py-0 shadow-[0_16px_50px_rgba(15,23,42,0.04)] dark:border-white/10 dark:bg-white/[0.035] dark:shadow-[0_24px_80px_rgba(0,0,0,0.24)]">
+            <Card className="relative mt-4 overflow-hidden border border-border bg-card py-0 shadow-sm dark:bg-white/[0.025]">
               <CardContent className="grid gap-6 p-6 md:grid-cols-[auto_1fr] lg:grid-cols-[auto_1fr] xl:grid-cols-[auto_1fr_repeat(3,minmax(0,1fr))] xl:items-center">
                 <div className="relative flex size-20 shrink-0 items-center justify-center justify-self-center lg:justify-self-start">
                   <span className="absolute size-20 rounded-full border border-primary/15" />
@@ -699,6 +718,7 @@ export async function Dashboard() {
             </Card>
           </>
         )}
+        </div>
       </section>
     </main>
   );

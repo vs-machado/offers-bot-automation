@@ -429,7 +429,11 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
           className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm"
           role="dialog"
         >
-          <div className="flex h-[min(94dvh,880px)] w-full max-w-6xl flex-col overflow-hidden rounded-[2rem] border border-border bg-card text-card-foreground shadow-[0_30px_120px_rgba(15,23,42,0.35)] dark:border-white/10 dark:bg-[#0c1414]">
+          <div
+            className={`flex w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-border bg-card text-card-foreground shadow-[0_30px_120px_rgba(15,23,42,0.35)] dark:border-white/10 dark:bg-[#0c1414] ${
+              screen === "sources" ? "h-[min(94dvh,880px)]" : "max-h-[min(94dvh,880px)]"
+            }`}
+          >
             <style>{`
               @keyframes setup-screen-slide {
                 from { opacity: 0; transform: translateX(18px); }
