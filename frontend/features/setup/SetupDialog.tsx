@@ -10,8 +10,8 @@ import { saveDestination, saveUserConfig } from "@/features/setup/api/setup-clie
 import {
   MessagePreviewSkeleton,
   SourceGroupsSkeleton,
-} from "@/features/setup/components/source-preview-skeletons";
-import { TelegramPostEmbed } from "@/features/setup/components/telegram-post-embed";
+} from "@/features/setup/components/SourcePreviewSkeletons";
+import { TelegramPostEmbed } from "@/features/setup/components/TelegramPostEmbed";
 import { useSourceGroupPreviews } from "@/features/setup/hooks/use-source-group-previews";
 import { getTelegramPostId } from "@/features/setup/lib/telegram";
 import type { SourceGroup, SourceMessage } from "@/features/setup/types";

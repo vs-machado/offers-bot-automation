@@ -72,7 +72,7 @@ function Field({
   );
 }
 
-export function LoginPage() {
+export function Login() {
   const {
     authMode,
     formState,

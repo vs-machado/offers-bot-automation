@@ -2,7 +2,7 @@ import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 
 import { authOptions } from "@/auth";
-import { LoginPage } from "@/features/auth/components/login-page";
+import { Login } from "@/features/auth/Login";
 
 export default async function Home() {
   const session = await getServerSession(authOptions);
@@ -11,5 +11,5 @@ export default async function Home() {
     redirect("/dashboard");
   }
 
-  return <LoginPage />;
+  return <Login />;
 }
