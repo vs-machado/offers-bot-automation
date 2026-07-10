@@ -19,7 +19,6 @@ class PgOfferStore:
             ProcessedOffer.source_chat == source_chat,
             ProcessedOffer.source_message_id == message_id,
             ProcessedOffer.source_url == source_url,
-            ProcessedOffer.affiliate_url.isnot(None),
             ProcessedOffer.created_at >= cutoff,
         )
         result = await self._db.execute(stmt)

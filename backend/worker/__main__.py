@@ -21,3 +21,7 @@ def run_worker() -> None:
         asyncio.run(_run())
     except KeyboardInterrupt:
         logging.info("Worker stopped by user")
+
+
+if __name__ == "__main__":
+    run_worker()

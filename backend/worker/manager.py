@@ -3,37 +3,30 @@ import json
 import logging
 import os
 import tempfile
-from collections.abc import Awaitable, Callable
+from pathlib import Path
 
 import httpx
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from backend.app.models.user import DestinationChannel, UserConfig
-
-from offers_bot.amazon import AmazonClient
+from backend.worker.poster import BotPoster
+from backend.worker.store import PgOfferStore
 from offers_bot.aliexpress import AliExpressClient
+from offers_bot.amazon import AmazonClient
 from offers_bot.browser_resolver import PlaywrightProductResolver
+from offers_bot.main import format_outgoing_offer
 from offers_bot.mercado_livre import MercadoLivreClient, UnsupportedOfferError
 from offers_bot.parser import (
-    extract_offers_async,
     PLATFORM_ALIEXPRESS,
     PLATFORM_AMAZON,
     PLATFORM_MERCADO_LIVRE,
     PLATFORM_SHOPEE,
+    extract_offers_async,
 )
 from offers_bot.shopee import ShopeeClient
-from offers_bot.telegram_bot import TelegramOfferBot
-from offers_bot.main import format_outgoing_offer
-
-from backend.worker.store import PgOfferStore
-from backend.worker.session import PgSessionStore
-from backend.worker.poster import BotPoster
 
 LOGGER = logging.getLogger(__name__)
-
-MessageHandler = Callable[[str, int, str, str | None], Awaitable[None]]
-
 
 PLATFORM_LABELS = {
     PLATFORM_ALIEXPRESS: "AliExpress",
@@ -44,82 +37,67 @@ PLATFORM_LABELS = {
 
 
 class UserBotInstance:
-    """A single user's Telegram bot + affiliate clients + dedup store."""
+    """One user's persisted routing and affiliate configuration."""
 
-    def __init__(self, user_id: int, db_factory: async_sessionmaker[AsyncSession]):
+    def __init__(
+        self,
+        user_id: int,
+        db_factory: async_sessionmaker[AsyncSession],
+        poster: BotPoster | None = None,
+    ):
         self.user_id = user_id
         self._db_factory = db_factory
-        self.telegram: TelegramOfferBot | None = None
+        self._poster = poster or BotPoster()
+        self._source_chats: tuple[str, ...] = ()
+        self._destination_chat_ids: tuple[str, ...] = ()
         self._ml: MercadoLivreClient | None = None
         self._amazon: AmazonClient | None = None
         self._shopee: ShopeeClient | None = None
         self._aliexpress: AliExpressClient | None = None
-        self._store: PgOfferStore | None = None
-        self._session_store: PgSessionStore | None = None
-        self._poster = BotPoster()
-        self._destination_chat_ids: list[str] = []
-        self._handle_message: MessageHandler | None = None
-        self._task: asyncio.Task | None = None
+        self._config_signature: str | None = None
 
-    async def start(self, db: AsyncSession) -> None:
+    @property
+    def source_chats(self) -> tuple[str, ...]:
+        return self._source_chats
+
+    @property
+    def active(self) -> bool:
+        return bool(
+            self._source_chats
+            and self._destination_chat_ids
+            and any(
+                client and client.ready()
+                for client in (self._ml, self._amazon, self._shopee, self._aliexpress)
+            )
+        )
+
+    async def configure(self, db: AsyncSession) -> None:
         configs = await self._load_configs(db)
-        if not configs.get("telegram"):
-            LOGGER.warning("User %s has no telegram config, skipping", self.user_id)
+        source_chats = tuple(self._parse_chats(configs.get("source_chats", [])))
+        destination_chat_ids = tuple(await self._load_destination_chat_ids(db))
+        config_signature = json.dumps(
+            {
+                "configs": configs,
+                "destinations": destination_chat_ids,
+            },
+            sort_keys=True,
+            default=str,
+        )
+        if config_signature == self._config_signature:
             return
 
-        tg = configs["telegram"]
-        tg_api_id = int(tg.get("api_id", 0))
-        tg_api_hash = tg.get("api_hash", "")
+        self.close()
+        self._source_chats = source_chats
+        self._destination_chat_ids = destination_chat_ids
 
-        async with self._db_factory() as session:
-            self._session_store = PgSessionStore(session, self.user_id)
-            session_string = await self._session_store.get_session()
-
-        source_chats = self._parse_chats(configs.get("source_chats", []))
-        self._destination_chat_ids = await self._load_destination_chat_ids(db)
-        target_chat = configs.get("target_chat", "")
-        tech_chat = configs.get("tech_chat", "")
-        home_chat = configs.get("home_chat", "")
-        clothes_chat = configs.get("clothes_chat", "")
-        phone = tg.get("phone", "")
-        qr_port = int(tg.get("qr_auth_port", 8080))
-
-        self.telegram = TelegramOfferBot(
-            api_id=tg_api_id,
-            api_hash=tg_api_hash,
-            session_name=f"user_{self.user_id}",
-            session_string=session_string,
-            source_chats=source_chats,
-            target_chat=target_chat,
-            phone=phone,
-            qr_auth_port=qr_port,
-            tech_chat=tech_chat or None,
-            home_chat=home_chat or None,
-            clothes_chat=clothes_chat or None,
-        )
-
-        await self.telegram.start()
-
-        new_session = self.telegram.session_string
-        if new_session and new_session != session_string:
-            async with self._db_factory() as session:
-                store = PgSessionStore(session, self.user_id)
-                await store.save_session(new_session)
-
-        browser_enabled = (
-            configs.get("browser_resolver_enabled", "true").lower() == "true"
-        )
-        browser_headless = configs.get("browser_headless", "true").lower() == "true"
+        browser_enabled = self._as_bool(configs.get("browser_resolver_enabled", True))
+        browser_headless = self._as_bool(configs.get("browser_headless", True))
         browser_timeout = int(configs.get("browser_timeout_ms", 15000))
-        browser_debug = configs.get("browser_debug_dir")
+        browser_debug_value = configs.get("browser_debug_dir")
+        browser_debug = Path(str(browser_debug_value)) if browser_debug_value else None
 
-        ml_cookie = configs.get("ml_cookie_header", "")
-        ml_csrf = configs.get("ml_csrf_token", "")
-        ml_tag = configs.get("ml_affiliate_tag", "")
-
-        amazon_cookie = configs.get("amazon_cookie_header", "")
-        amazon_tag = configs.get("amazon_affiliate_tag", "")
-        amazon_marketplace = configs.get("amazon_marketplace_id", "526970")
+        ml_cookie = str(configs.get("ml_cookie_header", ""))
+        amazon_cookie = str(configs.get("amazon_cookie_header", ""))
 
         product_url_resolver = None
         if browser_enabled and ml_cookie:
@@ -142,106 +120,85 @@ class UserBotInstance:
             )
 
         self._ml = MercadoLivreClient(
-            tag=ml_tag,
+            tag=str(configs.get("ml_affiliate_tag", "")),
             cookie_header=ml_cookie,
-            csrf_token=ml_csrf,
+            csrf_token=str(configs.get("ml_csrf_token", "")),
             product_url_resolver=product_url_resolver,
         )
         self._amazon = AmazonClient(
-            tag=amazon_tag,
+            tag=str(configs.get("amazon_affiliate_tag", "")),
             cookie_header=amazon_cookie,
-            marketplace_id=amazon_marketplace,
+            marketplace_id=str(configs.get("amazon_marketplace_id", "526970")),
             image_resolver=amazon_image_resolver,
         )
         self._shopee = ShopeeClient(
-            app_id=configs.get("shopee_app_id", ""),
-            app_secret=configs.get("shopee_app_secret", ""),
+            app_id=str(configs.get("shopee_app_id", "")),
+            app_secret=str(configs.get("shopee_app_secret", "")),
         )
         self._aliexpress = AliExpressClient(
-            app_key=configs.get("aliexpress_app_key", ""),
-            app_secret=configs.get("aliexpress_app_secret", ""),
-            tracking_id=configs.get("aliexpress_tracking_id", ""),
+            app_key=str(configs.get("aliexpress_app_key", "")),
+            app_secret=str(configs.get("aliexpress_app_secret", "")),
+            tracking_id=str(configs.get("aliexpress_tracking_id", "")),
         )
+        self._config_signature = config_signature
 
-        self._store = PgOfferStore(db, self.user_id)
-        self._handle_message = self._build_handler()
-        self._task = asyncio.create_task(self._listen())
+    def close(self) -> None:
+        closed_clients: set[int] = set()
+        for affiliate_client in (
+            self._ml,
+            self._amazon,
+            self._shopee,
+            self._aliexpress,
+        ):
+            if affiliate_client is None:
+                continue
+            for attribute in ("_client", "_resolver_client"):
+                client = getattr(affiliate_client, attribute, None)
+                if client is None or id(client) in closed_clients:
+                    continue
+                close = getattr(client, "close", None)
+                if close:
+                    close()
+                closed_clients.add(id(client))
 
-    async def stop(self) -> None:
-        if self._task:
-            self._task.cancel()
-            try:
-                await self._task
-            except asyncio.CancelledError:
-                pass
-        if self.telegram:
-            await self.telegram.client.disconnect()
-        LOGGER.info("Stopped bot for user %s", self.user_id)
+    async def process_message(
+        self,
+        source_chat: str,
+        message_id: int,
+        text: str,
+        source_image_url: str | None = None,
+    ) -> None:
+        if source_chat not in self._source_chats:
+            return
 
-    async def _load_configs(self, db: AsyncSession) -> dict[str, str]:
-        stmt = select(UserConfig).where(UserConfig.user_id == self.user_id)
-        result = await db.execute(stmt)
-        rows = result.scalars().all()
-        configs: dict[str, str] = {}
-        for row in rows:
-            try:
-                data = json.loads(row.config_data)
-                if isinstance(data, dict):
-                    configs.update(data)
-                else:
-                    configs[row.config_type] = row.config_data
-            except json.JSONDecodeError:
-                configs[row.config_type] = row.config_data
-        return configs
-
-    async def _load_destination_chat_ids(self, db: AsyncSession) -> list[str]:
-        stmt = select(DestinationChannel).where(
-            DestinationChannel.user_id == self.user_id,
-            DestinationChannel.enabled.is_(True),
+        offers = await extract_offers_async(text)
+        LOGGER.info(
+            "User %s: parsed chat=%s message=%s offers=%s",
+            self.user_id,
+            source_chat,
+            message_id,
+            len(offers),
         )
-        result = await db.execute(stmt)
-        return [destination.chat_id for destination in result.scalars().all()]
+        processed_product_keys: set[str] = set()
 
-    def _parse_chats(self, raw: list[str] | str) -> list[str]:
-        if isinstance(raw, list):
-            return raw
-        return [c.strip() for c in raw.split(",") if c.strip()]
-
-    def _build_handler(self) -> MessageHandler:
-        async def handle_message(
-            source_chat: str,
-            message_id: int,
-            text: str,
-            original_media: str | None = None,
-        ) -> None:
-            offers = await extract_offers_async(text)
-            LOGGER.info(
-                "User %s: parsed chat=%s message=%s offers=%s",
-                self.user_id,
-                source_chat,
-                message_id,
-                len(offers),
-            )
-            processed_product_keys: set[str] = set()
-
+        async with self._db_factory() as db:
+            store = PgOfferStore(db, self.user_id)
             for offer in offers:
-                if await self._store.seen(source_chat, message_id, offer.url):
+                if await store.seen(source_chat, message_id, offer.url):
                     continue
 
                 try:
-                    is_ali = offer.platform == PLATFORM_ALIEXPRESS
                     affiliate_client = self._affiliate_client_for_platform(
                         offer.platform
                     )
                     if affiliate_client is None:
                         LOGGER.warning(
-                            "User %s: unsupported platform=%s url=%s chat=%s message=%s",
+                            "User %s: unsupported platform=%s url=%s",
                             self.user_id,
                             offer.platform or "unknown",
                             offer.url,
-                            source_chat,
-                            message_id,
                         )
+                        await store.mark(source_chat, message_id, offer.url)
                         continue
                     if not affiliate_client.ready():
                         LOGGER.warning(
@@ -252,31 +209,15 @@ class UserBotInstance:
                         )
                         continue
 
-                    LOGGER.info(
-                        "User %s: converting platform=%s url=%s chat=%s message=%s",
-                        self.user_id,
-                        offer.platform,
-                        offer.url,
-                        source_chat,
-                        message_id,
-                    )
                     affiliate = await asyncio.to_thread(
                         affiliate_client.create_link, offer.url
                     )
-                    LOGGER.info(
-                        "User %s: converted platform=%s product_key=%s short_url=%s",
-                        self.user_id,
-                        offer.platform,
-                        affiliate.product_key,
-                        affiliate.short_url,
-                    )
-
                     if affiliate.product_key in processed_product_keys:
                         continue
                     processed_product_keys.add(affiliate.product_key)
 
-                    if await self._store.seen_affiliate_url(affiliate.short_url):
-                        await self._store.mark(
+                    if await store.seen_affiliate_url(affiliate.short_url):
+                        await store.mark(
                             source_chat,
                             message_id,
                             offer.url,
@@ -284,8 +225,8 @@ class UserBotInstance:
                             affiliate.product_key,
                         )
                         continue
-                    if await self._store.seen_product_key(affiliate.product_key):
-                        await self._store.mark(
+                    if await store.seen_product_key(affiliate.product_key):
+                        await store.mark(
                             source_chat,
                             message_id,
                             offer.url,
@@ -294,52 +235,21 @@ class UserBotInstance:
                         )
                         continue
 
+                    is_ali = offer.platform == PLATFORM_ALIEXPRESS
                     formatted_text = await format_outgoing_offer(
                         offer,
                         affiliate.short_url,
                         is_ali=is_ali,
                         affiliate_client=affiliate_client,
                     )
-
-                    category = None
-                    if offer.llm_result and "category" in offer.llm_result:
-                        category = offer.llm_result["category"]
-                    if (
-                        category is None
-                        and offer.llm_result
-                        and offer.llm_result.get("classification") == "product"
-                    ):
-                        category = "other"
-
-                    temp_image_path = None
-                    try:
-                        image_url = None if is_ali else affiliate.image_url
-                        image_to_send = (
-                            original_media if (is_ali and original_media) else None
-                        )
-
-                        if not image_to_send and image_url:
-                            async with httpx.AsyncClient() as client:
-                                resp = await client.get(image_url)
-                                resp.raise_for_status()
-                                fd, temp_image_path = tempfile.mkstemp(suffix=".jpg")
-                                with os.fdopen(fd, "wb") as f:
-                                    f.write(resp.content)
-                                image_to_send = temp_image_path
-
-                        await self._send_offer(
-                            formatted_text, image_file=image_to_send, category=category
-                        )
-                    except Exception as e:
-                        LOGGER.warning(
-                            "User %s: failed to send image: %s", self.user_id, e
-                        )
-                        await self._send_offer(formatted_text, category=category)
-                    finally:
-                        if temp_image_path and os.path.exists(temp_image_path):
-                            os.remove(temp_image_path)
-
-                    await self._store.mark(
+                    # TODO: Persist destination categories and route each offer to all
+                    # destinations matching offer.llm_result["category"].
+                    await self._send_offer_with_image(
+                        formatted_text,
+                        affiliate.image_url,
+                        source_image_url if is_ali else None,
+                    )
+                    await store.mark(
                         source_chat,
                         message_id,
                         offer.url,
@@ -351,24 +261,83 @@ class UserBotInstance:
                     LOGGER.warning(
                         "User %s: unsupported %s: %s", self.user_id, offer.url, exc
                     )
-                    await self._store.mark(source_chat, message_id, offer.url, None)
+                    await store.mark(source_chat, message_id, offer.url)
                 except Exception:
                     LOGGER.exception(
                         "User %s: failed to process %s", self.user_id, offer.url
                     )
 
-            if original_media and os.path.exists(original_media):
-                try:
-                    os.remove(original_media)
-                except Exception as exc:
-                    LOGGER.warning(
-                        "User %s: failed to remove media %s: %s",
-                        self.user_id,
-                        original_media,
-                        exc,
-                    )
+    async def _send_offer_with_image(
+        self,
+        text: str,
+        affiliate_image_url: str | None,
+        source_image_url: str | None,
+    ) -> None:
+        image_url = source_image_url or affiliate_image_url
+        temp_image_path = None
+        try:
+            if image_url:
+                temp_image_path = await self._download_image(image_url)
+            await self._send_offer(text, image_file=temp_image_path)
+        except Exception as exc:
+            if temp_image_path:
+                LOGGER.warning("User %s: failed to send image: %s", self.user_id, exc)
+                await self._send_offer(text)
+            else:
+                raise
+        finally:
+            if temp_image_path and os.path.exists(temp_image_path):
+                os.remove(temp_image_path)
 
-        return handle_message
+    async def _download_image(self, image_url: str) -> str:
+        async with httpx.AsyncClient(follow_redirects=True, timeout=20) as client:
+            response = await client.get(image_url)
+            response.raise_for_status()
+        fd, path = tempfile.mkstemp(suffix=".jpg")
+        with os.fdopen(fd, "wb") as image_file:
+            image_file.write(response.content)
+        return path
+
+    async def _send_offer(self, text: str, image_file: str | None = None) -> None:
+        for chat_id in self._destination_chat_ids:
+            await self._poster.send_offer(chat_id, text, image_file=image_file)
+
+    async def _load_configs(self, db: AsyncSession) -> dict[str, object]:
+        stmt = select(UserConfig).where(UserConfig.user_id == self.user_id)
+        result = await db.execute(stmt)
+        configs: dict[str, object] = {}
+        for row in result.scalars().all():
+            try:
+                data = json.loads(row.config_data)
+            except (json.JSONDecodeError, TypeError):
+                data = row.config_data
+            if isinstance(data, dict):
+                configs.update(data)
+            else:
+                configs[row.config_type] = data
+        return configs
+
+    async def _load_destination_chat_ids(self, db: AsyncSession) -> list[str]:
+        stmt = select(DestinationChannel).where(
+            DestinationChannel.user_id == self.user_id,
+            DestinationChannel.enabled.is_(True),
+        )
+        result = await db.execute(stmt)
+        return [destination.chat_id for destination in result.scalars().all()]
+
+    @staticmethod
+    def _parse_chats(raw: object) -> list[str]:
+        if isinstance(raw, list):
+            return [str(chat).strip() for chat in raw if str(chat).strip()]
+        if isinstance(raw, str):
+            return [chat.strip() for chat in raw.split(",") if chat.strip()]
+        return []
+
+    @staticmethod
+    def _as_bool(value: object) -> bool:
+        if isinstance(value, bool):
+            return value
+        return str(value).lower() == "true"
 
     def _affiliate_client_for_platform(self, platform: str):
         if platform == PLATFORM_MERCADO_LIVRE:
@@ -380,24 +349,3 @@ class UserBotInstance:
         if platform == PLATFORM_ALIEXPRESS:
             return self._aliexpress
         return None
-
-    async def _send_offer(
-        self,
-        text: str,
-        image_file: str | None = None,
-        category: str | None = None,
-    ) -> None:
-        if self._destination_chat_ids:
-            for chat_id in self._destination_chat_ids:
-                await self._poster.send_offer(chat_id, text, image_file=image_file)
-            return
-
-        await self.telegram.send_offer(text, image_file=image_file, category=category)
-
-    async def _listen(self) -> None:
-        try:
-            await self.telegram.listen(self._handle_message)
-        except asyncio.CancelledError:
-            LOGGER.info("Listener cancelled for user %s", self.user_id)
-        except Exception:
-            LOGGER.exception("Listener error for user %s", self.user_id)

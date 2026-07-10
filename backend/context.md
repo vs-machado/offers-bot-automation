@@ -35,7 +35,7 @@ This is the high-performance, multi-tenant backend for the Telegram Offers Bot. 
 - [x] **Background Worker Integration**: Implement the bridge between the API and the Telegram bot loop.
 
 ### Phase 2: Bot Logic & Automation
-- [ ] **Shared Telegram Listener**: Implement one shared listener account/pool for subscribed source groups, deduplicating source ingestion across users.
+- [x] **Shared Telegram Ingestion**: Poll each configured public source once and fan messages out to subscribed users, deduplicating per user in PostgreSQL.
 - [x] **Destination Bot Posting**: Replace user-account posting with Telegram Bot API posting to user destination groups/channels where the bot has permission.
 - [x] **Destination Management**: Implement CRUD for `/users/me/destinations` and verify bot access before enabling posting.
 - [x] **Platform Parsers**: Integrate DeepSeek-first AI parsing, Gemini fallback, regex fallback, and canonical platform detection.
@@ -43,6 +43,7 @@ This is the high-performance, multi-tenant backend for the Telegram Offers Bot. 
 
 ### Phase 2 Follow-Ups
 - [x] **Worker Observability**: Improve per-platform missing-credential errors, structured conversion logs, and user-facing config validation before enabling sources/destinations.
+- [x] **Persisted Worker Configuration**: Load source selection, enabled destinations, and affiliate credentials from `user_configs` instead of legacy bot environment variables.
 
 ### Phase 3: Frontend Integration
 - [ ] **Next.js Dashboard**: Implementation of the user dashboard.
