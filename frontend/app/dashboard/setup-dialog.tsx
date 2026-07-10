@@ -3,21 +3,19 @@
 import { ArrowLeft, ArrowRight, Check, Copy, KeyRound, Loader2, Send, X } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { FormEvent, Fragment, useCallback, useEffect, useRef, useState } from "react";
+import { FormEvent, Fragment, useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import {
-  getSourceGroups,
-  previewSourceGroup,
-  saveDestination,
-  saveUserConfig,
-} from "@/lib/api/setup-client";
+import { useSourceGroupPreviews } from "@/hooks/use-source-group-previews";
+import { useTelegramPostEmbed } from "@/hooks/use-telegram-post-embed";
+import { saveDestination, saveUserConfig } from "@/lib/api/setup-client";
 import type {
   ConfigSummary,
   DestinationSummary,
   SourceGroup,
   SourceMessage,
 } from "@/lib/api/types";
+import { getTelegramPostId } from "@/lib/telegram";
 
 const platformBotUsername = "tgtestoffersbot";
 const telegramEmbedScale = 0.86;
@@ -115,14 +113,6 @@ function getProviderData(
   }, {});
 }
 
-function getSavedSourceChats(configs: ConfigSummary[]) {
-  const sourceConfig = configs.find((config) => config.config_type === "source_chats");
-  const sourceChats = sourceConfig?.config_data?.source_chats;
-  return Array.isArray(sourceChats)
-    ? sourceChats.filter((chat): chat is string => typeof chat === "string")
-    : [];
-}
-
 function getSourceDisplayLabel(group: SourceGroup) {
   const sourceOption = group.label.match(/^Source option (\d+)$/);
   if (sourceOption?.[1]) {
@@ -178,28 +168,6 @@ function getHiddenMessageLinks(message: SourceMessage) {
   );
 }
 
-function getTelegramPostId(postUrl?: string) {
-  if (!postUrl) {
-    return null;
-  }
-
-  try {
-    const url = new URL(postUrl);
-    if (!["t.me", "telegram.me"].includes(url.hostname.toLowerCase())) {
-      return null;
-    }
-
-    const parts = url.pathname.split("/").filter(Boolean);
-    if (parts.length < 2) {
-      return null;
-    }
-
-    return `${parts[parts.length - 2]}/${parts[parts.length - 1]}`;
-  } catch {
-    return null;
-  }
-}
-
 function TelegramPostEmbed({
   onReady,
   postId,
@@ -207,99 +175,11 @@ function TelegramPostEmbed({
   onReady: (postId: string) => void;
   postId: string;
 }) {
-  const [scaledHeight, setScaledHeight] = useState<number>();
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) {
-      return;
-    }
-
-    container.innerHTML = "";
-    let ready = false;
-    let readinessStarted = false;
-    let pollTimer: number | undefined;
-    let resizeObserver: ResizeObserver | undefined;
-    const startedAt = Date.now();
-
-    const markReady = () => {
-      if (ready) {
-        return;
-      }
-      ready = true;
-      onReady(postId);
-    };
-
-    const startReadinessCheck = () => {
-      if (readinessStarted) {
-        return;
-      }
-      const iframe = container.querySelector("iframe");
-      if (!iframe) {
-        return;
-      }
-
-      const syncScaledHeight = () => {
-        const height = Math.round(iframe.offsetHeight || iframe.getBoundingClientRect().height);
-        if (height > 0) {
-          setScaledHeight(Math.ceil(height * telegramEmbedScale) + 2);
-        }
-        return height;
-      };
-
-      readinessStarted = true;
-      resizeObserver = typeof ResizeObserver === "undefined"
-        ? undefined
-        : new ResizeObserver(syncScaledHeight);
-      resizeObserver?.observe(iframe);
-
-      let lastHeight = syncScaledHeight();
-      let stableSince = Date.now();
-
-      pollTimer = window.setInterval(() => {
-        const height = syncScaledHeight();
-        if (Math.abs(height - lastHeight) > 2) {
-          lastHeight = height;
-          stableSince = Date.now();
-        }
-
-        const oldEnough = Date.now() - startedAt > 3600;
-        const stableEnough = Date.now() - stableSince > 700;
-        if (height > 80 && oldEnough && stableEnough) {
-          markReady();
-        }
-      }, 150);
-    };
-
-    const observer = new MutationObserver(() => {
-      const iframe = container.querySelector("iframe");
-      if (iframe) {
-        iframe.addEventListener("load", startReadinessCheck, { once: true });
-        startReadinessCheck();
-      }
-    });
-    observer.observe(container, { childList: true, subtree: true });
-
-    const script = document.createElement("script");
-    script.async = true;
-    script.src = "https://telegram.org/js/telegram-widget.js?24";
-    script.dataset.telegramPost = postId;
-    script.dataset.width = "100%";
-    script.dataset.dark = document.documentElement.classList.contains("dark") ? "1" : "0";
-    container.appendChild(script);
-    const fallbackTimer = window.setTimeout(markReady, 7000);
-
-    return () => {
-      window.clearTimeout(fallbackTimer);
-      if (pollTimer) {
-        window.clearInterval(pollTimer);
-      }
-      resizeObserver?.disconnect();
-      observer.disconnect();
-      container.innerHTML = "";
-    };
-  }, [onReady, postId]);
+  const { containerRef, scaledHeight } = useTelegramPostEmbed({
+    onReady,
+    postId,
+    scale: telegramEmbedScale,
+  });
 
   return (
     <div
@@ -387,16 +267,6 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
   const [message, setMessage] = useState("");
   const [savedDestination, setSavedDestination] = useState<DestinationSummary | undefined>(enabledDestination);
   const [savedConfigs, setSavedConfigs] = useState<ConfigSummary[]>(configs);
-  const [sourceGroups, setSourceGroups] = useState<SourceGroup[]>([]);
-  const [sourceGroupsLoaded, setSourceGroupsLoaded] = useState(false);
-  const [selectedSourceChats, setSelectedSourceChats] = useState<string[]>(
-    getSavedSourceChats(configs)
-  );
-  const [activeSourceId, setActiveSourceId] = useState<string | null>(null);
-  const [mountedSourceGroupIds, setMountedSourceGroupIds] = useState<string[]>([]);
-  const [readyTelegramPostIds, setReadyTelegramPostIds] = useState<string[]>([]);
-  const [customSourceChat, setCustomSourceChat] = useState("");
-  const [customSourcePreviewLoading, setCustomSourcePreviewLoading] = useState(false);
   const [connectedProviderTypes, setConnectedProviderTypes] = useState<ProviderType[]>(
     configs
       .map((config) => config.config_type)
@@ -404,22 +274,27 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
         providers.some((provider) => provider.type === configType)
       )
   );
+  const {
+    activeSourceGroup,
+    addCustomSourceChat,
+    customSourceChat,
+    customSourcePreviewLoading,
+    markTelegramPostReady,
+    mountedSourceGroupIds,
+    readyTelegramPostIds,
+    selectSourceGroup,
+    selectedSourceChats,
+    setCustomSourceChat,
+    sourceGroups,
+    sourceGroupsLoading,
+    toggleSourceChat,
+  } = useSourceGroupPreviews({ configs, open, screen });
 
   const hasStartedSetup = hasEnabledDestination || connectedProviderTypes.length > 0;
   const provider = providers.find((item) => item.type === selectedProvider) ?? providers[0];
   const canFinish = connectedProviderTypes.length > 0;
   const canGoToProviders = Boolean(savedDestination?.enabled);
   const canSaveSources = selectedSourceChats.length > 0;
-  const sourceGroupsLoading = open && !sourceGroupsLoaded && sourceGroups.length === 0;
-  const activeSourceGroup =
-    (activeSourceId ? sourceGroups.find((group) => group.id === activeSourceId) : undefined) ??
-    sourceGroups[0];
-  const activeTelegramPostIds = (activeSourceGroup?.messages ?? [])
-    .map((sourceMessage) => getTelegramPostId(sourceMessage.post_url))
-    .filter((postId): postId is string => Boolean(postId));
-  const activeTelegramPostsReady = activeTelegramPostIds.every((postId) =>
-    readyTelegramPostIds.includes(postId)
-  );
   const headerLabel =
     screen === "destination"
       ? "Telegram bot setup"
@@ -438,94 +313,6 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
       : screen === "providers"
         ? "Save credentials for at least one provider so the bot can convert product links into your affiliate links."
         : "Review recent messages from built-in source groups, then select which ones should be copied.";
-
-  useEffect(() => {
-    if (!open || sourceGroupsLoaded || sourceGroups.length > 0) {
-      return;
-    }
-
-    let cancelled = false;
-
-    async function loadSourceGroups() {
-      try {
-        const groups = await getSourceGroups();
-        if (!cancelled) {
-          setSourceGroups(groups);
-          setActiveSourceId((current) => current ?? groups[0]?.id ?? null);
-          setMountedSourceGroupIds((current) =>
-            current.length > 0 || !groups[0] ? current : [groups[0].id]
-          );
-        }
-      } catch {
-        if (!cancelled) {
-          setSourceGroups([]);
-        }
-      } finally {
-        if (!cancelled) {
-          setSourceGroupsLoaded(true);
-        }
-      }
-    }
-
-    void loadSourceGroups();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [open, sourceGroups.length, sourceGroupsLoaded]);
-
-  useEffect(() => {
-    if (
-      !open ||
-      screen !== "sources" ||
-      !activeSourceGroup ||
-      !activeTelegramPostsReady ||
-      sourceGroups.every((group) => mountedSourceGroupIds.includes(group.id))
-    ) {
-      return;
-    }
-
-    const idleWindow = window as Window & {
-      requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number;
-      cancelIdleCallback?: (id: number) => void;
-    };
-    let idleId: number | undefined;
-    const delayId = window.setTimeout(() => {
-      const mountNextGroup = () => {
-        setMountedSourceGroupIds((current) => {
-          const nextGroup = sourceGroups.find((group) => !current.includes(group.id));
-          return nextGroup ? [...current, nextGroup.id] : current;
-        });
-      };
-
-      if (idleWindow.requestIdleCallback) {
-        idleId = idleWindow.requestIdleCallback(mountNextGroup, { timeout: 2500 });
-        return;
-      }
-
-      mountNextGroup();
-    }, 700);
-
-    return () => {
-      window.clearTimeout(delayId);
-      if (idleId !== undefined) {
-        idleWindow.cancelIdleCallback?.(idleId);
-      }
-    };
-  }, [
-    activeSourceGroup,
-    activeTelegramPostsReady,
-    mountedSourceGroupIds,
-    open,
-    screen,
-    sourceGroups,
-  ]);
-
-  const markTelegramPostReady = useCallback((postId: string) => {
-    setReadyTelegramPostIds((current) =>
-      current.includes(postId) ? current : [...current, postId]
-    );
-  }, []);
 
   function openDialog() {
     setScreen(hasEnabledDestination ? "providers" : "destination");
@@ -576,82 +363,6 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
     setScreen("sources");
     setStatus("idle");
     setMessage("");
-  }
-
-  function toggleSourceChat(chat: string) {
-    setSelectedSourceChats((current) =>
-      current.includes(chat)
-        ? current.filter((item) => item !== chat)
-        : [...current, chat]
-    );
-  }
-
-  function selectSourceGroup(groupId: string) {
-    setMountedSourceGroupIds((current) =>
-      current.includes(groupId) ? current : [...current, groupId]
-    );
-    setActiveSourceId(groupId);
-  }
-
-  async function addCustomSourceChat() {
-    const trimmedChat = customSourceChat.trim();
-    if (!trimmedChat) {
-      return;
-    }
-
-    setSelectedSourceChats((current) =>
-      current.includes(trimmedChat) ? current : [...current, trimmedChat]
-    );
-    selectSourceGroup(trimmedChat);
-    setCustomSourceChat("");
-
-    if (sourceGroups.some((group) => group.id === trimmedChat)) {
-      return;
-    }
-
-    setCustomSourcePreviewLoading(true);
-
-    try {
-      const customGroup = (await previewSourceGroup(trimmedChat)) ?? {
-        id: trimmedChat,
-        label: "Custom source",
-        messages: [],
-      };
-
-      setSourceGroups((current) =>
-        current.some((group) => group.id === trimmedChat)
-          ? current
-          : [
-              ...current,
-              {
-                ...customGroup,
-                id: trimmedChat,
-                label: `Custom source ${
-                  current.filter((group) => group.label.startsWith("Custom source"))
-                    .length + 1
-                }`,
-              },
-            ]
-      );
-    } catch {
-      setSourceGroups((current) =>
-        current.some((group) => group.id === trimmedChat)
-          ? current
-          : [
-              ...current,
-              {
-                id: trimmedChat,
-                label: `Custom source ${
-                  current.filter((group) => group.label.startsWith("Custom source"))
-                    .length + 1
-                }`,
-                messages: [],
-              },
-            ]
-      );
-    } finally {
-      setCustomSourcePreviewLoading(false);
-    }
   }
 
   async function saveSourceGroups() {

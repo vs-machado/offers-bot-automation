@@ -15,15 +15,10 @@ import {
   Zap,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { signIn } from "next-auth/react";
-import { useRouter } from "next/navigation";
-import { FormEvent, InputHTMLAttributes, ReactNode, useState } from "react";
+import { InputHTMLAttributes, ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
-import { registerUser } from "@/lib/api/auth-client";
-
-type FormState = "idle" | "submitting" | "success" | "error";
-type AuthMode = "register" | "signin";
+import { useAuthForm } from "@/hooks/use-auth-form";
 
 const benefits = [
   {
@@ -48,29 +43,6 @@ const trustItems = [
   { icon: Shield, text: "Your data is private" },
   { icon: Zap, text: "Built for speed" },
 ];
-
-function getPasswordError(password: string) {
-  if (password.length < 8) {
-    return "Password must be at least 8 characters.";
-  }
-  if (!/[A-Z]/.test(password)) {
-    return "Password must include one uppercase letter.";
-  }
-  if (!/[0-9\W_]/.test(password)) {
-    return "Password must include one number or symbol.";
-  }
-  return "";
-}
-
-function getEmailError(email: string) {
-  if (!email) {
-    return "Email is required.";
-  }
-  if (!/^\S+@\S+\.\S+$/.test(email)) {
-    return "Enter a valid email address.";
-  }
-  return "";
-}
 
 function Field({
   icon: Icon,
@@ -101,109 +73,16 @@ function Field({
 }
 
 export function LoginPage() {
-  const router = useRouter();
-  const [authMode, setAuthMode] = useState<AuthMode>("register");
-  const [formState, setFormState] = useState<FormState>("idle");
-  const [message, setMessage] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-
-  async function handleRegister(formData: FormData, email: string, password: string) {
-    const fullName = String(formData.get("fullName") ?? "").trim();
-
-    const passwordError = getPasswordError(password);
-    if (passwordError) {
-      setFormState("error");
-      setMessage(passwordError);
-      return;
-    }
-
-    await registerUser({
-      email,
-      full_name: fullName || null,
-      password,
-    });
-  }
-
-  async function handleCredentialsSignIn(email: string, password: string) {
-    if (!password) {
-      setFormState("error");
-      setMessage("Password is required.");
-      return false;
-    }
-
-    const signInResult = await signIn("credentials", {
-      email,
-      password,
-      callbackUrl: "/dashboard",
-      redirect: false,
-    });
-
-    if (signInResult?.error) {
-      throw new Error("Incorrect email or password.");
-    }
-
-    return true;
-  }
-
-  async function handleGoogleSignIn() {
-    setFormState("submitting");
-    setMessage("");
-    await signIn("google", { callbackUrl: "/dashboard" });
-  }
-
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-
-    const formData = new FormData(event.currentTarget);
-    const email = String(formData.get("email") ?? "").trim();
-    const password = String(formData.get("password") ?? "");
-
-    const emailError = getEmailError(email);
-    if (emailError) {
-      setFormState("error");
-      setMessage(emailError);
-      return;
-    }
-
-    setFormState("submitting");
-    setMessage("");
-
-    try {
-      if (authMode === "register") {
-        await handleRegister(formData, email, password);
-      }
-
-      const signedIn = await handleCredentialsSignIn(email, password);
-      if (!signedIn) {
-        return;
-      }
-
-      setFormState("success");
-      setMessage(
-        authMode === "register"
-          ? "Account created. Redirecting to dashboard..."
-          : "Signed in. Redirecting to dashboard..."
-      );
-      router.push("/dashboard");
-      router.refresh();
-    } catch (error) {
-      setFormState("error");
-      setMessage(
-        error instanceof Error
-          ? error.message
-          : authMode === "register"
-            ? "Could not create account."
-            : "Could not sign in."
-      );
-    }
-  }
-
-  function switchAuthMode(mode: AuthMode) {
-    setAuthMode(mode);
-    setFormState("idle");
-    setMessage("");
-    setShowPassword(false);
-  }
+  const {
+    authMode,
+    formState,
+    handleGoogleSignIn,
+    handleSubmit,
+    message,
+    setShowPassword,
+    showPassword,
+    switchAuthMode,
+  } = useAuthForm();
 
   return (
     <main className="relative isolate min-h-[100dvh] overflow-x-hidden bg-[#07110f] text-white">
