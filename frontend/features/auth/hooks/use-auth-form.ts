@@ -4,7 +4,7 @@ import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 
-import { registerUser } from "@/lib/api/auth-client";
+import { registerUser } from "@/features/auth/api/register-user";
 
 export type AuthMode = "register" | "signin";
 export type AuthFormState = "idle" | "submitting" | "success" | "error";

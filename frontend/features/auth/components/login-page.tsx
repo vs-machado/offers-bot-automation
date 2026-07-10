@@ -18,7 +18,7 @@ import type { LucideIcon } from "lucide-react";
 import { InputHTMLAttributes, ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
-import { useAuthForm } from "@/hooks/use-auth-form";
+import { useAuthForm } from "@/features/auth/hooks/use-auth-form";
 
 const benefits = [
   {
