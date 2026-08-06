@@ -53,6 +53,16 @@ docker compose up --build
 
 Worker begins processing after next 30-second refresh.
 
+## Database migrations
+
+Backend runs `alembic upgrade head` during startup.
+
+Run migrations manually from repository root with project virtual environment:
+
+```powershell
+.\venv\Scripts\alembic.exe -c backend\alembic.ini upgrade head
+```
+
 ## Configuration boundaries
 
 User-owned business configuration is stored only in PostgreSQL through authenticated `/users/me` endpoints:
