@@ -5,6 +5,8 @@ from backend.app.core.db.base import Base
 
 
 class ProcessedOffer(Base):
+    """Per-user source and affiliate identities used for deduplication."""
+
     __tablename__ = "processed_offers"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
@@ -30,6 +32,8 @@ class ProcessedOffer(Base):
 
 
 class TelegramSession(Base):
+    """Persisted Telegram session string associated with one user."""
+
     __tablename__ = "telegram_sessions"
 
     user_id: Mapped[int] = mapped_column(

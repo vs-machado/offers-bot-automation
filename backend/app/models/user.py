@@ -6,6 +6,8 @@ from backend.app.core.db.base import Base
 
 
 class User(Base):
+    """Application user and relationships to owned automation records."""
+
     __tablename__ = "users"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
@@ -29,6 +31,8 @@ class User(Base):
 
 
 class UserConfig(Base):
+    """JSON-serialized routing, provider, and resolver settings for one user."""
+
     __tablename__ = "user_configs"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
@@ -44,6 +48,8 @@ class UserConfig(Base):
 
 
 class Offer(Base):
+    """Persisted affiliate offer associated with one user."""
+
     __tablename__ = "offers"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
@@ -62,6 +68,8 @@ class Offer(Base):
 
 
 class DestinationChannel(Base):
+    """Telegram chat where shared bot may publish user's offers."""
+
     __tablename__ = "destination_channels"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)

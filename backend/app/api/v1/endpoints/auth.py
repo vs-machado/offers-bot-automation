@@ -68,6 +68,7 @@ def _token_for_user(user: User) -> Token:
 async def get_current_user(
     token: str = Depends(oauth2_scheme), db: AsyncSession = Depends(get_db)
 ) -> User:
+    """Decode bearer token and load its user from the database."""
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -96,6 +97,7 @@ async def register(
     request: Request,
     db: AsyncSession = Depends(get_db),
 ):
+    """Create credentials-based user after rate-limit and uniqueness checks."""
     _check_rate_limit("register", request)
     statement = select(User).where(User.email == user_data.email)
     result = await db.execute(statement)
@@ -122,6 +124,7 @@ async def login(
     request: Request,
     db: AsyncSession = Depends(get_db),
 ):
+    """Verify credentials and return a signed bearer access token."""
     _check_rate_limit("login", request)
     statement = select(User).where(User.email == body.email)
     result = await db.execute(statement)
@@ -147,6 +150,7 @@ async def exchange_session(
     request: Request,
     db: AsyncSession = Depends(get_db),
 ):
+    """Exchange trusted NextAuth session proof for a backend access token."""
     _check_rate_limit("session-exchange", request)
     expected_secret = os.getenv("NEXTAUTH_BACKEND_SECRET")
     if not expected_secret:

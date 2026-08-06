@@ -45,6 +45,16 @@ Types: `feat`, `fix`, `refactor`, `test`, `docs`, `chore`.
 - **Do not modify tests silently:** If you believe the test itself needs to be updated to match new requirements, **always ask the user/developer for confirmation** before changing any existing test logic.
 - **Fix Code First:** Priority should always be given to fixing the code to satisfy the existing tests before considering a change to the test itself.
 
+## Documentation
+Document crucial functions or methods when behavior is not obvious. Add concise docstrings to:
+
+- public FastAPI route handlers and authentication dependencies;
+- security, database, migration, and lifecycle functions;
+- worker, posting, deduplication, and persistence methods;
+- core parsing, source-fetching, and provider-facing APIs.
+
+Docstrings should state purpose, important side effects, and relevant failure behavior. Do not add parameter-by-parameter comments or docstrings for obvious inputs, outputs, trivial private helpers, simple CRUD wrappers, model fields, or framework overrides.
+
 ## TypeScript / TSX Warnings
 When editing `.ts` or `.tsx` files in `frontend`, always run:
 ```bash

@@ -20,6 +20,7 @@ class WorkerService:
         self._bots: dict[int, UserBotInstance] = {}
 
     async def start(self) -> None:
+        """Run 30-second config-sync and shared-source polling loop indefinitely."""
         LOGGER.info("Worker service starting")
         while True:
             try:
@@ -94,6 +95,7 @@ class WorkerService:
         return "\n".join([text, *hidden_urls]).strip()
 
     async def shutdown(self) -> None:
+        """Close active per-user clients and clear worker state."""
         LOGGER.info("Worker service shutting down")
         for bot in self._bots.values():
             bot.close()

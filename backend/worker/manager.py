@@ -58,10 +58,12 @@ class UserBotInstance:
 
     @property
     def source_chats(self) -> tuple[str, ...]:
+        """Return normalized public source chats currently assigned to user."""
         return self._source_chats
 
     @property
     def active(self) -> bool:
+        """Return whether user has sources, destinations, and ready affiliate client."""
         return bool(
             self._source_chats
             and self._destination_chat_ids
@@ -72,6 +74,7 @@ class UserBotInstance:
         )
 
     async def configure(self, db: AsyncSession) -> None:
+        """Reload persisted routing and provider clients when configuration changes."""
         configs = await self._load_configs(db)
         source_chats = tuple(self._parse_chats(configs.get("source_chats", [])))
         destination_chat_ids = tuple(await self._load_destination_chat_ids(db))
@@ -143,6 +146,7 @@ class UserBotInstance:
         self._config_signature = config_signature
 
     def close(self) -> None:
+        """Close provider HTTP and browser clients owned by this user instance."""
         closed_clients: set[int] = set()
         for affiliate_client in (
             self._ml,
@@ -168,6 +172,10 @@ class UserBotInstance:
         text: str,
         source_image_url: str | None = None,
     ) -> None:
+        """Parse, deduplicate, affiliate, format, and post one source message.
+
+        Uses the optional source image when provider output requires it.
+        """
         if source_chat not in self._source_chats:
             return
 

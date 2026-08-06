@@ -5,11 +5,15 @@ import httpx
 
 
 class BotPosterError(RuntimeError):
+    """Raised when Telegram bot configuration or posting request fails."""
+
     pass
 
 
 @dataclass(frozen=True)
 class BotPoster:
+    """Async client for posting offers through the shared Telegram bot."""
+
     token: str | None = None
 
     @property
@@ -29,6 +33,7 @@ class BotPoster:
         image_file: str | None = None,
         parse_mode: str | None = None,
     ) -> dict:
+        """Send text or photo offer to chat and return Telegram result payload."""
         payload = {"chat_id": chat_id}
         if parse_mode:
             payload["parse_mode"] = parse_mode
@@ -59,6 +64,7 @@ class BotPoster:
         return data["result"]
 
     async def can_post(self, chat_id: str) -> bool:
+        """Return whether configured bot is administrator or creator in chat."""
         async with httpx.AsyncClient(timeout=20) as client:
             response = await client.get(self._url("getMe"))
             me = response.json()

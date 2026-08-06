@@ -42,6 +42,7 @@ async def _legacy_baseline_revision() -> str | None:
 
 
 async def run_migrations() -> None:
+    """Stamp legacy schemas when needed, then upgrade database to Alembic head."""
     baseline_revision = await _legacy_baseline_revision()
     config = _alembic_config()
 

@@ -15,6 +15,7 @@ BCRYPT_MAX_PASSWORD_BYTES = 72
 
 
 def is_production() -> bool:
+    """Return whether runtime environment uses production naming."""
     return os.getenv("ENVIRONMENT", os.getenv("APP_ENV", "development")).lower() in {
         "prod",
         "production",
@@ -22,6 +23,7 @@ def is_production() -> bool:
 
 
 def validate_auth_config() -> None:
+    """Reject default authentication secrets when running in production."""
     missing: list[str] = []
     if not os.getenv("JWT_SECRET_KEY") or SECRET_KEY == DEV_SECRET_KEY:
         missing.append("JWT_SECRET_KEY")
@@ -32,6 +34,7 @@ def validate_auth_config() -> None:
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
+    """Compare plaintext password against bcrypt hash without leaking errors."""
     try:
         return bcrypt.checkpw(
             plain_password.encode("utf-8"), hashed_password.encode("utf-8")
@@ -41,6 +44,7 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 
 def get_password_hash(password: str) -> str:
+    """Hash password with bcrypt after enforcing its byte-length limit."""
     password_bytes = password.encode("utf-8")
     if len(password_bytes) > BCRYPT_MAX_PASSWORD_BYTES:
         raise ValueError("Password must be at most 72 bytes when UTF-8 encoded.")
@@ -48,6 +52,7 @@ def get_password_hash(password: str) -> str:
 
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
+    """Create signed JWT containing supplied claims and an expiration time."""
     to_encode = data.copy()
     if expires_delta:
         expire = datetime.now(timezone.utc) + expires_delta

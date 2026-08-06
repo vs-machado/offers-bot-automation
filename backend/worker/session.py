@@ -7,17 +7,21 @@ LOGGER = logging.getLogger(__name__)
 
 
 class PgSessionStore:
+    """Persist Telegram session strings for one user in PostgreSQL."""
+
     def __init__(self, db: AsyncSession, user_id: int):
         self._db = db
         self._user_id = user_id
 
     async def get_session(self) -> str | None:
+        """Return stored session string or `None` when user has no session."""
         stmt = select(TelegramSession).where(TelegramSession.user_id == self._user_id)
         result = await self._db.execute(stmt)
         row = result.scalar_one_or_none()
         return row.session_string if row else None
 
     async def save_session(self, session_string: str) -> None:
+        """Insert or replace user's Telegram session string."""
         stmt = select(TelegramSession).where(TelegramSession.user_id == self._user_id)
         result = await self._db.execute(stmt)
         existing = result.scalar_one_or_none()

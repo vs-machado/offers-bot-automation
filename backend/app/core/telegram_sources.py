@@ -8,6 +8,8 @@ import httpx
 
 @dataclass(frozen=True)
 class TelegramSourceMessage:
+    """Normalized public Telegram post data consumed by previews and worker."""
+
     source_chat: str
     message_id: int
     text: str
@@ -17,6 +19,8 @@ class TelegramSourceMessage:
 
 
 class TelegramMessageHTMLParser(HTMLParser):
+    """Parse public Telegram HTML widgets into text, links, images, and IDs."""
+
     def __init__(self) -> None:
         super().__init__(convert_charrefs=True)
         self.messages: list[dict[str, object]] = []
@@ -160,6 +164,7 @@ class TelegramMessageHTMLParser(HTMLParser):
 
 
 def public_telegram_url(chat: str) -> str | None:
+    """Normalize supported public Telegram chat forms to `/s/{slug}` URL."""
     value = chat.strip()
     if not value:
         return None
@@ -192,6 +197,7 @@ async def fetch_source_messages(
     *,
     limit: int = 5,
 ) -> dict[str, list[TelegramSourceMessage]]:
+    """Fetch up to `limit` recent posts per public chat without raising fetch errors."""
     messages_by_chat: dict[str, list[TelegramSourceMessage]] = {}
     async with httpx.AsyncClient(
         follow_redirects=True,

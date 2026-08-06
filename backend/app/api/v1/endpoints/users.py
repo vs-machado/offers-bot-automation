@@ -33,6 +33,7 @@ REQUIRED_CONFIG_KEYS = {
 async def _preview_source_groups(
     source_chats: list[str],
 ) -> dict[str, list[dict[str, object]]]:
+    """Fetch recent public Telegram messages, returning empty groups on fetch errors."""
     try:
         messages_by_chat = await fetch_source_messages(source_chats)
     except Exception:
@@ -60,6 +61,7 @@ async def _preview_source_groups(
 
 
 def _validate_config(config_data: UserConfigCreate) -> None:
+    """Validate required credential fields for known affiliate providers."""
     required_keys = REQUIRED_CONFIG_KEYS.get(config_data.config_type)
     if not required_keys:
         return
@@ -78,6 +80,7 @@ def _validate_config(config_data: UserConfigCreate) -> None:
 
 
 async def _verify_destination_enabled(chat_id: str, enabled: bool) -> None:
+    """Confirm platform bot can post before enabling a destination."""
     if not enabled:
         return
     try:
@@ -99,6 +102,7 @@ async def list_configs(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    """Return configuration records belonging to authenticated user."""
     statement = select(UserConfig).where(UserConfig.user_id == current_user.id)
     result = await db.execute(statement)
     configs = result.scalars().all()
@@ -111,6 +115,7 @@ async def list_configs(
 async def read_current_user(
     current_user: User = Depends(get_current_user),
 ):
+    """Return authenticated user's profile."""
     return current_user
 
 
@@ -118,6 +123,7 @@ async def read_current_user(
 async def list_source_group_messages(
     current_user: User = Depends(get_current_user),
 ):
+    """Return recent messages from configured default source groups."""
     return await _preview_source_groups(DEFAULT_SOURCE_GROUP_URLS)
 
 
@@ -126,6 +132,7 @@ async def preview_source_group(
     preview_data: SourceGroupPreviewRequest,
     current_user: User = Depends(get_current_user),
 ):
+    """Preview recent messages from one public Telegram source."""
     chat = preview_data.chat.strip()
     if not chat:
         raise HTTPException(
@@ -148,6 +155,7 @@ async def create_config(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    """Persist one configuration record for authenticated user."""
     _validate_config(config_data)
     new_config = UserConfig(
         user_id=current_user.id,
@@ -168,6 +176,7 @@ async def update_config(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    """Replace owned configuration record after provider validation."""
     _validate_config(config_data)
     statement = select(UserConfig).where(
         UserConfig.id == config_id, UserConfig.user_id == current_user.id
@@ -193,6 +202,7 @@ async def delete_config(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    """Delete configuration record owned by authenticated user."""
     statement = select(UserConfig).where(
         UserConfig.id == config_id, UserConfig.user_id == current_user.id
     )
@@ -212,6 +222,7 @@ async def list_destinations(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    """Return destination chats belonging to authenticated user."""
     statement = select(DestinationChannel).where(
         DestinationChannel.user_id == current_user.id
     )
@@ -229,6 +240,7 @@ async def create_destination(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    """Verify and persist one destination chat for authenticated user."""
     await _verify_destination_enabled(
         destination_data.chat_id, destination_data.enabled
     )
@@ -252,6 +264,7 @@ async def update_destination(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    """Replace owned destination details after posting-access verification."""
     statement = select(DestinationChannel).where(
         DestinationChannel.id == destination_id,
         DestinationChannel.user_id == current_user.id,
@@ -284,6 +297,7 @@ async def delete_destination(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    """Delete destination chat owned by authenticated user."""
     statement = select(DestinationChannel).where(
         DestinationChannel.id == destination_id,
         DestinationChannel.user_id == current_user.id,
@@ -304,6 +318,7 @@ async def list_offers(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    """Return offer records belonging to authenticated user."""
     statement = select(Offer).where(Offer.user_id == current_user.id)
     result = await db.execute(statement)
     return result.scalars().all()
@@ -317,6 +332,7 @@ async def create_offer(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    """Persist one offer record for authenticated user."""
     new_offer = Offer(
         user_id=current_user.id,
         platform=offer_data.platform,
@@ -339,6 +355,7 @@ async def update_offer(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    """Replace offer record owned by authenticated user."""
     statement = select(Offer).where(
         Offer.id == offer_id, Offer.user_id == current_user.id
     )
@@ -366,6 +383,7 @@ async def delete_offer(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    """Delete offer record owned by authenticated user."""
     statement = select(Offer).where(
         Offer.id == offer_id, Offer.user_id == current_user.id
     )

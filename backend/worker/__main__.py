@@ -5,6 +5,7 @@ from backend.worker.service import WorkerService
 
 
 def run_worker() -> None:
+    """Configure logging and run worker until cancellation or keyboard interrupt."""
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
