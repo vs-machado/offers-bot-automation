@@ -7,12 +7,13 @@ from pydantic import BaseModel, Field
 from typing import List, Literal
 
 from pydantic_ai import Agent
-from pydantic_ai.models.google import GoogleModel
 from pydantic_ai.models.openai import OpenAIChatModel
-from pydantic_ai.providers.google import GoogleProvider
 from pydantic_ai.providers.litellm import LiteLLMProvider
 
 logger = logging.getLogger(__name__)
+
+PRIMARY_LLM_MODEL = "deepseek/deepseek-v4-flash"
+FALLBACK_LLM_MODEL = "gemini/gemini-2.5-flash-lite"
 
 
 # Pydantic models for structured output validation
@@ -146,24 +147,30 @@ def save_token_usage(prompt_tokens: int, completion_tokens: int) -> None:
         logger.warning("Failed to save token usage to db: %s", e)
 
 
-def _build_agent(gemini_key: str) -> Agent:
+def _build_agent(model_name: str, api_key: str) -> Agent:
     lite_api_base = os.getenv("LITELLM_API_BASE")
+    provider_kwargs = {"api_key": api_key}
     if lite_api_base:
-        model = OpenAIChatModel(
-            "gemini/gemini-2.5-flash-lite",
-            provider=LiteLLMProvider(api_base=lite_api_base, api_key=gemini_key),
-        )
-    else:
-        model = GoogleModel(
-            model_name="gemini-2.5-flash-lite",
-            provider=GoogleProvider(api_key=gemini_key),
-        )
+        provider_kwargs["api_base"] = lite_api_base
+
+    model = OpenAIChatModel(
+        model_name,
+        provider=LiteLLMProvider(**provider_kwargs),
+    )
 
     return Agent(
         model=model,
         output_type=DealParseResult,
         system_prompt=SYSTEM_PROMPT,
     )
+
+
+def _llm_configs() -> list[tuple[str, str, str]]:
+    """Return configured providers in priority order, without exposing keys."""
+    return [
+        ("primary", PRIMARY_LLM_MODEL, os.getenv("DEEPSEEK_API_KEY", "")),
+        ("fallback", FALLBACK_LLM_MODEL, os.getenv("GEMINI_API_KEY", "")),
+    ]
 
 
 def _dump_result(result) -> Dict[str, Any]:
@@ -179,32 +186,40 @@ def _dump_result(result) -> Dict[str, Any]:
 def parse_with_llm(text: str) -> Optional[Dict[str, Any]]:
     if os.getenv("DISABLE_LLM") == "true":
         return None
-    try:
-        gemini_key = os.getenv("GEMINI_API_KEY")
-        if not gemini_key:
-            logger.warning("GEMINI_API_KEY environment variable is not set!")
-            return None
+    for label, model_name, api_key in _llm_configs():
+        if not api_key:
+            logger.warning(
+                "%s API key for %s is not set", label.capitalize(), model_name
+            )
+            continue
+        try:
+            agent = _build_agent(model_name, api_key)
+            result = agent.run_sync(f"Analyze this Telegram message:\n\n{text}")
+            return _dump_result(result)
+        except Exception as exc:
+            logger.warning(
+                "%s LLM parser failed with %s: %s", label.capitalize(), model_name, exc
+            )
 
-        agent = _build_agent(gemini_key)
-        result = agent.run_sync(f"Analyze this Telegram message:\n\n{text}")
-        return _dump_result(result)
-    except Exception as e:
-        logger.warning("LLM parsing failed or timed out: %s", e)
-        return None
+    return None
 
 
 async def parse_with_llm_async(text: str) -> Optional[Dict[str, Any]]:
     if os.getenv("DISABLE_LLM") == "true":
         return None
-    try:
-        gemini_key = os.getenv("GEMINI_API_KEY")
-        if not gemini_key:
-            logger.warning("GEMINI_API_KEY environment variable is not set!")
-            return None
+    for label, model_name, api_key in _llm_configs():
+        if not api_key:
+            logger.warning(
+                "%s API key for %s is not set", label.capitalize(), model_name
+            )
+            continue
+        try:
+            agent = _build_agent(model_name, api_key)
+            result = await agent.run(f"Analyze this Telegram message:\n\n{text}")
+            return _dump_result(result)
+        except Exception as exc:
+            logger.warning(
+                "%s LLM parser failed with %s: %s", label.capitalize(), model_name, exc
+            )
 
-        agent = _build_agent(gemini_key)
-        result = await agent.run(f"Analyze this Telegram message:\n\n{text}")
-        return _dump_result(result)
-    except Exception as e:
-        logger.warning("LLM parsing failed or timed out: %s", e)
-        return None
+    return None
