@@ -16,7 +16,6 @@ services:
       - TELEGRAM_PHONE=${TELEGRAM_PHONE}
       - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
       - GEMINI_API_KEY=${GEMINI_API_KEY}
-      - LITELLM_API_BASE=${LITELLM_API_BASE}
       - ML_AFFILIATE_TAG=${ML_AFFILIATE_TAG}
       - ML_COOKIE_HEADER=${ML_COOKIE_HEADER}
       - ML_CSRF_TOKEN=${ML_CSRF_TOKEN}
@@ -35,4 +34,3 @@ services:
     volumes:
       - ./data:/app/data
     restart: unless-stopped
-

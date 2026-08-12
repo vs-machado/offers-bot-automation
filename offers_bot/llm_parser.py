@@ -7,8 +7,10 @@ from pydantic import BaseModel, Field
 from typing import List, Literal
 
 from pydantic_ai import Agent
+from pydantic_ai.models.google import GoogleModel
 from pydantic_ai.models.openai import OpenAIChatModel
-from pydantic_ai.providers.litellm import LiteLLMProvider
+from pydantic_ai.providers.google import GoogleProvider
+from pydantic_ai.providers.openai import OpenAIProvider
 
 logger = logging.getLogger(__name__)
 
@@ -148,15 +150,21 @@ def save_token_usage(prompt_tokens: int, completion_tokens: int) -> None:
 
 
 def _build_agent(model_name: str, api_key: str) -> Agent:
-    lite_api_base = os.getenv("LITELLM_API_BASE")
-    provider_kwargs = {"api_key": api_key}
-    if lite_api_base:
-        provider_kwargs["api_base"] = lite_api_base
-
-    model = OpenAIChatModel(
-        model_name,
-        provider=LiteLLMProvider(**provider_kwargs),
-    )
+    if model_name == PRIMARY_LLM_MODEL:
+        model = OpenAIChatModel(
+            "deepseek-v4-flash",
+            provider=OpenAIProvider(
+                base_url="https://api.deepseek.com/v1",
+                api_key=api_key,
+            ),
+        )
+    elif model_name == FALLBACK_LLM_MODEL:
+        model = GoogleModel(
+            "gemini-2.5-flash-lite",
+            provider=GoogleProvider(api_key=api_key),
+        )
+    else:
+        raise ValueError(f"Unsupported LLM model: {model_name}")
 
     return Agent(
         model=model,
