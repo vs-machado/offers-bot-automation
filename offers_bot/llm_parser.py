@@ -9,8 +9,8 @@ from typing import List, Literal
 from pydantic_ai import Agent
 from pydantic_ai.models.google import GoogleModel
 from pydantic_ai.models.openai import OpenAIChatModel
+from pydantic_ai.providers.deepseek import DeepSeekProvider
 from pydantic_ai.providers.google import GoogleProvider
-from pydantic_ai.providers.openai import OpenAIProvider
 
 logger = logging.getLogger(__name__)
 
@@ -153,10 +153,7 @@ def _build_agent(model_name: str, api_key: str) -> Agent:
     if model_name == PRIMARY_LLM_MODEL:
         model = OpenAIChatModel(
             "deepseek-v4-flash",
-            provider=OpenAIProvider(
-                base_url="https://api.deepseek.com/v1",
-                api_key=api_key,
-            ),
+            provider=DeepSeekProvider(api_key=api_key),
         )
     elif model_name == FALLBACK_LLM_MODEL:
         model = GoogleModel(
