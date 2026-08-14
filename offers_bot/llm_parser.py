@@ -7,7 +7,10 @@ from pydantic import BaseModel, Field
 from typing import List, Literal
 
 from pydantic_ai import Agent
+from pydantic_ai.models.google import GoogleModel
 from pydantic_ai.models.openai import OpenAIChatModel
+from pydantic_ai.providers.deepseek import DeepSeekProvider
+from pydantic_ai.providers.google import GoogleProvider
 from pydantic_ai.providers.openai import OpenAIProvider
 
 logger = logging.getLogger(__name__)
@@ -157,10 +160,21 @@ def _build_agent(model_name: str, api_key: str) -> Agent:
     }:
         raise ValueError(f"Unsupported LLM model: {model_name}")
 
-    model = OpenAIChatModel(
-        model_name,
-        provider=OpenAIProvider(base_url=OPENROUTER_BASE_URL, api_key=api_key),
-    )
+    if model_name == PRIMARY_LLM_MODEL:
+        model = OpenAIChatModel(
+            model_name,
+            provider=OpenAIProvider(base_url=OPENROUTER_BASE_URL, api_key=api_key),
+        )
+    elif model_name == FALLBACK_LLM_MODEL:
+        model = OpenAIChatModel(
+            "deepseek-v4-flash",
+            provider=DeepSeekProvider(api_key=api_key),
+        )
+    else:
+        model = GoogleModel(
+            "gemini-2.5-flash-lite",
+            provider=GoogleProvider(api_key=api_key),
+        )
 
     return Agent(
         model=model,
@@ -171,11 +185,14 @@ def _build_agent(model_name: str, api_key: str) -> Agent:
 
 def _llm_configs() -> list[tuple[str, str, str]]:
     """Return configured providers in priority order, without exposing keys."""
-    api_key = os.getenv("OPENROUTER_API_KEY", "")
     return [
-        ("primary", PRIMARY_LLM_MODEL, api_key),
-        ("fallback", FALLBACK_LLM_MODEL, api_key),
-        ("final fallback", FINAL_FALLBACK_LLM_MODEL, api_key),
+        ("primary", PRIMARY_LLM_MODEL, os.getenv("OPENROUTER_API_KEY", "")),
+        ("fallback", FALLBACK_LLM_MODEL, os.getenv("DEEPSEEK_API_KEY", "")),
+        (
+            "final fallback",
+            FINAL_FALLBACK_LLM_MODEL,
+            os.getenv("GEMINI_API_KEY", ""),
+        ),
     ]
 
 

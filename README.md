@@ -4,7 +4,7 @@ Bot user account listens to source Telegram groups, extracts Mercado Livre, Amaz
 
 ## Parsing Architecture
 
-The bot uses an AI parsing layer first. Telegram messages go through OpenRouter to a structured Pydantic AI agent backed by Qwen 3.7 Flash (`qwen/qwen3.7-flash`). If it fails, the parser retries with DeepSeek V4 Flash, then Gemini 2.5 Flash Lite. It classifies each message as either a product deal or a generic coupon bulletin and extracts clean fields such as title, price, installment info, shipping, coupon, and Meli+ restrictions.
+The bot uses an AI parsing layer first. Telegram messages go through OpenRouter to a structured Pydantic AI agent backed by Qwen 3.7 Flash (`qwen/qwen3.7-flash`). If it fails, the parser retries through the DeepSeek API with DeepSeek V4 Flash, then through the Gemini API with Gemini 2.5 Flash Lite. It classifies each message as either a product deal or a generic coupon bulletin and extracts clean fields such as title, price, installment info, shipping, coupon, and Meli+ restrictions.
 
 The older regex parser is still present, but it is now the fallback path. It runs only when the AI layer is disabled, missing credentials, or fails/timeouts. URL extraction and platform-specific affiliate conversion still happen after parsing.
 
@@ -43,7 +43,9 @@ flowchart TD
    - `ALIEXPRESS_APP_KEY`
    - `ALIEXPRESS_APP_SECRET`
    - `ALIEXPRESS_TRACKING_ID`
-   - `OPENROUTER_API_KEY` for the AI parsing layer
+   - `OPENROUTER_API_KEY` for Qwen 3.7 Flash
+   - `DEEPSEEK_API_KEY` for DeepSeek V4 Flash fallback
+   - `GEMINI_API_KEY` for Gemini 2.5 Flash Lite fallback
    - `DISABLE_LLM=true` only when you want to force the regex fallback parser
 4. Install deps:
 

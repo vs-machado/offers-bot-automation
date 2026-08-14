@@ -46,14 +46,22 @@ class LLMParserTest(unittest.TestCase):
                 except Exception:
                     pass
 
-    def test_llm_configs_use_openrouter_key_in_fallback_order(self):
-        with patch.dict(os.environ, {"OPENROUTER_API_KEY": "test-key"}, clear=True):
+    def test_llm_configs_use_provider_keys_in_fallback_order(self):
+        with patch.dict(
+            os.environ,
+            {
+                "OPENROUTER_API_KEY": "openrouter-key",
+                "DEEPSEEK_API_KEY": "deepseek-key",
+                "GEMINI_API_KEY": "gemini-key",
+            },
+            clear=True,
+        ):
             self.assertEqual(
                 _llm_configs(),
                 [
-                    ("primary", PRIMARY_LLM_MODEL, "test-key"),
-                    ("fallback", FALLBACK_LLM_MODEL, "test-key"),
-                    ("final fallback", FINAL_FALLBACK_LLM_MODEL, "test-key"),
+                    ("primary", PRIMARY_LLM_MODEL, "openrouter-key"),
+                    ("fallback", FALLBACK_LLM_MODEL, "deepseek-key"),
+                    ("final fallback", FINAL_FALLBACK_LLM_MODEL, "gemini-key"),
                 ],
             )
 
