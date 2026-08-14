@@ -6,7 +6,13 @@ import tempfile
 from unittest.mock import patch
 from offers_bot.parser import extract_offers
 from offers_bot.main import format_offer
-from offers_bot.llm_parser import save_token_usage
+from offers_bot.llm_parser import (
+    FALLBACK_LLM_MODEL,
+    FINAL_FALLBACK_LLM_MODEL,
+    PRIMARY_LLM_MODEL,
+    _llm_configs,
+    save_token_usage,
+)
 
 
 class LLMParserTest(unittest.TestCase):
@@ -39,6 +45,17 @@ class LLMParserTest(unittest.TestCase):
                     os.remove(temp_db)
                 except Exception:
                     pass
+
+    def test_llm_configs_use_openrouter_key_in_fallback_order(self):
+        with patch.dict(os.environ, {"OPENROUTER_API_KEY": "test-key"}, clear=True):
+            self.assertEqual(
+                _llm_configs(),
+                [
+                    ("primary", PRIMARY_LLM_MODEL, "test-key"),
+                    ("fallback", FALLBACK_LLM_MODEL, "test-key"),
+                    ("final fallback", FINAL_FALLBACK_LLM_MODEL, "test-key"),
+                ],
+            )
 
     @patch("offers_bot.parser.parse_with_llm")
     def test_llm_classifies_product_offer(self, mock_parse):
