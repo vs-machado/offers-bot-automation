@@ -12,10 +12,28 @@ from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.deepseek import DeepSeekProvider
 from pydantic_ai.providers.google import GoogleProvider
 from pydantic_ai.providers.openai import OpenAIProvider
+from openai import AsyncOpenAI
 
 logger = logging.getLogger(__name__)
 
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
+
+
+def _openrouter_headers() -> dict[str, str] | None:
+    if os.getenv("OPENROUTER_CACHE_ENABLED", "true").lower() in {
+        "0",
+        "false",
+        "no",
+        "off",
+    }:
+        return None
+    headers = {"X-OpenRouter-Cache": "true"}
+    ttl = os.getenv("OPENROUTER_CACHE_TTL", "").strip()
+    if ttl:
+        headers["X-OpenRouter-Cache-TTL"] = ttl
+    return headers
+
+
 PRIMARY_LLM_MODEL = "qwen/qwen3.7-flash"
 FALLBACK_LLM_MODEL = "deepseek/deepseek-v4-flash"
 FINAL_FALLBACK_LLM_MODEL = "google/gemini-2.5-flash-lite"
@@ -161,9 +179,14 @@ def _build_agent(model_name: str, api_key: str) -> Agent:
         raise ValueError(f"Unsupported LLM model: {model_name}")
 
     if model_name == PRIMARY_LLM_MODEL:
+        client = AsyncOpenAI(
+            base_url=OPENROUTER_BASE_URL,
+            api_key=api_key,
+            default_headers=_openrouter_headers(),
+        )
         model = OpenAIChatModel(
             model_name,
-            provider=OpenAIProvider(base_url=OPENROUTER_BASE_URL, api_key=api_key),
+            provider=OpenAIProvider(openai_client=client),
         )
     elif model_name == FALLBACK_LLM_MODEL:
         model = OpenAIChatModel(
