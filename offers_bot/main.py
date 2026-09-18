@@ -616,7 +616,7 @@ async def run() -> None:
         session_name=settings.telegram_session,
         session_string=session_string,
         source_chats=settings.source_chats,
-        target_chat=settings.target_chat,
+        target_chats=settings.target_chats,
         phone=settings.telegram_phone,
         qr_auth_port=settings.qr_auth_port,
         tech_chat=settings.tech_chat,

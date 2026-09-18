@@ -31,7 +31,7 @@ flowchart TD
    - `TELEGRAM_API_ID`
    - `TELEGRAM_API_HASH`
    - `SOURCE_CHATS` with comma-separated source groups/channels
-   - `TARGET_CHAT` with your group id, `@name`, or invite link
+   - `TARGET_CHAT` with comma-separated group ids, `@names`, or invite links
    - `ML_AFFILIATE_TAG`
    - `ML_COOKIE_HEADER`
    - `ML_CSRF_TOKEN`
