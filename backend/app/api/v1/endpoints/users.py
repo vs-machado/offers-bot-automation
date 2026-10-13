@@ -15,7 +15,7 @@ from backend.app.schemas.user import (
 )
 from backend.app.schemas.offer import OfferCreate, OfferRead
 from backend.app.api.v1.endpoints.auth import get_current_user
-from backend.app.core.source_groups import DEFAULT_SOURCE_GROUP_URLS
+from backend.app.core.source_groups import DEFAULT_SOURCE_GROUP_URLS, approved_source
 from backend.app.core.telegram_sources import fetch_source_messages
 from backend.worker.poster import BotPoster, BotPosterError
 
@@ -62,6 +62,20 @@ async def _preview_source_groups(
 
 def _validate_config(config_data: UserConfigCreate) -> None:
     """Validate required credential fields for known affiliate providers."""
+    if config_data.config_type == "source_chats":
+        chats = config_data.config_data.get("source_chats")
+        try:
+            if not isinstance(chats, list) or any(
+                not isinstance(chat, str) for chat in chats
+            ):
+                raise ValueError("source_chats must be a list of catalog groups")
+            config_data.config_data = {
+                "source_chats": list(
+                    dict.fromkeys(approved_source(chat) for chat in chats)
+                )
+            }
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
     required_keys = REQUIRED_CONFIG_KEYS.get(config_data.config_type)
     if not required_keys:
         return
@@ -133,7 +147,10 @@ async def preview_source_group(
     current_user: User = Depends(get_current_user),
 ):
     """Preview recent messages from one public Telegram source."""
-    chat = preview_data.chat.strip()
+    try:
+        chat = approved_source(preview_data.chat)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     if not chat:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -143,7 +160,7 @@ async def preview_source_group(
     response = await _preview_source_groups([chat])
     groups = response["groups"]
     if groups:
-        groups[0]["label"] = "Custom source"
+        groups[0]["label"] = "Catalog source"
     return response
 
 

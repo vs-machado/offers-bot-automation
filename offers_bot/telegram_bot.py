@@ -12,6 +12,7 @@ import asyncio
 import logging
 import re
 import sys
+import tempfile
 from collections.abc import Awaitable, Callable
 
 from telethon import TelegramClient, events
@@ -41,7 +42,8 @@ class TelegramOfferBot:
         session_name: str,
         session_string: str | None = None,
         source_chats: list[str] | None = None,
-        target_chat: str = "",
+        target_chat: str | list[str] = "",
+        target_chats: list[str] | None = None,
         phone: str | None = None,
         qr_auth_port: int = 8080,
         tech_chat: str | None = None,
@@ -54,10 +56,23 @@ class TelegramOfferBot:
         self._session_string = session_string
         self._qr_auth_port = qr_auth_port
         self._source_chats = source_chats or []
-        self._target_chat = target_chat
+        if target_chats is not None:
+            self._target_chats: list[str] = [
+                c.strip() for c in target_chats if c and c.strip()
+            ]
+        elif isinstance(target_chat, list):
+            self._target_chats = [c.strip() for c in target_chat if c and c.strip()]
+        else:
+            # Accept comma-separated single string for backward compat
+            self._target_chats = [
+                c.strip() for c in target_chat.split(",") if c.strip()
+            ]
+        # Backward-compat alias: first target chat
+        self._target_chat = self._target_chats[0] if self._target_chats else ""
         self._tech_chat = tech_chat
         self._home_chat = home_chat
         self._clothes_chat = clothes_chat
+        self._target_entities: list = []
         self._target_entity = None
         self._tech_entity = None
         self._home_entity = None
@@ -97,7 +112,18 @@ class TelegramOfferBot:
             self._session_string = self.client.session.save()
             LOGGER.info("New session string acquired (saved to database automatically)")
 
-        self._target_entity = await self._resolve_chat(self._target_chat)
+        self._target_entities = [
+            await self._resolve_chat(chat) for chat in self._target_chats
+        ]
+        self._target_entity = (
+            self._target_entities[0] if self._target_entities else None
+        )
+        for chat, entity in zip(self._target_chats, self._target_entities):
+            LOGGER.info(
+                "Resolved target chat %s -> id=%s",
+                chat,
+                getattr(entity, "id", "?"),
+            )
         if self._tech_chat:
             self._tech_entity = await self._resolve_chat(self._tech_chat)
         if self._home_chat:
@@ -126,12 +152,15 @@ class TelegramOfferBot:
                     if message.message:
                         media_path = await self._download_media(message)
                         await handler(
-                            str(entity.id), message.id, message.message, media_path
+                            str(entity.id),
+                            message.id,
+                            self._message_text(message),
+                            media_path,
                         )
 
         @self.client.on(events.NewMessage(chats=source_entities))
         async def on_new_message(event: events.NewMessage.Event) -> None:
-            text = event.message.message or ""
+            text = self._message_text(event.message)
             LOGGER.info(
                 "Received Telegram message chat_id=%s message_id=%s chars=%s",
                 event.chat_id,
@@ -145,27 +174,40 @@ class TelegramOfferBot:
         LOGGER.info("Listening to %s source chats", len(source_entities))
         await self.client.run_until_disconnected()
 
+    @staticmethod
+    def _message_text(message) -> str:
+        text = message.message or ""
+        urls = [getattr(entity, "url", "") for entity in (message.entities or [])]
+        return "\n".join(
+            [text, *dict.fromkeys(url for url in urls if url and url not in text)]
+        ).strip()
+
     async def send_offer(
         self, text: str, image_file: str | None = None, category: str | None = None
     ) -> None:
-        """Send a formatted offer to the target chat (and category chats)."""
-        if self._target_entity is None:
-            self._target_entity = await self._resolve_chat(self._target_chat)
+        """Send a formatted offer to all target chats (and category chats)."""
+        if not self._target_entities:
+            self._target_entities = [
+                await self._resolve_chat(chat) for chat in self._target_chats
+            ]
+            self._target_entity = (
+                self._target_entities[0] if self._target_entities else None
+            )
 
         if category == "tech":
-            targets = [self._target_entity]
+            targets = list(self._target_entities)
             if self._tech_entity is not None:
                 targets.append(self._tech_entity)
         elif category == "home":
-            targets = [self._target_entity]
+            targets = list(self._target_entities)
             if self._home_entity is not None:
                 targets.append(self._home_entity)
         elif category == "clothes":
-            targets = [self._target_entity]
+            targets = list(self._target_entities)
             if self._clothes_entity is not None:
                 targets.append(self._clothes_entity)
         else:
-            targets = [self._target_entity]
+            targets = list(self._target_entities)
 
         for entity in targets:
             if image_file:
@@ -234,7 +276,9 @@ class TelegramOfferBot:
             or isinstance(message.media, MessageMediaDocument)
         ):
             try:
-                return await self.client.download_media(message, file="/tmp/")
+                return await self.client.download_media(
+                    message, file=tempfile.gettempdir() + "/"
+                )
             except Exception as exc:
                 LOGGER.warning("Failed to download media: %s", exc)
         return None

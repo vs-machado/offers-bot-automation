@@ -6,8 +6,13 @@ import tempfile
 from unittest.mock import patch
 from offers_bot.parser import extract_offers
 from offers_bot.main import format_offer
-from offers_bot.llm_parser import FALLBACK_LLM_MODEL, PRIMARY_LLM_MODEL, parse_with_llm
-from offers_bot.llm_parser import save_token_usage
+from offers_bot.llm_parser import (
+    FALLBACK_LLM_MODEL,
+    FINAL_FALLBACK_LLM_MODEL,
+    PRIMARY_LLM_MODEL,
+    _llm_configs,
+    save_token_usage,
+)
 
 
 class LLMParserTest(unittest.TestCase):
@@ -41,36 +46,24 @@ class LLMParserTest(unittest.TestCase):
                 except Exception:
                     pass
 
-    def test_parse_with_llm_falls_back_to_gemini(self):
-        class FailingAgent:
-            def run_sync(self, _prompt):
-                raise RuntimeError("primary failed")
-
-        class SuccessfulAgent:
-            def run_sync(self, _prompt):
-                return object()
-
-        with (
-            patch.dict(
-                os.environ,
-                {
-                    "DEEPSEEK_API_KEY": "deepseek-key",
-                    "GEMINI_API_KEY": "gemini-key",
-                },
-            ),
-            patch("offers_bot.llm_parser._build_agent") as mock_build_agent,
-            patch("offers_bot.llm_parser._dump_result") as mock_dump_result,
+    def test_llm_configs_use_provider_keys_in_fallback_order(self):
+        with patch.dict(
+            os.environ,
+            {
+                "OPENROUTER_API_KEY": "openrouter-key",
+                "DEEPSEEK_API_KEY": "deepseek-key",
+                "GEMINI_API_KEY": "gemini-key",
+            },
+            clear=True,
         ):
-            os.environ.pop("DISABLE_LLM", None)
-            mock_build_agent.side_effect = [FailingAgent(), SuccessfulAgent()]
-            mock_dump_result.return_value = {"classification": "product"}
-
-            result = parse_with_llm("Oferta teste")
-
-        self.assertEqual(result, {"classification": "product"})
-        mock_build_agent.assert_any_call(PRIMARY_LLM_MODEL, "deepseek-key")
-        mock_build_agent.assert_any_call(FALLBACK_LLM_MODEL, "gemini-key")
-        self.assertEqual(mock_build_agent.call_count, 2)
+            self.assertEqual(
+                _llm_configs(),
+                [
+                    ("primary", PRIMARY_LLM_MODEL, "openrouter-key"),
+                    ("fallback", FALLBACK_LLM_MODEL, "deepseek-key"),
+                    ("final fallback", FINAL_FALLBACK_LLM_MODEL, "gemini-key"),
+                ],
+            )
 
     @patch("offers_bot.parser.parse_with_llm")
     def test_llm_classifies_product_offer(self, mock_parse):

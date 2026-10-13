@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { getSourceGroups, previewSourceGroup } from "@/features/setup/api/setup-client";
+import { getSourceGroups } from "@/features/setup/api/setup-client";
 import { getTelegramPostId } from "@/features/setup/lib/telegram";
 import type { SourceGroup } from "@/features/setup/types";
 import type { ConfigSummary } from "@/shared/contracts/user-config";
@@ -21,24 +21,6 @@ function getSavedSourceChats(configs: ConfigSummary[]) {
     : [];
 }
 
-function appendCustomGroup(groups: SourceGroup[], chat: string, group?: SourceGroup | null) {
-  if (groups.some((item) => item.id === chat)) {
-    return groups;
-  }
-
-  const customNumber =
-    groups.filter((item) => item.label.startsWith("Custom source")).length + 1;
-  return [
-    ...groups,
-    {
-      ...group,
-      id: chat,
-      label: `Custom source ${customNumber}`,
-      messages: group?.messages ?? [],
-    },
-  ];
-}
-
 export function useSourceGroupPreviews({
   configs,
   open,
@@ -52,8 +34,6 @@ export function useSourceGroupPreviews({
   const [activeSourceId, setActiveSourceId] = useState<string | null>(null);
   const [mountedSourceGroupIds, setMountedSourceGroupIds] = useState<string[]>([]);
   const [readyTelegramPostIds, setReadyTelegramPostIds] = useState<string[]>([]);
-  const [customSourceChat, setCustomSourceChat] = useState("");
-  const [customSourcePreviewLoading, setCustomSourcePreviewLoading] = useState(false);
 
   const activeSourceGroup = useMemo(
     () =>
@@ -82,6 +62,7 @@ export function useSourceGroupPreviews({
         const groups = await getSourceGroups();
         if (!cancelled) {
           setSourceGroups(groups);
+          setSelectedSourceChats((current) => current.filter((chat) => groups.some((group) => group.id === chat)));
           setActiveSourceId((current) => current ?? groups[0]?.id ?? null);
           setMountedSourceGroupIds((current) =>
             current.length > 0 || !groups[0] ? current : [groups[0].id]
@@ -172,44 +153,13 @@ export function useSourceGroupPreviews({
     );
   }, []);
 
-  const addCustomSourceChat = useCallback(async () => {
-    const trimmedChat = customSourceChat.trim();
-    if (!trimmedChat) {
-      return;
-    }
-
-    setSelectedSourceChats((current) =>
-      current.includes(trimmedChat) ? current : [...current, trimmedChat]
-    );
-    selectSourceGroup(trimmedChat);
-    setCustomSourceChat("");
-
-    if (sourceGroups.some((group) => group.id === trimmedChat)) {
-      return;
-    }
-
-    setCustomSourcePreviewLoading(true);
-    try {
-      const customGroup = await previewSourceGroup(trimmedChat);
-      setSourceGroups((current) => appendCustomGroup(current, trimmedChat, customGroup));
-    } catch {
-      setSourceGroups((current) => appendCustomGroup(current, trimmedChat));
-    } finally {
-      setCustomSourcePreviewLoading(false);
-    }
-  }, [customSourceChat, selectSourceGroup, sourceGroups]);
-
   return {
     activeSourceGroup,
-    addCustomSourceChat,
-    customSourceChat,
-    customSourcePreviewLoading,
     markTelegramPostReady,
     mountedSourceGroupIds,
     readyTelegramPostIds,
     selectSourceGroup,
     selectedSourceChats,
-    setCustomSourceChat,
     sourceGroups,
     sourceGroupsLoading,
     toggleSourceChat,

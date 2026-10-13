@@ -116,15 +116,11 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
   );
   const {
     activeSourceGroup,
-    addCustomSourceChat,
-    customSourceChat,
-    customSourcePreviewLoading,
     markTelegramPostReady,
     mountedSourceGroupIds,
     readyTelegramPostIds,
     selectSourceGroup,
     selectedSourceChats,
-    setCustomSourceChat,
     sourceGroups,
     sourceGroupsLoading,
     toggleSourceChat,
@@ -713,42 +709,12 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
                       </div>
                     ) : (
                       <p className="rounded-2xl border border-dashed border-border p-4 text-sm leading-6 text-muted-foreground">
-                        Source previews unavailable. Paste a group URL or ID below.
+                        Source catalog unavailable. Please try again later.
                       </p>
                     )}
                   </div>
 
-                  <div className="border-t border-border p-3 dark:border-white/10">
-                    <label className="block space-y-2">
-                      <span className="text-xs font-bold text-card-foreground">
-                        Add custom group URL or ID
-                      </span>
-                      <input
-                        className="h-11 w-full rounded-2xl border border-border bg-background px-3 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-primary focus:ring-4 focus:ring-primary/10 dark:border-white/10 dark:bg-white/[0.04]"
-                        onChange={(event) => setCustomSourceChat(event.target.value)}
-                        onKeyDown={(event) => {
-                          if (event.key === "Enter") {
-                            event.preventDefault();
-                            void addCustomSourceChat();
-                          }
-                        }}
-                        placeholder="https://t.me/sourceurl"
-                        value={customSourceChat}
-                      />
-                    </label>
-                    <Button
-                      className="mt-3 h-10 w-full gap-2"
-                      disabled={customSourcePreviewLoading}
-                      onClick={() => void addCustomSourceChat()}
-                      type="button"
-                      variant="outline"
-                    >
-                      {customSourcePreviewLoading ? (
-                        <Loader2 className="size-4 animate-spin" />
-                      ) : null}
-                      Add source
-                    </Button>
-                  </div>
+
                 </div>
 
                 <div className="flex min-h-0 flex-col overflow-hidden rounded-3xl border border-border bg-muted/25 dark:border-white/10 dark:bg-white/[0.03]">

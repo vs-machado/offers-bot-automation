@@ -1,6 +1,6 @@
 # Telegram Offers Bot
 
-Multi-tenant offers automation. Shared worker polls configured public Telegram sources, extracts supported product links, generates each user's affiliate links, and posts through platform bot to that user's enabled destinations.
+Multi-tenant offers automation. Shared worker listens to the platform Telegram source catalog through Telethon, extracts supported product links, generates each user's affiliate links, and posts through platform bot to that user's enabled destinations.
 
 ## Runtime architecture
 
@@ -17,13 +17,13 @@ flowchart LR
 
 - Dashboard saves `source_chats`, destinations, and Amazon/Shopee/Mercado Livre/AliExpress credentials in PostgreSQL.
 - Worker reloads persisted config every 30 seconds.
-- Every public source is fetched once per cycle, then messages are fanned out to subscribed users.
+- One operator-owned Telethon account receives catalog messages and fans them out to subscribed users. Users select catalog groups and cannot add their own sources.
 - Real Telegram post IDs plus PostgreSQL records provide per-user deduplication.
 - Destination posting uses one platform bot. Users do not create their own bots or Telegram sessions.
 
 ## Parsing
 
-DeepSeek v4 Flash through LiteLLM is primary structured parser. Gemini 2.5 Flash Lite is fallback. Regex parser runs when AI credentials are absent or AI parsing fails.
+Qwen 3.7 Flash (`qwen/qwen3.7-flash`) through OpenRouter is the primary structured parser. DeepSeek V4 Flash and Gemini 2.5 Flash Lite use direct provider APIs as fallbacks. Regex parser runs when AI credentials are absent or AI parsing fails.
 
 URL routing and affiliate conversion support:
 
@@ -49,7 +49,7 @@ docker compose up --build
    - grant bot permission to post messages and photos;
    - save destination chat ID;
    - save credentials for one or more affiliate providers;
-   - select public Telegram source groups.
+   - select Telegram source groups from the platform catalog.
 
 Worker begins processing after next 30-second refresh.
 
@@ -78,7 +78,7 @@ User-owned business configuration is stored only in PostgreSQL through authentic
 - database/auth/OAuth secrets;
 - optional shared AI parser credentials.
 
-Old `TELEGRAM_API_ID`, `TELEGRAM_API_HASH`, `SOURCE_CHATS`, `TARGET_CHAT`, affiliate keys, and browser settings are not worker runtime inputs anymore.
+The operator reader uses `TELEGRAM_API_ID`, `TELEGRAM_API_HASH`, and its shared session/QR settings. `SOURCE_CHATS`, `TARGET_CHAT`, and affiliate environment variables are legacy CLI settings; the shared worker takes catalog subscriptions, destinations, and affiliate settings from PostgreSQL.
 
 ## Provider credentials
 
@@ -112,6 +112,10 @@ Use project virtual environment:
 
 - Destination save fails: confirm platform bot is administrator and can post messages/photos.
 - User stays inactive: confirm enabled destination, at least one complete affiliate provider, and saved source selection all exist.
-- Source returns no messages: shared poller supports public `t.me` groups/channels only, not private invite links.
+- Source returns no messages: check the operator Telethon account can access every catalog group.
 - New config is not active: allow one 30-second worker cycle.
 - AI keys missing: regex parsing continues automatically.
+
+### Shared Telegram reader
+
+Set `TELEGRAM_API_ID` and `TELEGRAM_API_HASH` for the operator account. Supply `TELEGRAM_SESSION_STRING` or set `TELEGRAM_PHONE` and scan the QR served on port 8081. The session is persisted in `data/offers.sqlite3`; Docker mounts this directory. Catalog sources are maintained in `backend/app/core/source_groups.py`. User destinations and affiliate credentials remain in PostgreSQL. Set `OPENROUTER_API_KEY` to enable the primary Qwen parser.

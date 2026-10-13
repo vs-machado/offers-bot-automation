@@ -13,7 +13,7 @@ This is the high-performance, multi-tenant backend for the Telegram Offers Bot. 
 
 ## Architecture & Security
 - **Multi-Tenancy**: All user-specific data (Configs, Offers, Destination Channels, Sessions) is isolated via a `user_id` foreign key. 
-- **Shared Ingestion**: Use a shared listener account/pool for source groups so users provide source links instead of authenticating their own Telegram accounts.
+- **Shared Ingestion**: Use a shared listener account/pool for source groups so users select catalog groups instead of authenticating their own Telegram accounts.
 - **Bot-Based Posting**: Offers are posted via a Telegram bot added to each user's destination group/channel, avoiding user-account posting sessions.
 - **Concurrency**: Utilizes an asynchronous connection pool (`pool_size=20`, `max_overflow=10`) to prevent connection exhaustion.
 - **Data Integrity**: Enforced via SQLAlchemy `relationship` cascades (`all, delete-orphan`) to ensure no orphaned data remains when a user is deleted.
@@ -35,10 +35,10 @@ This is the high-performance, multi-tenant backend for the Telegram Offers Bot. 
 - [x] **Background Worker Integration**: Implement the bridge between the API and the Telegram bot loop.
 
 ### Phase 2: Bot Logic & Automation
-- [x] **Shared Telegram Ingestion**: Poll each configured public source once and fan messages out to subscribed users, deduplicating per user in PostgreSQL.
+- [x] **Shared Telegram Ingestion**: Listen to catalog sources through one operator Telethon session and fan messages out to subscribed users, deduplicating per user in PostgreSQL.
 - [x] **Destination Bot Posting**: Replace user-account posting with Telegram Bot API posting to user destination groups/channels where the bot has permission.
 - [x] **Destination Management**: Implement CRUD for `/users/me/destinations` and verify bot access before enabling posting.
-- [x] **Platform Parsers**: Integrate DeepSeek-first AI parsing, Gemini fallback, regex fallback, and canonical platform detection.
+- [x] **Platform Parsers**: Integrate Qwen-first OpenRouter parsing, direct DeepSeek and Gemini fallbacks, regex fallback, and canonical platform detection.
 - [x] **Affiliate Conversion**: Implement Amazon, Shopee, AliExpress, and Mercado Livre link generators.
 
 ### Phase 2 Follow-Ups

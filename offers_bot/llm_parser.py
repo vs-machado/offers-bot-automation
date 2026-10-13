@@ -7,13 +7,36 @@ from pydantic import BaseModel, Field
 from typing import List, Literal
 
 from pydantic_ai import Agent
+from pydantic_ai.models.google import GoogleModel
 from pydantic_ai.models.openai import OpenAIChatModel
-from pydantic_ai.providers.litellm import LiteLLMProvider
+from pydantic_ai.providers.deepseek import DeepSeekProvider
+from pydantic_ai.providers.google import GoogleProvider
+from pydantic_ai.providers.openai import OpenAIProvider
+from openai import AsyncOpenAI
 
 logger = logging.getLogger(__name__)
 
-PRIMARY_LLM_MODEL = "deepseek/deepseek-v4-flash"
-FALLBACK_LLM_MODEL = "gemini/gemini-2.5-flash-lite"
+OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
+
+
+def _openrouter_headers() -> dict[str, str] | None:
+    if os.getenv("OPENROUTER_CACHE_ENABLED", "true").lower() in {
+        "0",
+        "false",
+        "no",
+        "off",
+    }:
+        return None
+    headers = {"X-OpenRouter-Cache": "true"}
+    ttl = os.getenv("OPENROUTER_CACHE_TTL", "").strip()
+    if ttl:
+        headers["X-OpenRouter-Cache-TTL"] = ttl
+    return headers
+
+
+PRIMARY_LLM_MODEL = "qwen/qwen3.7-flash"
+FALLBACK_LLM_MODEL = "deepseek/deepseek-v4-flash"
+FINAL_FALLBACK_LLM_MODEL = "google/gemini-2.5-flash-lite"
 
 
 # Pydantic models for structured output validation
@@ -148,15 +171,33 @@ def save_token_usage(prompt_tokens: int, completion_tokens: int) -> None:
 
 
 def _build_agent(model_name: str, api_key: str) -> Agent:
-    lite_api_base = os.getenv("LITELLM_API_BASE")
-    provider_kwargs = {"api_key": api_key}
-    if lite_api_base:
-        provider_kwargs["api_base"] = lite_api_base
+    if model_name not in {
+        PRIMARY_LLM_MODEL,
+        FALLBACK_LLM_MODEL,
+        FINAL_FALLBACK_LLM_MODEL,
+    }:
+        raise ValueError(f"Unsupported LLM model: {model_name}")
 
-    model = OpenAIChatModel(
-        model_name,
-        provider=LiteLLMProvider(**provider_kwargs),
-    )
+    if model_name == PRIMARY_LLM_MODEL:
+        client = AsyncOpenAI(
+            base_url=OPENROUTER_BASE_URL,
+            api_key=api_key,
+            default_headers=_openrouter_headers(),
+        )
+        model = OpenAIChatModel(
+            model_name,
+            provider=OpenAIProvider(openai_client=client),
+        )
+    elif model_name == FALLBACK_LLM_MODEL:
+        model = OpenAIChatModel(
+            "deepseek-v4-flash",
+            provider=DeepSeekProvider(api_key=api_key),
+        )
+    else:
+        model = GoogleModel(
+            "gemini-2.5-flash-lite",
+            provider=GoogleProvider(api_key=api_key),
+        )
 
     return Agent(
         model=model,
@@ -166,9 +207,15 @@ def _build_agent(model_name: str, api_key: str) -> Agent:
 
 
 def _llm_configs() -> list[tuple[str, str, str]]:
+    """Return configured providers in priority order, without exposing keys."""
     return [
-        ("primary", PRIMARY_LLM_MODEL, os.getenv("DEEPSEEK_API_KEY", "")),
-        ("fallback", FALLBACK_LLM_MODEL, os.getenv("GEMINI_API_KEY", "")),
+        ("primary", PRIMARY_LLM_MODEL, os.getenv("OPENROUTER_API_KEY", "")),
+        ("fallback", FALLBACK_LLM_MODEL, os.getenv("DEEPSEEK_API_KEY", "")),
+        (
+            "final fallback",
+            FINAL_FALLBACK_LLM_MODEL,
+            os.getenv("GEMINI_API_KEY", ""),
+        ),
     ]
 
 
@@ -195,9 +242,9 @@ def parse_with_llm(text: str) -> Optional[Dict[str, Any]]:
             agent = _build_agent(model_name, api_key)
             result = agent.run_sync(f"Analyze this Telegram message:\n\n{text}")
             return _dump_result(result)
-        except Exception as e:
+        except Exception as exc:
             logger.warning(
-                "%s LLM parser failed with %s: %s", label.capitalize(), model_name, e
+                "%s LLM parser failed with %s: %s", label.capitalize(), model_name, exc
             )
 
     return None
@@ -216,9 +263,9 @@ async def parse_with_llm_async(text: str) -> Optional[Dict[str, Any]]:
             agent = _build_agent(model_name, api_key)
             result = await agent.run(f"Analyze this Telegram message:\n\n{text}")
             return _dump_result(result)
-        except Exception as e:
+        except Exception as exc:
             logger.warning(
-                "%s LLM parser failed with %s: %s", label.capitalize(), model_name, e
+                "%s LLM parser failed with %s: %s", label.capitalize(), model_name, exc
             )
 
     return None

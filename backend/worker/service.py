@@ -5,30 +5,52 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.app.core.db.session import AsyncSessionLocal
-from backend.app.core.telegram_sources import fetch_source_messages
 from backend.app.models.user import UserConfig
 from backend.worker.manager import UserBotInstance
+from backend.worker.telegram_reader import TelegramSourceReader
 
 LOGGER = logging.getLogger(__name__)
 POLL_INTERVAL_SECONDS = 30
 
 
 class WorkerService:
-    """Poll shared sources once, then fan messages out to subscribed users."""
+    """Listen through shared Telethon account and route catalog subscriptions."""
 
     def __init__(self):
         self._bots: dict[int, UserBotInstance] = {}
 
     async def start(self) -> None:
-        """Run 30-second config-sync and shared-source polling loop indefinitely."""
+        """Listen continuously and refresh user configuration every 30 seconds."""
         LOGGER.info("Worker service starting")
+        await self._sync_bots()
+        reader = TelegramSourceReader()
+        sync_task = asyncio.create_task(self._sync_loop())
+        try:
+            await reader.listen(self._receive_message)
+        finally:
+            sync_task.cancel()
+            await asyncio.gather(sync_task, return_exceptions=True)
+
+    async def _sync_loop(self) -> None:
         while True:
             try:
                 await self._sync_bots()
-                await self._poll_sources()
             except Exception:
                 LOGGER.exception("Error during worker sync")
             await asyncio.sleep(POLL_INTERVAL_SECONDS)
+
+    async def _receive_message(self, source_chat, message_id, text, media_path):
+        for bot in list(self._bots.values()):
+            if source_chat not in bot.source_chats:
+                continue
+            try:
+                await bot.process_message(
+                    source_chat, message_id, text, source_image_url=media_path
+                )
+            except Exception:
+                LOGGER.exception(
+                    "Failed to deliver source message to user %s", bot.user_id
+                )
 
     async def _sync_bots(self) -> None:
         async with AsyncSessionLocal() as db:
@@ -63,29 +85,6 @@ class WorkerService:
         )
         result = await db.execute(stmt)
         return {row[0] for row in result.fetchall()}
-
-    async def _poll_sources(self) -> None:
-        subscriptions: dict[str, list[UserBotInstance]] = {}
-        for bot in self._bots.values():
-            for source_chat in bot.source_chats:
-                subscriptions.setdefault(source_chat, []).append(bot)
-
-        if not subscriptions:
-            return
-
-        messages_by_chat = await fetch_source_messages(list(subscriptions), limit=20)
-        for source_chat, messages in messages_by_chat.items():
-            for message in messages:
-                text = self._message_text(message.text, message.links)
-                if not text:
-                    continue
-                for bot in subscriptions.get(source_chat, []):
-                    await bot.process_message(
-                        source_chat,
-                        message.message_id,
-                        text,
-                        source_image_url=message.image_url,
-                    )
 
     @staticmethod
     def _message_text(text: str, links: tuple[dict[str, str], ...]) -> str:

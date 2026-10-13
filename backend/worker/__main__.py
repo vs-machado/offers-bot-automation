@@ -16,6 +16,8 @@ def run_worker() -> None:
         try:
             await service.start()
         except asyncio.CancelledError:
+            raise
+        finally:
             await service.shutdown()
 
     try:

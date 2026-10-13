@@ -10,6 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from backend.app.models.user import DestinationChannel, UserConfig
+from backend.app.core.source_groups import approved_source
 from backend.worker.poster import BotPoster
 from backend.worker.store import PgOfferStore
 from offers_bot.aliexpress import AliExpressClient
@@ -76,7 +77,13 @@ class UserBotInstance:
     async def configure(self, db: AsyncSession) -> None:
         """Reload persisted routing and provider clients when configuration changes."""
         configs = await self._load_configs(db)
-        source_chats = tuple(self._parse_chats(configs.get("source_chats", [])))
+        approved = []
+        for chat in self._parse_chats(configs.get("source_chats", [])):
+            try:
+                approved.append(approved_source(chat))
+            except ValueError:
+                LOGGER.warning("Ignoring non-catalog source for user %s", self.user_id)
+        source_chats = tuple(dict.fromkeys(approved))
         destination_chat_ids = tuple(await self._load_destination_chat_ids(db))
         config_signature = json.dumps(
             {
@@ -285,6 +292,9 @@ class UserBotInstance:
         temp_image_path = None
         try:
             if image_url:
+                if os.path.isfile(image_url):
+                    await self._send_offer(text, image_file=image_url)
+                    return
                 temp_image_path = await self._download_image(image_url)
             await self._send_offer(text, image_file=temp_image_path)
         except Exception as exc:
@@ -320,7 +330,13 @@ class UserBotInstance:
             except (json.JSONDecodeError, TypeError):
                 data = row.config_data
             if isinstance(data, dict):
-                configs.update(data)
+                configs.update(
+                    {
+                        key: value
+                        for key, value in data.items()
+                        if key != "source_chats" or row.config_type == "source_chats"
+                    }
+                )
             else:
                 configs[row.config_type] = data
         return configs

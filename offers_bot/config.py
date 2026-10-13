@@ -19,7 +19,7 @@ class Settings:
     telegram_phone: str | None
     qr_auth_port: int
     source_chats: list[str]
-    target_chat: str
+    target_chats: list[str]
     ml_affiliate_tag: str
     ml_cookie_header: str
     ml_csrf_token: str
@@ -41,6 +41,11 @@ class Settings:
     browser_timeout_ms: int
     browser_debug_dir: Path | None
 
+    @property
+    def target_chat(self) -> str:
+        """Backward-compat: first target chat (single-target callers)."""
+        return self.target_chats[0] if self.target_chats else ""
+
 
 def load_settings() -> Settings:
     load_dotenv()
@@ -51,10 +56,12 @@ def load_settings() -> Settings:
             "TELEGRAM_API_ID",
             "TELEGRAM_API_HASH",
             "SOURCE_CHATS",
-            "TARGET_CHAT",
         )
         if not os.getenv(name)
     ]
+    target_raw = os.getenv("TARGET_CHATS") or os.getenv("TARGET_CHAT") or ""
+    if not _split_csv(target_raw):
+        missing.append("TARGET_CHAT")
     if missing:
         raise RuntimeError(f"Missing required env vars: {', '.join(missing)}")
 
@@ -65,7 +72,7 @@ def load_settings() -> Settings:
         telegram_phone=os.getenv("TELEGRAM_PHONE"),
         qr_auth_port=int(os.getenv("QR_AUTH_PORT", "8080")),
         source_chats=_split_csv(os.environ["SOURCE_CHATS"]),
-        target_chat=os.environ["TARGET_CHAT"].strip(),
+        target_chats=_split_csv(target_raw),
         ml_affiliate_tag=os.getenv("ML_AFFILIATE_TAG", "").strip(),
         ml_cookie_header=os.getenv("ML_COOKIE_HEADER", "").strip(),
         ml_csrf_token=os.getenv("ML_CSRF_TOKEN", "").strip(),
