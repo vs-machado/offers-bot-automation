@@ -48,7 +48,8 @@ class AmazonClient:
     def ready(self) -> bool:
         return bool(self._tag and self._cookie_header)
 
-    def create_link(self, url: str) -> AffiliateLink:
+    def create_link(self, url: str, *, resolve_image: bool = True) -> AffiliateLink:
+        """Generate an affiliate link, optionally fetching the product image."""
         if not self.ready():
             raise RuntimeError(
                 "Amazon credentials missing: AMAZON_AFFILIATE_TAG, AMAZON_COOKIE_HEADER"
@@ -64,7 +65,7 @@ class AmazonClient:
             raise RuntimeError(f"Could not find Amazon ASIN in URL: {product_url}")
         image_url = (
             self._image_resolver.get_image(resolved_url)
-            if self._image_resolver
+            if resolve_image and self._image_resolver
             else None
         )
 

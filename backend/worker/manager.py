@@ -186,7 +186,7 @@ class UserBotInstance:
     ) -> None:
         """Parse, deduplicate, affiliate, format, and post one source message.
 
-        Uses the optional source image when provider output requires it.
+        Prefer source media for Amazon, Mercado Livre, and AliExpress.
         """
         if source_chat not in self._source_chats:
             return
@@ -247,9 +247,16 @@ class UserBotInstance:
                         )
                         continue
 
-                    affiliate = await asyncio.to_thread(
-                        affiliate_client.create_link, offer.url
-                    )
+                    if isinstance(affiliate_client, (AmazonClient, MercadoLivreClient)):
+                        affiliate = await asyncio.to_thread(
+                            affiliate_client.create_link,
+                            offer.url,
+                            resolve_image=not bool(source_image_url),
+                        )
+                    else:
+                        affiliate = await asyncio.to_thread(
+                            affiliate_client.create_link, offer.url
+                        )
                     if affiliate.product_key in processed_product_keys:
                         continue
                     processed_product_keys.add(affiliate.product_key)
@@ -287,7 +294,14 @@ class UserBotInstance:
                     await self._send_offer_with_image(
                         formatted_text,
                         affiliate.image_url,
-                        source_image_url if is_ali else None,
+                        source_image_url
+                        if offer.platform
+                        in (
+                            PLATFORM_AMAZON,
+                            PLATFORM_MERCADO_LIVRE,
+                            PLATFORM_ALIEXPRESS,
+                        )
+                        else None,
                     )
                     await store.mark(
                         source_chat,

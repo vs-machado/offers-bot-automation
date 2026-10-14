@@ -662,9 +662,19 @@ async def run() -> None:
                 if affiliate_client is None:
                     logging.info("Skipped unsupported offer URL %s", offer.url)
                     continue
-                affiliate = await asyncio.to_thread(
-                    affiliate_client.create_link, offer.url
+                prefer_source_image = is_ali or isinstance(
+                    affiliate_client, (AmazonClient, MercadoLivreClient)
                 )
+                if isinstance(affiliate_client, (AmazonClient, MercadoLivreClient)):
+                    affiliate = await asyncio.to_thread(
+                        affiliate_client.create_link,
+                        offer.url,
+                        resolve_image=not bool(original_media),
+                    )
+                else:
+                    affiliate = await asyncio.to_thread(
+                        affiliate_client.create_link, offer.url
+                    )
 
                 if affiliate.product_key in processed_product_keys:
                     logging.info(
@@ -719,9 +729,7 @@ async def run() -> None:
                 temp_image_path = None
                 try:
                     image_url = None if is_ali else affiliate.image_url
-                    image_to_send = (
-                        original_media if (is_ali and original_media) else None
-                    )
+                    image_to_send = original_media if prefer_source_image else None
 
                     if not image_to_send and image_url:
                         # Download the image to a temporary file

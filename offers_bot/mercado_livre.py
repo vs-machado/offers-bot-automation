@@ -47,7 +47,8 @@ class MercadoLivreClient:
     def ready(self) -> bool:
         return bool(self._tag and self._cookie_header and self._csrf_token)
 
-    def create_link(self, url: str) -> AffiliateLink:
+    def create_link(self, url: str, *, resolve_image: bool = True) -> AffiliateLink:
+        """Generate a link; skipping image lookup preserves product URL resolution."""
         if not self.ready():
             raise RuntimeError(
                 "Mercado Livre credentials missing: ML_AFFILIATE_TAG, ML_COOKIE_HEADER, ML_CSRF_TOKEN"
@@ -63,7 +64,7 @@ class MercadoLivreClient:
         link = self._create_link_from_product_url(resolved_url)
 
         image_url = None
-        if self._product_url_resolver:
+        if resolve_image and self._product_url_resolver:
             image_url = self._product_url_resolver.get_image(image_page_url)
             if not image_url:
                 image_source_url = self._normalize_url(link.origin_url or resolved_url)
