@@ -17,12 +17,28 @@ from backend.app.schemas.user import (
 from backend.app.schemas.offer import OfferCreate, OfferRead
 from backend.app.schemas.delivery import DeliveryHistory
 from backend.app.core.delivery_history import get_delivery_history
+from backend.app.core.affiliate_validation import validate_credentials
+from backend.app.schemas.affiliate_validation import (
+    CredentialValidationRequest,
+    CredentialValidationResult,
+)
 from backend.app.api.v1.endpoints.auth import get_current_user
 from backend.app.core.source_groups import approved_source, enabled_source_groups
 from backend.app.core.telegram_sources import fetch_source_messages
 from backend.worker.poster import BotPoster, BotPosterError
 
 router = APIRouter()
+
+
+@router.post(
+    "/me/affiliate-credentials/validate", response_model=CredentialValidationResult
+)
+async def validate_affiliate_credentials(
+    body: CredentialValidationRequest,
+    current_user: User = Depends(get_current_user),
+):
+    """Probe the authenticated user's draft credentials without persisting them."""
+    return await validate_credentials(body, current_user.id)
 
 
 @router.get("/me/deliveries", response_model=DeliveryHistory)

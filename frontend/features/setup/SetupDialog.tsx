@@ -27,6 +27,7 @@ import {
 } from "@/features/setup/lib/source-messages";
 import { getTelegramPostId } from "@/features/setup/lib/telegram";
 import type { ConfigSummary, DestinationSummary } from "@/shared/contracts/user-config";
+import { CredentialValidation } from "@/features/credential-validation/CredentialValidation";
 
 const platformBotUsername = "tgtestoffersbot";
 
@@ -581,6 +582,7 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
                     </div>
                   </form>
 
+                  <CredentialValidation key={provider.type} provider={provider.type} credentials={providerData} disabled={status === "saving"} />
                   <div className="flex flex-col gap-3 rounded-3xl border border-primary/15 bg-primary/5 p-4 sm:flex-row sm:items-center sm:justify-between">
                     <p className="text-sm/6 text-muted-foreground">
                       {canFinish

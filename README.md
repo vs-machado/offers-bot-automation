@@ -180,6 +180,27 @@ Cada alteração usa as APIs protegidas do próprio usuário. Habilitar um desti
 verifica as permissões do bot. As credenciais cadastradas ficam mascaradas no
 formulário; salvar não equivale a validar a autenticação na loja.
 
+### Validação das credenciais de afiliado
+
+O botão **Validar credenciais** está disponível nas quatro lojas, no tutorial
+e em `/settings`. Consulta a rota autenticada
+`POST /users/me/affiliate-credentials/validate` com os dados preenchidos no
+formulário, mesmo antes de salvá-los. A verificação gera um link de referência
+na loja, sem publicar no Telegram e sem persistir credenciais ou links de teste.
+
+Resultados: aprovada, credenciais recusadas ou inconclusiva. Timeout, captcha,
+limite de requisições e falhas da API não são confundidos com credenciais inválidas.
+O Mercado Livre exige o link completo de um produto elegível, com ID MLB;
+o endereço é enviado apenas à API fixa de afiliados e não é visitado pelo backend.
+As demais lojas usam suas páginas iniciais como referência.
+
+Modificar os dados oculta o resultado anterior. A validação comprova a geração
+de um link naquele momento; não comprova titularidade da tag, comissão futura
+ou elegibilidade de todas as ofertas. Salvar continua sendo uma ação separada.
+As respostas contêm somente resultado, motivo e horário; nunca os segredos ou
+a resposta bruta da loja. Requisições externas têm timeout de 20 segundos no
+total, limite de oito validações simultâneas por processo e uma por usuário.
+
 ### Histórico de publicações
 
 O dashboard consulta `GET /users/me/deliveries`, autenticado e limitado aos
