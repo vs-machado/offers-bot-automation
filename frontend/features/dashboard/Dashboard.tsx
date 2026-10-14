@@ -137,14 +137,15 @@ const sidebarItems: Array<{
   icon: LucideIcon;
   label: string;
   active?: boolean;
+  href?: string;
 }> = [
-  { icon: Home, label: "Início", active: true },
+  { icon: Home, label: "Início", active: true, href: "/dashboard" },
   { icon: MessageSquareText, label: "Mensagens" },
   { icon: CalendarClock, label: "Agendamentos" },
-  { icon: UsersRound, label: "Grupos" },
-  { icon: Link2, label: "Afiliados" },
+  { icon: UsersRound, label: "Grupos", href: "/settings#destinations" },
+  { icon: Link2, label: "Afiliados", href: "/settings#affiliates" },
   { icon: FileText, label: "Modelos de mensagem" },
-  { icon: Settings, label: "Configurações" },
+  { icon: Settings, label: "Configurações", href: "/settings" },
 ];
 
 const workflowSteps = [
@@ -296,7 +297,9 @@ export async function Dashboard() {
             {sidebarItems.map((item) => {
               const Icon = item.icon;
 
-
+              if (item.href) {
+                return <Link key={item.label} href={item.href} aria-current={item.active ? "page" : undefined} className={`group flex h-12 w-full items-center gap-4 rounded-4xl border border-transparent px-3 text-sm ${item.active ? "bg-sidebar-primary/10 font-semibold text-sidebar-primary hover:bg-sidebar-primary/15" : "font-medium text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"}`}><Icon className="size-5 transition-transform group-hover:scale-110" strokeWidth={1.9} /><span>{item.label}</span></Link>;
+              }
 
               return (
                 <Button

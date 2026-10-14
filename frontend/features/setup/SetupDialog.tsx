@@ -18,9 +18,9 @@ import { useSourceGroupPreviews } from "@/features/setup/hooks/use-source-group-
 import {
   getExistingConfig,
   getProviderData,
-  type Provider,
+  affiliateProviders as providers,
   type ProviderType,
-} from "@/features/setup/lib/providers";
+} from "@/lib/affiliate-providers";
 import {
   getHiddenMessageLinks,
   getSourceDisplayLabel,
@@ -49,47 +49,6 @@ const chatIdSteps = [
   "Depois de copiar o ID, você pode remover @RawDataBot do grupo.",
 ];
 
-const providers: Provider[] = [
-  {
-    type: "amazon",
-    name: "Amazon",
-    description: "Informe sua tag de afiliado e os cookies da sua sessão na Amazon.",
-    fields: [
-      { key: "amazon_affiliate_tag", label: "Tag de afiliado", placeholder: "suatag-20", required: true },
-      { key: "amazon_cookie_header", label: "Cookies da sessão", placeholder: "session-id=...; at-acbbr=...", required: true },
-      { key: "amazon_marketplace_id", label: "ID do marketplace", placeholder: "526970" },
-    ],
-  },
-  {
-    type: "shopee",
-    name: "Shopee",
-    description: "Informe as credenciais do seu programa de afiliados na Shopee Open Platform.",
-    fields: [
-      { key: "shopee_app_id", label: "ID do aplicativo", required: true },
-      { key: "shopee_app_secret", label: "Chave secreta do aplicativo", required: true },
-    ],
-  },
-  {
-    type: "mercado_livre",
-    name: "Mercado Livre",
-    description: "Informe sua tag de afiliado, os cookies da sessão e o token CSRF do Mercado Livre.",
-    fields: [
-      { key: "ml_affiliate_tag", label: "Tag de afiliado", required: true },
-      { key: "ml_cookie_header", label: "Cookies da sessão", required: true },
-      { key: "ml_csrf_token", label: "Token CSRF", required: true },
-    ],
-  },
-  {
-    type: "aliexpress",
-    name: "AliExpress",
-    description: "Informe as credenciais do AliExpress e, se tiver, seu ID de rastreamento.",
-    fields: [
-      { key: "aliexpress_app_key", label: "Chave do aplicativo", required: true },
-      { key: "aliexpress_app_secret", label: "Chave secreta do aplicativo", required: true },
-      { key: "aliexpress_tracking_id", label: "ID de rastreamento", placeholder: "default" },
-    ],
-  },
-];
 
 export function SetupDialog({ hasEnabledDestination, destinations, configs }: SetupDialogProps) {
   const router = useRouter();

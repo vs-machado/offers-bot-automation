@@ -177,6 +177,18 @@ async def read_current_user(
     return current_user
 
 
+@router.get("/me/source-groups")
+async def list_available_source_groups(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """List the enabled operator catalog without fetching Telegram HTML previews."""
+    return [
+        {"url": group.url, "label": group.label}
+        for group in await enabled_source_groups(db)
+    ]
+
+
 @router.get("/me/source-groups/messages")
 async def list_source_group_messages(
     current_user: User = Depends(get_current_user),

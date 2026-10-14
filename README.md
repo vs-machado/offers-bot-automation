@@ -170,6 +170,16 @@ global não identifica o usuário exigido pelo modelo da plataforma.
 O bot legado executado separadamente continua compatível com SQLite. A plataforma
 usa PostgreSQL; `DATABASE_PATH` serve apenas ao modo legado e à importação.
 
+### Configurações após o tutorial
+
+A rota autenticada `/settings` permanece disponível pelos menus Configurações,
+Grupos e Afiliados, no desktop e no celular. Permite cadastrar, editar, desativar
+e remover destinos, selecionar grupos do catálogo da administração e atualizar
+ou remover as integrações com Amazon, Mercado Livre, Shopee e AliExpress.
+Cada alteração usa as APIs protegidas do próprio usuário. Habilitar um destino
+verifica as permissões do bot. As credenciais cadastradas ficam mascaradas no
+formulário; salvar não equivale a validar a autenticação na loja.
+
 ### Histórico de publicações
 
 O dashboard consulta `GET /users/me/deliveries`, autenticado e limitado aos
