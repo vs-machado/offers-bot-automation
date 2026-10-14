@@ -1,0 +1,113 @@
+# Deploy this file alone; PostgreSQL is managed as a separate Coolify resource.
+services:
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--save", "", "--appendonly", "no", "--maxmemory", "256mb", "--maxmemory-policy", "noeviction"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  backend:
+    networks:
+      - default
+      - database
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    expose:
+      - "8000"
+    environment:
+      - DATABASE_URL=${DATABASE_URL:?Set DATABASE_URL for the external PostgreSQL}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  worker:
+    networks:
+      - default
+      - database
+    build: .
+    command: ["python", "-m", "backend.worker"]
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - PROMOTION_TTL_SECONDS=${PROMOTION_TTL_SECONDS:-180}
+      - DATABASE_URL=${DATABASE_URL:?Set DATABASE_URL for the external PostgreSQL}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - OPENROUTER_CACHE_ENABLED=${OPENROUTER_CACHE_ENABLED:-true}
+      - TELEGRAM_API_ID=${TELEGRAM_API_ID}
+      - TELEGRAM_API_HASH=${TELEGRAM_API_HASH}
+      - TELEGRAM_SESSION_STRING=${TELEGRAM_SESSION_STRING:-}
+      - TELEGRAM_PHONE=${TELEGRAM_PHONE:-}
+      - QR_AUTH_PORT=8081
+    expose:
+      - "8081"
+    volumes:
+      - ./data:/app/data
+    depends_on:
+      redis:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+  posting:
+    networks:
+      - default
+      - database
+    build: .
+    command: ["celery", "-A", "backend.worker.celery_app:app", "worker", "--loglevel=INFO", "--queues=promotions", "--concurrency=${POSTING_CONCURRENCY:-2}"]
+    environment:
+      - DATABASE_URL=${DATABASE_URL:?Set DATABASE_URL for the external PostgreSQL}
+      - REDIS_URL=redis://redis:6379/0
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+    depends_on:
+      redis:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    networks:
+      - default
+      - database
+    build:
+      context: ./frontend
+    expose:
+      - "3000"
+    environment:
+      - NEXT_TELEMETRY_DISABLED=1
+      - API_BASE_URL=${API_BASE_URL:-http://backend:8000}
+      - BETTER_AUTH_URL=${BETTER_AUTH_URL:?Set the public HTTPS frontend URL}
+      - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET:?Set a random secret with at least 32 characters}
+      - AUTH_DATABASE_URL=${AUTH_DATABASE_URL:?Set AUTH_DATABASE_URL for the same PostgreSQL}
+      - SMTP_HOST=${SMTP_HOST:-}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_SECURE=${SMTP_SECURE:-false}
+      - SMTP_REQUIRE_TLS=${SMTP_REQUIRE_TLS:-true}
+      - SMTP_USER=${SMTP_USER:-}
+      - SMTP_PASSWORD=${SMTP_PASSWORD:-}
+      - SMTP_FROM=${SMTP_FROM:-}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+networks:
+  default:
+  database:
+    external: true
+    name: ${DATABASE_NETWORK:?Set the Docker network shared with PostgreSQL}
+

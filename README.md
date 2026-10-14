@@ -21,6 +21,43 @@ flowchart LR
 - Real Telegram post IDs plus PostgreSQL records provide per-user deduplication.
 - Destination posting uses one platform bot. Users do not create their own bots or Telegram sessions.
 
+## Coolify com PostgreSQL separado
+
+Use apenas `docker-compose.coolify.yml` como Docker Compose Location no Coolify.
+Esse arquivo não cria PostgreSQL nem publica portas diretamente no host.
+`docker-compose.yml` e seu override continuam destinados ao ambiente local.
+
+1. Crie e inicie um recurso PostgreSQL no mesmo servidor. Configure usuário,
+   senha, banco e backups no recurso do banco.
+2. Identifique a rede Docker à qual o PostgreSQL está conectado e defina
+   `DATABASE_NETWORK` com esse nome. A rede deve existir antes do deploy.
+   Os serviços da aplicação ingressam nela e mantêm uma rede interna própria
+   para Redis e comunicação entre frontend e backend.
+3. Copie o host interno, usuário, senha e banco da conexão fornecida pelo Coolify:
+
+```dotenv
+DATABASE_NETWORK=nome_da_rede_do_postgres
+DATABASE_URL=postgresql+asyncpg://usuario:senha@host-interno:5432/offers_db
+AUTH_DATABASE_URL=postgresql://usuario:senha@host-interno:5432/offers_db
+BETTER_AUTH_URL=https://app.seudominio.com.br
+BETTER_AUTH_SECRET=segredo_aleatorio_de_pelo_menos_32_caracteres
+```
+
+As duas URLs precisam apontar para o mesmo banco. Codifique caracteres especiais
+do usuário e da senha para uso em URL. Não use `localhost` como host do banco.
+`POSTGRES_USER`, `POSTGRES_PASSWORD` e `POSTGRES_DB` não configuram o recurso
+separado; suas credenciais são administradas pelo Coolify.
+
+4. Associe o domínio HTTPS ao frontend, porta interna 3000. Se usar QR para a
+   conta operadora do Telegram, disponibilize acesso restrito ao worker na porta
+   8081 durante essa configuração. Backend e posting não precisam de domínio.
+5. Faça deploy e confira os logs do backend: as migrações executam antes de ele
+   ficar saudável, e os demais serviços aguardam essa inicialização.
+
+SMTP é opcional para cadastro e login; necessário para recuperar senha.
+Se o banco anterior contém dados, importe um backup antes de trocar as conexões.
+Trocar as URLs não transfere dados entre bancos.
+
 ## Parsing
 
 Qwen 3.7 Flash (`qwen/qwen3.7-flash`) through OpenRouter is the primary structured parser. DeepSeek V4 Flash and Gemini 2.5 Flash Lite use direct provider APIs as fallbacks. Regex parser runs when AI credentials are absent or AI parsing fails.
