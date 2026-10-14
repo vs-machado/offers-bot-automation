@@ -66,3 +66,25 @@ class TokenUsage(Base):
     completion_tokens: Mapped[int]
     total_tokens: Mapped[int]
     legacy_id: Mapped[int | None] = mapped_column(unique=True)
+
+
+class PromotionDelivery(Base):
+    """Delivery audit only; expired rows never regenerate queue payloads."""
+
+    __tablename__ = "promotion_deliveries"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    chat_id: Mapped[str] = mapped_column(String(100))
+    status: Mapped[str] = mapped_column(String(20))
+    reason: Mapped[str | None] = mapped_column(String(100))
+    attempts: Mapped[int] = mapped_column(server_default="0")
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )

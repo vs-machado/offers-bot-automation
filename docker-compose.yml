@@ -1,4 +1,14 @@
 services:
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--save", "", "--appendonly", "no", "--maxmemory", "256mb", "--maxmemory-policy", "noeviction"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
   db:
     image: postgres:15
     container_name: offers_db
@@ -44,6 +54,8 @@ services:
     container_name: offers_worker
     command: ["python", "-m", "backend.worker"]
     environment:
+      - REDIS_URL=redis://redis:6379/0
+      - PROMOTION_TTL_SECONDS=${PROMOTION_TTL_SECONDS:-180}
       - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@db:5432/${POSTGRES_DB:-offers_db}
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
       - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
@@ -60,6 +72,24 @@ services:
     volumes:
       - ./data:/app/data
     depends_on:
+      redis:
+        condition: service_healthy
+      db:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+  posting:
+    build: .
+    command: ["celery", "-A", "backend.worker.celery_app:app", "worker", "--loglevel=INFO", "--queues=promotions", "--concurrency=${POSTING_CONCURRENCY:-2}"]
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@db:5432/${POSTGRES_DB:-offers_db}
+      - REDIS_URL=redis://redis:6379/0
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+    depends_on:
+      redis:
+        condition: service_healthy
       db:
         condition: service_healthy
       backend:

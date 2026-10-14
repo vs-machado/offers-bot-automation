@@ -274,7 +274,7 @@ class UserBotInstance:
                         affiliate.short_url,
                         affiliate.product_key,
                     )
-                    LOGGER.info("User %s: posted offer %s", self.user_id, offer.url)
+                    LOGGER.info("User %s: processed offer %s", self.user_id, offer.url)
                 except UnsupportedOfferError as exc:
                     LOGGER.warning(
                         "User %s: unsupported %s: %s", self.user_id, offer.url, exc
@@ -292,6 +292,11 @@ class UserBotInstance:
         source_image_url: str | None,
     ) -> None:
         image_url = source_image_url or affiliate_image_url
+        from backend.worker.posting_queue import QueuePoster
+
+        if isinstance(self._poster, QueuePoster):
+            await self._send_offer(text, image_file=image_url)
+            return
         temp_image_path = None
         try:
             if image_url:
@@ -320,6 +325,20 @@ class UserBotInstance:
         return path
 
     async def _send_offer(self, text: str, image_file: str | None = None) -> None:
+        from backend.worker.posting_queue import QueuePoster
+
+        if isinstance(self._poster, QueuePoster):
+            results = await asyncio.gather(
+                *(
+                    self._poster.send_offer(chat_id, text, image_file=image_file)
+                    for chat_id in self._destination_chat_ids
+                ),
+                return_exceptions=True,
+            )
+            for result in results:
+                if isinstance(result, BaseException):
+                    raise result
+            return
         for chat_id in self._destination_chat_ids:
             await self._poster.send_offer(chat_id, text, image_file=image_file)
 

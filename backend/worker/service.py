@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import time
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,6 +10,7 @@ from backend.app.core.source_groups import enabled_source_groups
 from backend.app.models.user import UserConfig
 from backend.worker.manager import UserBotInstance
 from backend.worker.telegram_reader import TelegramSourceReader
+from offers_bot.message_context import source_timestamp
 
 LOGGER = logging.getLogger(__name__)
 POLL_INTERVAL_SECONDS = 30
@@ -44,6 +46,13 @@ class WorkerService:
             await asyncio.sleep(POLL_INTERVAL_SECONDS)
 
     async def _receive_message(self, source_chat, message_id, text, media_path):
+        context_token = source_timestamp.set(source_timestamp.get() or time.time())
+        try:
+            await self._route_message(source_chat, message_id, text, media_path)
+        finally:
+            source_timestamp.reset(context_token)
+
+    async def _route_message(self, source_chat, message_id, text, media_path):
         for bot in list(self._bots.values()):
             if source_chat not in bot.source_chats:
                 continue
@@ -66,8 +75,10 @@ class WorkerService:
             candidate_user_ids = await self._get_candidate_user_ids(db)
             next_bots: dict[int, UserBotInstance] = {}
             for user_id in candidate_user_ids:
+                from backend.worker.posting_queue import QueuePoster
+
                 bot = self._bots.get(user_id) or UserBotInstance(
-                    user_id, AsyncSessionLocal
+                    user_id, AsyncSessionLocal, poster=QueuePoster(user_id)
                 )
                 try:
                     await bot.configure(db, self._source_catalog)

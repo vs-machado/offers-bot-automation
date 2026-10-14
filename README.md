@@ -165,6 +165,45 @@ global não identifica o usuário exigido pelo modelo da plataforma.
 O bot legado executado separadamente continua compatível com SQLite. A plataforma
 usa PostgreSQL; `DATABASE_PATH` serve apenas ao modo legado e à importação.
 
+### Fila de postagem de promoções
+
+O listener prepara os links e publica uma tarefa por destino no Redis. O serviço
+`posting` executa essas tarefas com Celery. O prazo padrão é de 180 segundos desde
+a data original da mensagem do Telegram, incluindo processamento; ajuste
+`PROMOTION_TTL_SECONDS` no ambiente do listener. Promoções vencidas são descartadas.
+Não há Celery Beat: o envio é acionado por mensagens, sem agendamento periódico.
+
+```powershell
+docker compose up -d --build db redis backend worker posting
+```
+
+O Redis não grava snapshots nem AOF. Reiniciar o Redis perde tarefas pendentes;
+elas não são reconstruídas a partir do banco. A memória é limitada a 256 MB, com
+`noeviction`: atingir o limite faz a publicação falhar, sem expulsar silenciosamente
+mensagens. `POSTING_CONCURRENCY` controla os processos de envio (padrão: 2).
+
+`promotion_deliveries` registra estado por usuário e destino. Antes do envio,
+o consumidor confirma que o destino continua cadastrado e habilitado. Uma tarefa
+duplicada não repete um envio já iniciado. Existem até duas novas tentativas para
+falhas de conexão anteriores ao envio e respostas 429, respeitando `retry_after`
+e o prazo restante. Falhas ambíguas são marcadas como `uncertain`, sem repetição
+automática. Telegram não fornece uma chave de idempotência para esse envio;
+o sistema prioriza evitar duplicação, podendo perder uma postagem após uma queda.
+
+Imagens locais são copiadas para a mensagem da fila antes da limpeza pelo listener,
+com limite de 8 MB; imagens maiores são omitidas. URLs de imagens são enviadas ao
+Telegram. Uma rejeição explícita da foto (400) permite tentar apenas o texto.
+
+O histórico não contém o conteúdo das promoções nem funciona como uma fila
+persistente. Após perda do Redis, registros `queued` ou `retrying` podem permanecer
+no banco; quando `expires_at` passa, devem ser interpretados como expirados.
+`sending` sem conclusão indica resultado incerto. Não reenvie esses registros
+automaticamente.
+
+Execução local exige Redis acessível em `REDIS_URL`. Em Windows, use Docker para
+o consumidor Celery; para desenvolvimento sem Docker, o modo `--pool=solo` evita
+o pool de processos, mas Celery não oferece suporte oficial a Windows.
+
 ### Administrator access and source catalog
 
 The `/admin/source-groups` screen and every `/admin/source-groups` API operation require the `admin` role. The API checks the current database role on every request; changing or revoking a role applies even to existing tokens. Public registration always creates a `user` account.

@@ -7,7 +7,15 @@ import httpx
 class BotPosterError(RuntimeError):
     """Raised when Telegram bot configuration or posting request fails."""
 
-    pass
+    def __init__(
+        self,
+        message: str,
+        status_code: int | None = None,
+        retry_after: int | None = None,
+    ):
+        super().__init__(message)
+        self.status_code = status_code
+        self.retry_after = retry_after
 
 
 @dataclass(frozen=True)
@@ -32,6 +40,7 @@ class BotPoster:
         text: str,
         image_file: str | None = None,
         parse_mode: str | None = None,
+        request_timeout: float = 20,
     ) -> dict:
         """Send text or photo offer to chat and return Telegram result payload."""
         payload = {"chat_id": chat_id}
@@ -42,12 +51,15 @@ class BotPoster:
         files = None
         if image_file:
             payload["caption"] = text
-            files = {"photo": open(image_file, "rb")}
+            if image_file.startswith(("https://", "http://")):
+                payload["photo"] = image_file
+            else:
+                files = {"photo": open(image_file, "rb")}
         else:
             payload["text"] = text
 
         try:
-            async with httpx.AsyncClient(timeout=20) as client:
+            async with httpx.AsyncClient(timeout=request_timeout) as client:
                 if files:
                     response = await client.post(
                         self._url(method), data=payload, files=files
@@ -60,7 +72,11 @@ class BotPoster:
         data = response.json()
         if response.status_code >= 400 or not data.get("ok"):
             description = data.get("description", response.text)
-            raise BotPosterError(f"Telegram Bot API {method} failed: {description}")
+            raise BotPosterError(
+                f"Telegram Bot API {method} failed: {description}",
+                status_code=data.get("error_code", response.status_code),
+                retry_after=data.get("parameters", {}).get("retry_after"),
+            )
         return data["result"]
 
     async def can_post(self, chat_id: str) -> bool:

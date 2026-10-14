@@ -178,8 +178,16 @@ class TelegramOfferBot:
                 len(text),
             )
             if text:
-                media_path = await self._download_media(event.message)
-                await handler(str(event.chat_id), event.message.id, text, media_path)
+                from offers_bot.message_context import source_timestamp
+
+                context_token = source_timestamp.set(event.message.date.timestamp())
+                try:
+                    media_path = await self._download_media(event.message)
+                    await handler(
+                        str(event.chat_id), event.message.id, text, media_path
+                    )
+                finally:
+                    source_timestamp.reset(context_token)
 
         LOGGER.info("Listening to %s source chats", len(source_entities))
         await self.client.run_until_disconnected()
