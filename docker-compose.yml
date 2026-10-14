@@ -36,8 +36,6 @@ services:
       - "${BACKEND_PORT:-8000}:8000"
     environment:
       - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@db:5432/${POSTGRES_DB:-offers_db}
-      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-dev-jwt-secret-change-me}
-      - NEXTAUTH_BACKEND_SECRET=${NEXTAUTH_BACKEND_SECRET:-dev-nextauth-backend-secret}
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
     depends_on:
       db:
@@ -106,13 +104,21 @@ services:
       - NEXT_TELEMETRY_DISABLED=1
       - API_BASE_URL=${API_BASE_URL:-http://backend:8000}
       - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:8000}
-      - NEXTAUTH_URL=${NEXTAUTH_URL:-http://localhost:3000}
-      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:-dev-nextauth-secret-change-me}
-      - NEXTAUTH_BACKEND_SECRET=${NEXTAUTH_BACKEND_SECRET:-dev-nextauth-backend-secret}
+      - BETTER_AUTH_URL=${BETTER_AUTH_URL:-http://localhost:3000}
+      - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET}
+      - AUTH_DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@db:5432/${POSTGRES_DB:-offers_db}
+      - SMTP_HOST=${SMTP_HOST:-}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_SECURE=${SMTP_SECURE:-false}
+      - SMTP_REQUIRE_TLS=${SMTP_REQUIRE_TLS:-true}
+      - SMTP_USER=${SMTP_USER:-}
+      - SMTP_PASSWORD=${SMTP_PASSWORD:-}
+      - SMTP_FROM=${SMTP_FROM:-}
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     restart: unless-stopped
 
 volumes:

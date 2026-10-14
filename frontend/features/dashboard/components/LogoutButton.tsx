@@ -1,7 +1,9 @@
 "use client";
 
 import { LogOut } from "lucide-react";
-import { signOut } from "next-auth/react";
+import { authClient } from "@/lib/auth-client";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 
@@ -10,6 +12,18 @@ type LogoutButtonProps = {
 };
 
 export function LogoutButton({ compact = false }: LogoutButtonProps) {
+  const router = useRouter();
+  const [error, setError] = useState("");
+  const [isBusy, setIsBusy] = useState(false);
+  async function logout() {
+    setIsBusy(true); setError("");
+    try {
+      const result = await authClient.signOut();
+      if (result.error) throw new Error();
+      router.replace("/?mode=signin"); router.refresh();
+    } catch { setError("Não foi possível sair. Tente novamente."); }
+    finally { setIsBusy(false); }
+  }
   return (
     <Button
       aria-label={compact ? "Sair" : undefined}
@@ -18,7 +32,9 @@ export function LogoutButton({ compact = false }: LogoutButtonProps) {
           ? "size-9 border-transparent bg-transparent p-0 text-muted-foreground shadow-none hover:bg-red-500/8 hover:text-red-700 dark:hover:text-red-200"
           : "h-11 w-full justify-start gap-3 border-transparent bg-transparent text-sm font-medium text-muted-foreground hover:bg-red-500/8 hover:text-red-700 dark:text-slate-400 dark:hover:text-red-200"
       }
-      onClick={() => signOut({ callbackUrl: "/" })}
+      onClick={() => void logout()}
+      disabled={isBusy}
+      title={error || "Sair da conta"}
       type="button"
       variant="outline"
     >

@@ -1,116 +1,67 @@
-import type { NextAuthOptions } from "next-auth";
-import CredentialsProvider from "next-auth/providers/credentials";
-import GoogleProvider from "next-auth/providers/google";
+import "server-only";
+import { betterAuth } from "better-auth";
+import { APIError, createAuthMiddleware } from "better-auth/api";
+import { hashPassword, verifyPassword } from "better-auth/crypto";
+import { nextCookies } from "better-auth/next-js";
+import { compare } from "bcryptjs";
+import { Pool } from "pg";
+import { randomUUID } from "node:crypto";
+import { after } from "next/server";
+import { getPasswordError } from "@/lib/password-policy";
+import { isEmailConfigured, sendAuthEmail } from "@/lib/auth-email";
 
-const apiBaseUrl =
-  process.env.API_BASE_URL?.replace(/\/$/, "") ?? "http://localhost:8000";
+const baseURL = process.env.BETTER_AUTH_URL ?? "http://localhost:3000";
+const pool = new Pool({ connectionString: process.env.AUTH_DATABASE_URL ?? "postgresql://postgres:password@localhost:5434/offers_db", max: 10, connectionTimeoutMillis: 10000 });
 
-export const authOptions: NextAuthOptions = {
-  secret: process.env.NEXTAUTH_SECRET,
-  providers: [
-    GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID ?? "",
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? "",
-    }),
-    CredentialsProvider({
-      name: "Email and password",
-      credentials: {
-        email: { label: "Email", type: "email" },
-        password: { label: "Password", type: "password" },
-      },
-      async authorize(credentials) {
-        const email = String(credentials?.email ?? "").trim();
-        const password = String(credentials?.password ?? "");
-
-        if (!email || !password) {
-          return null;
-        }
-
-        const response = await fetch(`${apiBaseUrl}/auth/login`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ email, password }),
-        });
-
-        if (!response.ok) {
-          return null;
-        }
-
-        const token = (await response.json()) as {
-          access_token?: string;
-          token_type?: string;
-        };
-
-        if (!token.access_token) {
-          return null;
-        }
-
-        return {
-          id: email,
-          email,
-          accessToken: token.access_token,
-        };
-      },
-    }),
-  ],
-  callbacks: {
-    async signIn({ account, profile, user }) {
-      if (account?.provider !== "google") {
-        return true;
-      }
-
-      const email = user.email ?? profile?.email;
-      if (!email || !account.providerAccountId) {
-        return false;
-      }
-
-      const response = await fetch(`${apiBaseUrl}/auth/session/exchange`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email,
-          provider: account.provider,
-          provider_account_id: account.providerAccountId,
-          full_name: user.name ?? profile?.name ?? null,
-          secret: process.env.NEXTAUTH_BACKEND_SECRET,
-        }),
-      });
-
-      if (!response.ok) {
-        return false;
-      }
-
-      const token = (await response.json()) as { access_token?: string };
-      user.accessToken = token.access_token;
-      return Boolean(user.accessToken);
+function createAuth() {
+  if (!process.env.BETTER_AUTH_SECRET || process.env.BETTER_AUTH_SECRET.length < 32) throw new Error("Configure BETTER_AUTH_SECRET com pelo menos 32 caracteres aleatórios.");
+  const origin = new URL(baseURL);
+  if (process.env.NODE_ENV === "production" && origin.protocol !== "https:" && !["localhost", "127.0.0.1", "[::1]"].includes(origin.hostname)) throw new Error("BETTER_AUTH_URL precisa usar HTTPS fora do ambiente local.");
+  return betterAuth({
+  appName: "Offers Bot", baseURL,
+  secret: process.env.BETTER_AUTH_SECRET,
+  trustedOrigins: [new URL(baseURL).origin],
+  database: pool,
+  advanced: { database: { generateId: () => randomUUID() }, backgroundTasks: { handler: (promise) => after(async () => { await promise; }) } },
+  user: { modelName: "auth_users", fields: { emailVerified: "email_verified", createdAt: "created_at", updatedAt: "updated_at" } },
+  session: { modelName: "auth_sessions", expiresIn: 60 * 60 * 24 * 7, cookieCache: { enabled: false }, fields: { userId: "user_id", expiresAt: "expires_at", createdAt: "created_at", updatedAt: "updated_at", ipAddress: "ip_address", userAgent: "user_agent" } },
+  account: { modelName: "auth_accounts", accountLinking: { enabled: false }, fields: { userId: "user_id", accountId: "account_id", providerId: "provider_id", accessToken: "access_token", refreshToken: "refresh_token", idToken: "id_token", accessTokenExpiresAt: "access_token_expires_at", refreshTokenExpiresAt: "refresh_token_expires_at", createdAt: "created_at", updatedAt: "updated_at" } },
+  verification: { modelName: "auth_verifications", storeIdentifier: "hashed", fields: { expiresAt: "expires_at", createdAt: "created_at", updatedAt: "updated_at" } },
+  rateLimit: { enabled: true, storage: "database", modelName: "auth_rate_limits", fields: { lastRequest: "last_request" }, window: 60, max: 30, customRules: { "/request-password-reset": { window: 60, max: 3 }, "/reset-password": { window: 60, max: 5 }, "/sign-in/email": { window: 60, max: 5 }, "/sign-up/email": { window: 60, max: 5 } } },
+  socialProviders: process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET ? { google: { clientId: process.env.GOOGLE_CLIENT_ID, clientSecret: process.env.GOOGLE_CLIENT_SECRET } } : {},
+  emailAndPassword: {
+    enabled: true, minPasswordLength: 8, maxPasswordLength: 72,
+    resetPasswordTokenExpiresIn: 15 * 60, revokeSessionsOnPasswordReset: true,
+    password: { hash: hashPassword, verify: ({ hash, password }) => hash.startsWith("$2") ? compare(password, hash) : verifyPassword({ hash, password }) },
+    sendResetPassword: async ({ user, token }) => {
+      const resetURL = `${baseURL.replace(/\/$/, "")}/reset-password#token=${encodeURIComponent(token)}`;
+      await sendAuthEmail(user.email, "Redefina sua senha — Offers Bot", `Recebemos um pedido para redefinir sua senha.\n\nAbra este link para criar uma nova senha:\n${resetURL}\n\nO link expira em 15 minutos e só pode ser usado uma vez. Se você não fez esse pedido, ignore este e-mail.`);
     },
-    async jwt({ token, user, account, profile }) {
-      if (user) {
-        token.accessToken = user.accessToken;
-        token.provider = account?.provider;
-        token.providerAccountId = account?.providerAccountId;
-        token.email = user.email ?? profile?.email ?? token.email;
-      }
-      return token;
-    },
-    async session({ session, token }) {
-      session.user = {
-        ...session.user,
-        email: token.email,
-      };
-      session.accessToken = token.accessToken;
-      return session;
+    onPasswordReset: async ({ user }) => {
+      after(() => sendAuthEmail(user.email, "Sua senha foi alterada — Offers Bot", "Sua senha foi alterada e as sessões anteriores foram encerradas. Se não foi você, solicite outra redefinição de senha imediatamente."));
     },
   },
-  pages: {
-    signIn: "/",
-    error: "/",
-  },
-  session: {
-    strategy: "jwt",
-  },
-};
+  hooks: { before: createAuthMiddleware(async (context) => {
+    if (context.path === "/sign-up/email") {
+      if (typeof context.body?.name === "string" && context.body.name.trim().length > 255) throw new APIError("BAD_REQUEST", { message: "Use um nome com até 255 caracteres." });
+      if (typeof context.body?.email === "string" && context.body.email.length > 255) throw new APIError("BAD_REQUEST", { message: "O e-mail informado ficou muito longo." });
+    }
+    if (["/sign-up/email", "/reset-password", "/change-password", "/set-password"].includes(context.path)) {
+      const password = context.body?.newPassword ?? context.body?.password;
+      if (typeof password === "string") {
+        const message = getPasswordError(password);
+        if (message) throw new APIError("BAD_REQUEST", { message });
+      }
+    }
+    if (context.path === "/request-password-reset" && !isEmailConfigured()) throw new APIError("SERVICE_UNAVAILABLE", { message: "A recuperação de senha não está disponível no momento. Entre em contato com o administrador." });
+  }) },
+  plugins: [nextCookies()],
+  });
+}
+
+let instance: ReturnType<typeof createAuth> | undefined;
+
+export function getAuth() {
+  // Build-time route discovery must not initialize auth or require runtime secrets.
+  return instance ??= createAuth();
+}

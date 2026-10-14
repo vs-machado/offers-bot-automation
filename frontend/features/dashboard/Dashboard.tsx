@@ -16,12 +16,11 @@ import {
   UsersRound,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { getServerSession } from "next-auth";
+import { getSession } from "@/lib/auth-session";
 import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
-import { authOptions } from "@/auth";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -239,16 +238,16 @@ function RobotMascot() {
 }
 
 export async function Dashboard() {
-  const session = await getServerSession(authOptions);
+  const session = await getSession();
 
   if (!session) {
     redirect("/");
   }
 
-  const dbUser = await getDashboardUser(session.accessToken);
-  const destinations = await getDestinations(session.accessToken);
-  const configs = await getUserConfigs(session.accessToken);
-  const deliveryHistory = await getDeliveryHistory(session.accessToken);
+  const dbUser = await getDashboardUser(session.sessionToken);
+  const destinations = await getDestinations(session.sessionToken);
+  const configs = await getUserConfigs(session.sessionToken);
+  const deliveryHistory = await getDeliveryHistory(session.sessionToken);
   const hasEnabledDestination = destinations.some((destination) => destination.enabled);
   const hasAffiliateConfig = configs.some((config) =>
     ["amazon", "shopee", "mercado_livre", "aliexpress"].includes(config.config_type)

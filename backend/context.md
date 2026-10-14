@@ -8,7 +8,7 @@ This is the high-performance, multi-tenant backend for the Telegram Offers Bot. 
 - **Database**: PostgreSQL (via `asyncpg` and `SQLAlchemy 2.0` async engine)
 - **ORM**: SQLAlchemy 2.x (using `Mapped` and `mapped_column`)
 - **Schema/Validation**: Pydantic v2
-- **Authentication**: OAuth2 with JWT (using `python-jose` and `passlib[bcrypt]`)
+- **Authentication**: Better Auth in Next.js, with PostgreSQL sessions checked independently by FastAPI.
 - **Task Architecture**: Designed for individual bot instances per user.
 
 ## Architecture & Security
@@ -17,15 +17,16 @@ This is the high-performance, multi-tenant backend for the Telegram Offers Bot. 
 - **Bot-Based Posting**: Offers are posted via a Telegram bot added to each user's destination group/channel, avoiding user-account posting sessions.
 - **Concurrency**: Utilizes an asynchronous connection pool (`pool_size=20`, `max_overflow=10`) to prevent connection exhaustion.
 - **Data Integrity**: Enforced via SQLAlchemy `relationship` cascades (`all, delete-orphan`) to ensure no orphaned data remains when a user is deleted.
-- **Identity Isolation**: The `get_current_user` dependency ensures that the user's identity is derived exclusively from a validated JWT, preventing ID-spoofing attacks.
+- **Identity Isolation**: `get_current_user` checks the opaque session in `auth_sessions` and maps its immutable identity to `users.auth_user_id`. It never selects ownership from request fields or email claims.
 - **Administrator RBAC**: `/admin/source-groups` requires the database `admin` role on every request. Registration creates `user` accounts; operators promote/revoke via `python -m backend.set_admin`.
 - **Source Catalog**: Admins manage PostgreSQL `source_groups`; user validation and the live Telethon reader use only enabled catalog entries. Changes apply within the next 30-second worker refresh.
 
 ## Implemented Features
 - [x] **Asynchronous DB Engine**: Configured SQLAlchemy 2.0 with `asyncpg` and connection pooling.
 - [x] **User Management**:
-    - User Registration (`/auth/register`)
-    - Secure Login (`/auth/login`) via OAuth2 standard.
+    - Registration and login through Better Auth (`/api/auth/*`) in Next.js.
+    - Google login, database sessions, password recovery and session revocation.
+    - Legacy FastAPI login, registration and session exchange routes retired.
 - [x] **Multi-Tenant User Configs**: 
     - Securely store platform-specific API credentials (JSON format) linked to the authenticated user.
 - [x] **Pydantic v2 Schemas**: Full implementation of modern Pydantic v2 `model_config` patterns.
@@ -49,4 +50,4 @@ This is the high-performance, multi-tenant backend for the Telegram Offers Bot. 
 
 ### Phase 3: Frontend Integration
 - [ ] **Next.js Dashboard**: Implementation of the user dashboard.
-- [ ] **NextAuth.js Integration**: Connect Next.js to the FastAPI JWT provider.
+- [x] **Better Auth Integration**: Next.js and FastAPI validate PostgreSQL sessions; RBAC stays in the application database.

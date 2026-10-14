@@ -1,4 +1,4 @@
-import { getToken } from "next-auth/jwt";
+import { getSession } from "@/lib/auth-session";
 import { NextRequest, NextResponse } from "next/server";
 
 const apiBaseUrl =
@@ -7,43 +7,6 @@ const apiBaseUrl =
 type RouteContext = {
   params: Promise<{ path?: string[] }>;
 };
-
-async function exchangeGoogleSession(token: {
-  email?: string | null;
-  name?: string | null;
-  provider?: string;
-  providerAccountId?: string;
-}) {
-  if (
-    token.provider !== "google" ||
-    !token.email ||
-    !token.providerAccountId ||
-    !process.env.NEXTAUTH_BACKEND_SECRET
-  ) {
-    return null;
-  }
-
-  const response = await fetch(`${apiBaseUrl}/auth/session/exchange`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      email: token.email,
-      provider: token.provider,
-      provider_account_id: token.providerAccountId,
-      full_name: token.name ?? null,
-      secret: process.env.NEXTAUTH_BACKEND_SECRET,
-    }),
-  });
-
-  if (!response.ok) {
-    return null;
-  }
-
-  const data = (await response.json()) as { access_token?: string };
-  return data.access_token ?? null;
-}
 
 async function proxyToBackend(
   request: NextRequest,
@@ -57,6 +20,7 @@ async function proxyToBackend(
   headers.set("Authorization", `Bearer ${accessToken}`);
   headers.delete("host");
   headers.delete("cookie");
+  headers.delete("content-length");
 
   const body = ["GET", "HEAD"].includes(request.method)
     ? undefined
@@ -66,25 +30,19 @@ async function proxyToBackend(
     method: request.method,
     headers,
     body,
+    cache: "no-store",
+    redirect: "manual",
   });
 
   return response;
 }
 
 async function handler(request: NextRequest, context: RouteContext) {
-  const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
-  const accessToken = token?.accessToken;
-  if (typeof accessToken !== "string") {
-    return NextResponse.json({ detail: "Entre na sua conta para continuar." }, { status: 401 });
+  const session = await getSession(request.headers);
+  if (!session) {
+    return NextResponse.json({ detail: "Sua sessão expirou. Entre novamente." }, { status: 401 });
   }
-
-  let response = await proxyToBackend(request, context, accessToken);
-  if (response.status === 401) {
-    const refreshedToken = token ? await exchangeGoogleSession(token) : null;
-    if (refreshedToken) {
-      response = await proxyToBackend(request, context, refreshedToken);
-    }
-  }
+  const response = await proxyToBackend(request, context, session.sessionToken);
 
   if (response.status === 401) {
     return NextResponse.json(

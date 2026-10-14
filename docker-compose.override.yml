@@ -9,9 +9,8 @@ services:
       - NEXT_TELEMETRY_DISABLED=1
       - API_BASE_URL=${API_BASE_URL:-http://backend:8000}
       - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:8000}
-      - NEXTAUTH_URL=${NEXTAUTH_URL:-http://localhost:3000}
-      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:-dev-nextauth-secret-change-me}
-      - NEXTAUTH_BACKEND_SECRET=${NEXTAUTH_BACKEND_SECRET:-dev-nextauth-backend-secret}
+      - BETTER_AUTH_URL=${BETTER_AUTH_URL:-http://localhost:3000}
+      - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET}
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
       - WATCHPACK_POLLING=true

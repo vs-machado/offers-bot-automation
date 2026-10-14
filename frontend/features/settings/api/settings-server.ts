@@ -1,14 +1,13 @@
 import "server-only";
 
-import { getServerSession } from "next-auth";
+import { getSession } from "@/lib/auth-session";
 import { redirect } from "next/navigation";
-import { authOptions } from "@/auth";
 import type { SettingsData } from "@/features/settings/types";
 
 export async function getSettingsData(): Promise<SettingsData> {
-  const session = await getServerSession(authOptions);
-  if (!session?.accessToken) redirect("/");
-  const accessToken = session.accessToken;
+  const session = await getSession();
+  if (!session?.sessionToken) redirect("/");
+  const accessToken = session.sessionToken;
   const apiBaseUrl = process.env.API_BASE_URL?.replace(/\/$/, "") ?? "http://localhost:8000";
   async function load<T>(path: string): Promise<T> {
     const response = await fetch(`${apiBaseUrl}/users/me/${path}`, {

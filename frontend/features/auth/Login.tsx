@@ -18,7 +18,8 @@ import type { LucideIcon } from "lucide-react";
 import { InputHTMLAttributes, ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
-import { useAuthForm } from "@/features/auth/hooks/use-auth-form";
+import { useAuthForm, type AuthMode } from "@/features/auth/hooks/use-auth-form";
+import Link from "next/link";
 
 const benefits = [
   {
@@ -72,7 +73,7 @@ function Field({
   );
 }
 
-export function Login({ errorCode }: { errorCode?: string }) {
+export function Login({ errorCode, initialMode }: { errorCode?: string; initialMode?: AuthMode }) {
   const {
     authMode,
     formState,
@@ -82,7 +83,7 @@ export function Login({ errorCode }: { errorCode?: string }) {
     setShowPassword,
     showPassword,
     switchAuthMode,
-  } = useAuthForm(errorCode);
+  } = useAuthForm(errorCode, initialMode);
 
   return (
     <main className="relative isolate min-h-dvh overflow-x-hidden bg-[#07110f] text-white">
@@ -168,7 +169,7 @@ export function Login({ errorCode }: { errorCode?: string }) {
 
           <form className="space-y-4 sm:space-y-5" noValidate onSubmit={handleSubmit}>
             {authMode === "register" ? (
-              <Field icon={User} label="Nome completo" name="fullName" placeholder="Seu nome completo" type="text" />
+              <Field icon={User} label="Nome completo" name="fullName" placeholder="Seu nome completo" type="text" maxLength={255} />
             ) : null}
 
             <Field
@@ -201,6 +202,8 @@ export function Login({ errorCode }: { errorCode?: string }) {
               placeholder="No mínimo 8 caracteres"
               type={showPassword ? "text" : "password"}
             />
+
+            {authMode === "signin" ? <Link href="/forgot-password" className="block text-right text-sm font-medium text-emerald-300 hover:underline">Esqueci minha senha</Link> : null}
 
             {authMode === "register" ? (
             <div className="rounded-xl border border-emerald-400/10 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-100 sm:px-4 sm:py-3 sm:text-sm">

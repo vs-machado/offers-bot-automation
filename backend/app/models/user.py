@@ -11,6 +11,9 @@ class User(Base):
     __tablename__ = "users"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    auth_user_id: Mapped[str | None] = mapped_column(
+        ForeignKey("auth_users.id", ondelete="CASCADE"), unique=True
+    )
     email: Mapped[str] = mapped_column(
         String(255), unique=True, index=True, nullable=False
     )

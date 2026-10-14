@@ -170,6 +170,52 @@ global não identifica o usuário exigido pelo modelo da plataforma.
 O bot legado executado separadamente continua compatível com SQLite. A plataforma
 usa PostgreSQL; `DATABASE_PATH` serve apenas ao modo legado e à importação.
 
+### Autenticação com Better Auth
+
+Cadastro, acesso por senha, Google e sessões são gerenciados pelo Better Auth no
+Next.js (`/api/auth/*`). As rotas antigas `/auth/register`, `/auth/login` e
+`/auth/session/exchange` do FastAPI foram removidas. O proxy valida o cookie com
+Better Auth e encaminha a sessão opaca ao FastAPI, que consulta sua validade no
+PostgreSQL a cada requisição. Papéis de administrador continuam em `users.role`,
+sem depender de variáveis enviadas pelo navegador.
+
+A migração `0008_better_auth` cria as tabelas de autenticação e associa contas
+existentes sem alterar seus IDs, configurações ou permissões. Senhas bcrypt
+existentes continuam funcionando; novas senhas usam o hash padrão do Better Auth.
+Sessões do NextAuth deixam de funcionar, exigindo novo login. A migração é
+administrada pelo Alembic; não execute o CLI de migração do Better Auth sobre
+essas mesmas tabelas. E-mails legados que colidam após conversão para minúsculas
+precisam ser corrigidos antes da migração.
+
+Configure `BETTER_AUTH_SECRET` (pelo menos 32 caracteres aleatórios),
+`BETTER_AUTH_URL` (URL pública confiável) e `AUTH_DATABASE_URL` (PostgreSQL).
+No Docker, a URL interna do banco é configurada pelo Compose. Para executar
+Next.js localmente, coloque essas variáveis em `frontend/.env.local`.
+Cadastre no Google o callback `${BETTER_AUTH_URL}/api/auth/callback/google`.
+O vínculo automático de contas com o mesmo e-mail está desabilitado.
+
+### Recuperação de senha
+
+O link **Esqueci minha senha** abre `/forgot-password`. Better Auth gera um token
+temporário, com identificador armazenado como hash e validade de 15 minutos.
+O e-mail aponta para `/reset-password`, com token no fragmento da URL para evitar
+que ele seja enviado em logs de acesso. O usuário confirma a senha duas vezes;
+após a troca, todas as sessões antigas são revogadas e é necessário entrar de novo.
+A resposta ao pedido é a mesma para e-mails conhecidos e desconhecidos.
+
+Configure no servidor Next.js: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`,
+`SMTP_PASSWORD` e `SMTP_FROM`. Para SSL direto, use `SMTP_SECURE=true` (geralmente
+porta 465); para STARTTLS, `SMTP_SECURE=false` e `SMTP_REQUIRE_TLS=true` (geralmente
+porta 587). Sem SMTP configurado, a tela informa que a recuperação está indisponível.
+O servidor também envia um aviso após a alteração da senha. Dados de SMTP e links
+de recuperação não são registrados nos logs da aplicação.
+
+Os limites de tentativas ficam no PostgreSQL e são compartilhados entre instâncias
+do frontend. Solicitações de recuperação permitem até três tentativas por minuto
+por IP; login, cadastro e redefinição permitem cinco. O banco de autenticação
+precisa estar disponível antes de iniciar o frontend. Execute a migração pelo
+backend; em Docker, o frontend aguarda o healthcheck do backend.
+
 ### Configurações após o tutorial
 
 A rota autenticada `/settings` permanece disponível pelos menus Configurações,
