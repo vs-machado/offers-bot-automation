@@ -1,6 +1,7 @@
 import json
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from typing import Literal
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from backend.app.core.db.session import get_db
@@ -14,12 +15,36 @@ from backend.app.schemas.user import (
     UserRead,
 )
 from backend.app.schemas.offer import OfferCreate, OfferRead
+from backend.app.schemas.delivery import DeliveryHistory
+from backend.app.core.delivery_history import get_delivery_history
 from backend.app.api.v1.endpoints.auth import get_current_user
 from backend.app.core.source_groups import approved_source, enabled_source_groups
 from backend.app.core.telegram_sources import fetch_source_messages
 from backend.worker.poster import BotPoster, BotPosterError
 
 router = APIRouter()
+
+
+@router.get("/me/deliveries", response_model=DeliveryHistory)
+async def list_deliveries(
+    page: int = Query(1, ge=1, le=10000),
+    limit: int = Query(20, ge=1, le=100),
+    delivery_status: Literal[
+        "queued",
+        "retrying",
+        "sending",
+        "sent",
+        "failed",
+        "expired",
+        "cancelled",
+        "uncertain",
+    ]
+    | None = Query(None, alias="status"),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return only the authenticated user's paginated delivery outcomes."""
+    return await get_delivery_history(db, current_user.id, page, limit, delivery_status)
 
 
 def _config_response(config: UserConfig) -> dict[str, object]:

@@ -1,6 +1,6 @@
 import "server-only";
 
-import type { DashboardUser } from "@/features/dashboard/types";
+import type { DashboardUser, DeliveryHistoryData } from "@/features/dashboard/types";
 import type { ConfigSummary, DestinationSummary } from "@/shared/contracts/user-config";
 
 const apiBaseUrl =
@@ -31,6 +31,10 @@ async function getAuthenticated<T>(path: string, accessToken?: string): Promise<
 
 export async function getDashboardUser(accessToken?: string) {
   return getAuthenticated<DashboardUser>("/users/me", accessToken);
+}
+
+export async function getDeliveryHistory(accessToken?: string) {
+  return getAuthenticated<DeliveryHistoryData>("/users/me/deliveries", accessToken);
 }
 
 export async function getDestinations(accessToken?: string) {

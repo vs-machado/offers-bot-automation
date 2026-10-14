@@ -13,6 +13,8 @@ from backend.app.models.user import DestinationChannel, UserConfig
 from backend.app.core.source_groups import approved_source
 from backend.worker.poster import BotPoster
 from backend.worker.store import PgOfferStore
+from backend.app.core.delivery_errors import classify_failure
+from offers_bot.message_context import promotion_context
 from offers_bot.aliexpress import AliExpressClient
 from offers_bot.amazon import AmazonClient
 from offers_bot.browser_resolver import PlaywrightProductResolver
@@ -189,7 +191,13 @@ class UserBotInstance:
         if source_chat not in self._source_chats:
             return
 
-        offers = await extract_offers_async(text)
+        try:
+            offers = await extract_offers_async(text)
+        except Exception as exc:
+            await self._record_failure(
+                classify_failure(exc, "processing"), "processing"
+            )
+            raise
         LOGGER.info(
             "User %s: parsed chat=%s message=%s offers=%s",
             self.user_id,
@@ -205,11 +213,20 @@ class UserBotInstance:
                 if await store.seen(source_chat, message_id, offer.url):
                     continue
 
+                context_token = promotion_context.set(
+                    {
+                        "title": (offer.title or "Promoção sem título")[:200],
+                        "platform": PLATFORM_LABELS.get(offer.platform),
+                        "identity": f"{source_chat}:{message_id}:{offer.url}",
+                    }
+                )
+                failure_stage = "affiliate"
                 try:
                     affiliate_client = self._affiliate_client_for_platform(
                         offer.platform
                     )
                     if affiliate_client is None:
+                        await self._record_failure("unsupported_offer", "affiliate")
                         LOGGER.warning(
                             "User %s: unsupported platform=%s url=%s",
                             self.user_id,
@@ -219,6 +236,9 @@ class UserBotInstance:
                         await store.mark(source_chat, message_id, offer.url)
                         continue
                     if not affiliate_client.ready():
+                        await self._record_failure(
+                            "affiliate_credentials_missing", "affiliate"
+                        )
                         LOGGER.warning(
                             "User %s: missing %s affiliate credentials for url=%s",
                             self.user_id,
@@ -254,6 +274,7 @@ class UserBotInstance:
                         continue
 
                     is_ali = offer.platform == PLATFORM_ALIEXPRESS
+                    failure_stage = "processing"
                     formatted_text = await format_outgoing_offer(
                         offer,
                         affiliate.short_url,
@@ -262,6 +283,7 @@ class UserBotInstance:
                     )
                     # TODO: Persist destination categories and route each offer to all
                     # destinations matching offer.llm_result["category"].
+                    failure_stage = "posting"
                     await self._send_offer_with_image(
                         formatted_text,
                         affiliate.image_url,
@@ -276,14 +298,38 @@ class UserBotInstance:
                     )
                     LOGGER.info("User %s: processed offer %s", self.user_id, offer.url)
                 except UnsupportedOfferError as exc:
+                    await self._record_failure("unsupported_offer", "affiliate")
                     LOGGER.warning(
                         "User %s: unsupported %s: %s", self.user_id, offer.url, exc
                     )
                     await store.mark(source_chat, message_id, offer.url)
-                except Exception:
+                except Exception as exc:
+                    if failure_stage != "posting":
+                        await self._record_failure(
+                            classify_failure(
+                                exc, failure_stage, PLATFORM_LABELS.get(offer.platform)
+                            ),
+                            failure_stage,
+                        )
                     LOGGER.exception(
                         "User %s: failed to process %s", self.user_id, offer.url
                     )
+                finally:
+                    promotion_context.reset(context_token)
+
+    async def _record_failure(self, reason: str, stage: str) -> None:
+        """Keep audit failures from interrupting other users' message processing."""
+        from backend.worker.posting_queue import QueuePoster
+
+        if isinstance(self._poster, QueuePoster):
+            try:
+                await self._poster.record_failure(
+                    self._destination_chat_ids, reason, stage
+                )
+            except Exception:
+                LOGGER.exception(
+                    "Could not record processing failure for user %s", self.user_id
+                )
 
     async def _send_offer_with_image(
         self,

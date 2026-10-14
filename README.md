@@ -170,6 +170,25 @@ global não identifica o usuário exigido pelo modelo da plataforma.
 O bot legado executado separadamente continua compatível com SQLite. A plataforma
 usa PostgreSQL; `DATABASE_PATH` serve apenas ao modo legado e à importação.
 
+### Histórico de publicações
+
+O dashboard consulta `GET /users/me/deliveries`, autenticado e limitado aos
+registros do próprio usuário. Inclui paginação, filtro por resultado e atualização
+a cada 30 segundos. Os totais exibidos vêm do banco; não são dados demonstrativos.
+O histórico aparece também enquanto a configuração está incompleta.
+
+A migração `0007_delivery_details` adiciona título, loja e etapa aos novos
+registros. Motivos são classificados e apresentados em português: autenticação,
+chave de API, permissões do bot, limites de envio, conectividade, falha da API,
+fila indisponível e prazo vencido. Respostas brutas, cookies, tokens e chaves
+não são enviados ao navegador. Quando a resposta não identifica a causa,
+o histórico mostra uma falha genérica, sem presumir que a chave está inválida.
+
+Falhas na conversão de links são registradas antes da fila, por destino.
+Uma falha do LLM recuperada por fallback não é tratada como postagem fracassada.
+Uma desconexão do leitor impede receber novas promoções e, portanto, não produz
+registros por promoção; seu diagnóstico depende dos logs operacionais.
+
 ### Fila de postagem de promoções
 
 O listener prepara os links e publica uma tarefa por destino no Redis. O serviço

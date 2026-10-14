@@ -29,9 +29,11 @@ import { Separator } from "@/components/ui/separator";
 import { ThemeToggle } from "@/components/theme-toggle";
 import {
   getDashboardUser,
+  getDeliveryHistory,
   getDestinations,
   getUserConfigs,
 } from "@/features/dashboard/api/dashboard-server";
+import { PublicationHistory } from "@/features/dashboard/components/PublicationHistory";
 import { LogoutButton } from "@/features/dashboard/components/LogoutButton";
 import { MobileSidebar } from "@/features/dashboard/components/MobileSidebar";
 import { SetupDialog } from "@/features/setup/SetupDialog";
@@ -168,43 +170,6 @@ const workflowSteps = [
   },
 ];
 
-const productionMetrics: Array<{
-  label: string;
-  value: string;
-  icon: LucideIcon;
-  accent: string;
-  bar: string;
-}> = [
-  {
-    label: "Mensagens publicadas",
-    value: "128",
-    icon: Send,
-    accent: "bg-emerald-100 text-emerald-600 dark:bg-emerald-400/15 dark:text-emerald-300",
-    bar: "bg-emerald-500",
-  },
-  {
-    label: "Publicações agendadas",
-    value: "16",
-    icon: CalendarClock,
-    accent: "bg-sky-100 text-sky-600 dark:bg-sky-400/15 dark:text-sky-300",
-    bar: "bg-sky-500",
-  },
-  {
-    label: "Links convertidos",
-    value: "94",
-    icon: Link2,
-    accent: "bg-violet-100 text-violet-600 dark:bg-violet-400/15 dark:text-violet-300",
-    bar: "bg-violet-500",
-  },
-  {
-    label: "Grupos configurados",
-    value: "8",
-    icon: UsersRound,
-    accent: "bg-orange-100 text-orange-600 dark:bg-orange-400/15 dark:text-orange-300",
-    bar: "bg-orange-500",
-  },
-];
-
 /**
  * Small, self-contained styles for motion that doesn't depend on the
  * consumer's Tailwind config (keyframes + reduced-motion guard).
@@ -272,66 +237,6 @@ function RobotMascot() {
   );
 }
 
-function OperationalDashboard() {
-  return (
-    <div className="mt-6 space-y-6">
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {productionMetrics.map((metric) => {
-          const Icon = metric.icon;
-
-          return (
-            <Card
-              className="relative overflow-hidden border border-border bg-card py-0 shadow-[0_16px_50px_rgba(15,23,42,0.04)] transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_20px_60px_rgba(15,23,42,0.08)] dark:border-white/10 dark:bg-white/[0.035] dark:shadow-[0_24px_80px_rgba(0,0,0,0.24)]"
-              key={metric.label}
-            >
-              <div className={`absolute inset-x-0 top-0 h-1 ${metric.bar}`} />
-              <CardContent className="flex items-center justify-between p-6">
-                <div>
-                  <p className="text-sm font-semibold text-muted-foreground">
-                    {metric.label}
-                  </p>
-                  <p className="mt-2 text-3xl font-black text-card-foreground">
-                    {metric.value}
-                  </p>
-                </div>
-                <div className={`flex size-12 items-center justify-center rounded-2xl ${metric.accent}`}>
-                  <Icon className="size-5" />
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
-
-      <Card className="border border-border bg-card py-0 shadow-[0_16px_50px_rgba(15,23,42,0.04)] dark:border-white/10 dark:bg-white/[0.035] dark:shadow-[0_24px_80px_rgba(0,0,0,0.24)]">
-        <CardHeader className="p-6 pb-2">
-          <CardTitle className="text-2xl font-black tracking-tight">
-            Atividade recente
-          </CardTitle>
-          <p className="text-sm text-muted-foreground">
-            Depois de concluir a configuração, acompanhe aqui as publicações do bot.
-          </p>
-        </CardHeader>
-        <CardContent className="p-6 pt-4">
-          <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-border bg-muted/50 p-10 text-center">
-            <div className="flex size-12 items-center justify-center rounded-full bg-primary/10 text-primary">
-              <Send className="size-5" />
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-card-foreground">
-                Nenhuma oferta publicada ainda
-              </p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                As ofertas aparecerão aqui quando o bot começar a publicar.
-              </p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
-
 export async function Dashboard() {
   const session = await getServerSession(authOptions);
 
@@ -342,6 +247,7 @@ export async function Dashboard() {
   const dbUser = await getDashboardUser(session.accessToken);
   const destinations = await getDestinations(session.accessToken);
   const configs = await getUserConfigs(session.accessToken);
+  const deliveryHistory = await getDeliveryHistory(session.accessToken);
   const hasEnabledDestination = destinations.some((destination) => destination.enabled);
   const hasAffiliateConfig = configs.some((config) =>
     ["amazon", "shopee", "mercado_livre", "aliexpress"].includes(config.config_type)
@@ -389,6 +295,8 @@ export async function Dashboard() {
           <nav aria-label="Seções do painel" className="mt-5 space-y-1.5">
             {sidebarItems.map((item) => {
               const Icon = item.icon;
+
+
 
               return (
                 <Button
@@ -491,7 +399,7 @@ export async function Dashboard() {
         </header>
 
         {allStepsCompleted ? (
-          <OperationalDashboard />
+          <PublicationHistory initialData={deliveryHistory} />
         ) : (
           <>
             <Card className="border border-border bg-card py-0 shadow-sm dark:bg-white/2.5">
@@ -729,6 +637,7 @@ export async function Dashboard() {
             </Card>
           </>
         )}
+        {!allStepsCompleted ? <PublicationHistory initialData={deliveryHistory} /> : null}
         </div>
       </section>
     </main>

@@ -15,7 +15,8 @@ from celery.signals import task_revoked
 
 from backend.worker.celery_app import app
 from backend.worker.poster import BotPoster, BotPosterError
-from offers_bot.message_context import source_timestamp
+from backend.app.core.delivery_errors import classify_failure
+from offers_bot.message_context import source_timestamp, promotion_context
 from offers_bot.postgres_store import connect
 
 LOGGER = logging.getLogger(__name__)
@@ -58,6 +59,39 @@ class QueuePoster:
     def __init__(self, user_id: int):
         self.user_id = user_id
 
+    async def record_failure(
+        self, chat_ids: tuple[str, ...], reason: str, stage: str
+    ) -> None:
+        """Audit pre-queue failures for each destination without scheduling a retry."""
+        context = promotion_context.get()
+        timestamp = source_timestamp.get() or time.time()
+
+        def record():
+            with connect() as conn:
+                for chat_id in chat_ids:
+                    identity = hashlib.sha256(
+                        f"failure\0{self.user_id}\0{chat_id}\0{timestamp}\0{context.get('identity')}\0{stage}".encode()
+                    ).hexdigest()
+                    conn.execute(
+                        """INSERT INTO promotion_deliveries
+                        (id,user_id,chat_id,status,reason,expires_at,title,platform,stage)
+                        VALUES (%s,%s,%s,'failed',%s,%s,%s,%s,%s) ON CONFLICT (id) DO NOTHING""",
+                        (
+                            identity,
+                            self.user_id,
+                            chat_id,
+                            reason,
+                            datetime.fromtimestamp(
+                                timestamp + promotion_ttl(), timezone.utc
+                            ),
+                            context.get("title"),
+                            context.get("platform"),
+                            stage,
+                        ),
+                    )
+
+        await asyncio.to_thread(record)
+
     async def send_offer(
         self,
         chat_id: str,
@@ -79,38 +113,49 @@ class QueuePoster:
         parse_mode: str | None,
         deadline: float,
     ) -> dict:
-        if time.time() >= deadline:
-            LOGGER.info("Discarded expired promotion for user %s", self.user_id)
-            return {"status": "expired"}
+        expired = time.time() >= deadline
         identity = hashlib.sha256(
-            f"{self.user_id}\0{chat_id}\0{text}\0{source_timestamp.get()}".encode()
+            f"{self.user_id}\0{chat_id}\0{text}\0{source_timestamp.get()}\0{promotion_context.get().get('identity')}".encode()
         ).hexdigest()
         image_data = None
         image_url = None
-        if image_file:
+        context = promotion_context.get()
+        if image_file and not expired:
             if image_file.startswith(("https://", "http://")):
                 image_url = image_file
-            elif Path(image_file).stat().st_size <= 8 * 1024 * 1024:
-                image_data = base64.b64encode(Path(image_file).read_bytes()).decode(
-                    "ascii"
-                )
             else:
-                LOGGER.warning(
-                    "Oversized promotion image omitted for user %s", self.user_id
-                )
+                try:
+                    if Path(image_file).stat().st_size <= 8 * 1024 * 1024:
+                        image_data = base64.b64encode(
+                            Path(image_file).read_bytes()
+                        ).decode("ascii")
+                    else:
+                        LOGGER.warning(
+                            "Oversized promotion image omitted for user %s",
+                            self.user_id,
+                        )
+                except OSError:
+                    LOGGER.warning(
+                        "Unavailable promotion image omitted for user %s", self.user_id
+                    )
         with connect() as conn:
             inserted = conn.execute(
-                """INSERT INTO promotion_deliveries (id, user_id, chat_id, status, expires_at)
-                VALUES (%s, %s, %s, 'queued', %s) ON CONFLICT (id) DO NOTHING RETURNING id""",
+                """INSERT INTO promotion_deliveries (id, user_id, chat_id, status, expires_at, title, platform)
+                VALUES (%s, %s, %s, %s, %s, %s, %s) ON CONFLICT (id) DO NOTHING RETURNING id""",
                 (
                     identity,
                     self.user_id,
                     chat_id,
+                    "expired" if expired else "queued",
                     datetime.fromtimestamp(deadline, timezone.utc),
+                    context.get("title"),
+                    context.get("platform"),
                 ),
             ).fetchone()
         if not inserted:
             return {"status": "duplicate"}
+        if expired:
+            return {"status": "expired"}
         try:
             post_promotion.apply_async(
                 kwargs={
@@ -231,7 +276,7 @@ def post_promotion(
             and self.request.retries < self.max_retries
             and time.time() + delay + 25 < deadline
         ):
-            update_status(identity, "retrying", type(exc).__name__)
+            update_status(identity, "retrying", classify_failure(exc, "posting"))
             raise self.retry(
                 countdown=delay, expires=datetime.fromtimestamp(deadline, timezone.utc)
             )
@@ -240,12 +285,18 @@ def post_promotion(
             if safe_retry and time.time() + delay + 25 >= deadline
             else "failed"
         )
-        if isinstance(
+        if classify_failure(exc, "posting") == "delivery_uncertain" or isinstance(
             exc,
-            (httpx.ReadTimeout, httpx.WriteTimeout, httpx.ReadError, httpx.WriteError),
+            (
+                httpx.ReadTimeout,
+                httpx.WriteTimeout,
+                httpx.ReadError,
+                httpx.WriteError,
+                httpx.RemoteProtocolError,
+            ),
         ):
             status = "uncertain"
-        update_status(identity, status, type(exc).__name__)
+        update_status(identity, status, classify_failure(exc, "posting"))
         LOGGER.warning("Promotion %s ended with status %s", identity, status)
     except Exception:
         update_status(identity, "uncertain", "unexpected_delivery_error")

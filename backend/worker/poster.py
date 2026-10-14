@@ -12,10 +12,12 @@ class BotPosterError(RuntimeError):
         message: str,
         status_code: int | None = None,
         retry_after: int | None = None,
+        reason_code: str | None = None,
     ):
         super().__init__(message)
         self.status_code = status_code
         self.retry_after = retry_after
+        self.reason_code = reason_code
 
 
 @dataclass(frozen=True)
@@ -28,7 +30,9 @@ class BotPoster:
     def _token(self) -> str:
         token = self.token or os.getenv("TELEGRAM_BOT_TOKEN")
         if not token:
-            raise BotPosterError("TELEGRAM_BOT_TOKEN is not configured")
+            raise BotPosterError(
+                "TELEGRAM_BOT_TOKEN is not configured", reason_code="bot_token_missing"
+            )
         return token
 
     def _url(self, method: str) -> str:
@@ -69,7 +73,13 @@ class BotPoster:
         finally:
             if files:
                 files["photo"].close()
-        data = response.json()
+        try:
+            data = response.json()
+        except ValueError as exc:
+            raise BotPosterError(
+                "Telegram returned an invalid response",
+                reason_code="delivery_uncertain",
+            ) from exc
         if response.status_code >= 400 or not data.get("ok"):
             description = data.get("description", response.text)
             raise BotPosterError(

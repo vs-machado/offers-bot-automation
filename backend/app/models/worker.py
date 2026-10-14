@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import ForeignKey, String, Text, DateTime, func, UniqueConstraint
+from sqlalchemy import ForeignKey, String, Text, DateTime, func, UniqueConstraint, Index
 from sqlalchemy.orm import Mapped, mapped_column
 from backend.app.core.db.base import Base
 
@@ -74,6 +74,10 @@ class PromotionDelivery(Base):
     __tablename__ = "promotion_deliveries"
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    title: Mapped[str | None] = mapped_column(String(200))
+    platform: Mapped[str | None] = mapped_column(String(50))
+    stage: Mapped[str] = mapped_column(String(20), server_default="posting")
+    __table_args__ = (Index("ix_delivery_user_created", "user_id", "created_at", "id"),)
     user_id: Mapped[int] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), index=True
     )

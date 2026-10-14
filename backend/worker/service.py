@@ -10,7 +10,7 @@ from backend.app.core.source_groups import enabled_source_groups
 from backend.app.models.user import UserConfig
 from backend.worker.manager import UserBotInstance
 from backend.worker.telegram_reader import TelegramSourceReader
-from offers_bot.message_context import source_timestamp
+from offers_bot.message_context import source_timestamp, promotion_context
 
 LOGGER = logging.getLogger(__name__)
 POLL_INTERVAL_SECONDS = 30
@@ -47,10 +47,17 @@ class WorkerService:
 
     async def _receive_message(self, source_chat, message_id, text, media_path):
         context_token = source_timestamp.set(source_timestamp.get() or time.time())
+        promotion_token = promotion_context.set(
+            {
+                "identity": f"{source_chat}:{message_id}",
+                "title": "Promoção não processada",
+            }
+        )
         try:
             await self._route_message(source_chat, message_id, text, media_path)
         finally:
             source_timestamp.reset(context_token)
+            promotion_context.reset(promotion_token)
 
     async def _route_message(self, source_chat, message_id, text, media_path):
         for bot in list(self._bots.values()):
