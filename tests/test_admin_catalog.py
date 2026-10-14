@@ -12,38 +12,12 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
 
-from backend.app.api.v1.endpoints import auth
 from backend.app.core.db.base import Base
 from backend.app.core.db.session import get_db
-from backend.app.core.security import create_access_token
 from backend.app.main import app
 from backend.app.models.user import User
 from backend.worker.telegram_reader import TelegramSourceReader
-
-
-class SQLiteAsyncSession:
-    """Run API ORM operations against isolated SQLite instead of mocking catalog state."""
-
-    def __init__(self, session):
-        self.session = session
-
-    async def execute(self, statement):
-        return self.session.execute(statement)
-
-    def add(self, item):
-        self.session.add(item)
-
-    async def commit(self):
-        self.session.commit()
-
-    async def rollback(self):
-        self.session.rollback()
-
-    async def refresh(self, item):
-        self.session.refresh(item)
-
-    async def delete(self, item):
-        self.session.delete(item)
+from tests.auth_fixtures import SQLiteAsyncSession, create_identity
 
 
 class AdminCatalogTests(unittest.TestCase):
@@ -54,13 +28,19 @@ class AdminCatalogTests(unittest.TestCase):
         Base.metadata.create_all(self.engine)
         self.session = Session(self.engine)
         self.db = SQLiteAsyncSession(self.session)
+        admin_identity, admin_session = create_identity(
+            self.session, "admin@example.com"
+        )
+        user_identity, user_session = create_identity(self.session, "user@example.com")
         self.admin = User(
+            auth_user_id=admin_identity.id,
             email="admin@example.com",
             role="admin",
             auth_provider="credentials",
             created_at=datetime.now(timezone.utc),
         )
         self.user = User(
+            auth_user_id=user_identity.id,
             email="user@example.com",
             role="user",
             auth_provider="credentials",
@@ -68,21 +48,17 @@ class AdminCatalogTests(unittest.TestCase):
         )
         self.session.add_all([self.admin, self.user])
         self.session.commit()
-        auth._rate_limit_buckets.clear()
 
         async def override_db():
             yield self.db
 
         app.dependency_overrides[get_db] = override_db
         self.client = TestClient(app)
-        self.admin_headers = {
-            "Authorization": f"Bearer {create_access_token({'sub': self.admin.email})}"
-        }
-        self.user_headers = {
-            "Authorization": f"Bearer {create_access_token({'sub': self.user.email, 'role': 'admin'})}"
-        }
+        self.admin_headers = {"Authorization": f"Bearer {admin_session.token}"}
+        self.user_headers = {"Authorization": f"Bearer {user_session.token}"}
 
     def tearDown(self):
+        self.client.close()
         app.dependency_overrides.clear()
         self.session.close()
         self.engine.dispose()
@@ -188,17 +164,20 @@ class AdminCatalogTests(unittest.TestCase):
             403,
         )
 
-    def test_registration_cannot_choose_admin_role(self):
-        response = self.client.post(
-            "/auth/register",
-            json={
-                "email": "new@example.com",
-                "password": "Validpass1",
-                "role": "admin",
-            },
+    def test_new_session_user_cannot_choose_admin_role(self):
+        _, login = create_identity(self.session, "new@example.com")
+        headers = {"Authorization": f"Bearer {login.token}", "X-Role": "admin"}
+        response = self.client.request(
+            "GET", "/users/me?role=admin", headers=headers, json={"role": "admin"}
         )
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["role"], "user")
+        self.assertEqual(
+            self.client.get(
+                "/admin/source-groups?role=admin", headers=headers
+            ).status_code,
+            403,
+        )
 
     def test_bad_urls_and_unknown_sources_are_rejected(self):
         for url in [
