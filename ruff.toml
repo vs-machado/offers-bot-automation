@@ -1,0 +1,5 @@
+target-version = "py312"
+extend-exclude = ["frontend/node_modules", "frontend/.next", "data", "tasks"]
+
+[lint]
+extend-select = ["RUF100"]

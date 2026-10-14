@@ -6,12 +6,12 @@ from fastapi.testclient import TestClient
 
 os.environ.setdefault("JWT_SECRET_KEY", "test-secret-key")
 
-from backend.app.api.v1.endpoints import auth as auth_endpoint  # noqa: E402
-from backend.app.core.db.session import get_db  # noqa: E402
-from backend.app.core.security import ALGORITHM, SECRET_KEY, create_access_token  # noqa: E402
-from backend.app.main import app  # noqa: E402
-from backend.app.models.user import DestinationChannel, Offer, User, UserConfig  # noqa: E402
-from jose import jwt  # noqa: E402
+from backend.app.api.v1.endpoints import auth as auth_endpoint
+from backend.app.core.db.session import get_db
+from backend.app.core.security import ALGORITHM, SECRET_KEY, create_access_token
+from backend.app.main import app
+from backend.app.models.user import DestinationChannel, Offer, User, UserConfig
+from jose import jwt
 
 
 class FakeResult:

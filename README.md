@@ -100,6 +100,27 @@ Save Affiliate API app key, app secret, and optional tracking ID.
 
 ## Local quality checks
 
+### Pre-commit automático
+
+Instale as ferramentas de desenvolvimento e ative o hook uma vez por clone:
+
+```powershell
+.\venv\Scripts\python.exe -m pip install -r requirements-dev.txt
+npm --prefix frontend ci
+.\venv\Scripts\python.exe -m pre_commit install --install-hooks
+```
+
+Antes de cada commit, Ruff corrige e formata o Python; ESLint verifica todo o frontend com correções automáticas e `--max-warnings 0`. Todos os hooks rodam mesmo se o commit não alterar arquivos Python ou JavaScript. Se houver correções, o commit é interrompido: revise o diff, adicione os arquivos corrigidos e tente novamente. Erros e warnings restantes bloqueiam o commit. O hook não adiciona arquivos ao índice automaticamente.
+
+Para executar a mesma verificação manualmente:
+
+```powershell
+.\venv\Scripts\python.exe -m pre_commit run --all-files
+npm --prefix frontend run lint:fix
+```
+
+Ruff remove `noqa` desnecessário com `RUF100` e o hook usa `--ignore-noqa`, para que essas anotações não escondam erros. ESLint não aceita comentários para desativar regras. Corrija a causa do diagnóstico; não esconda o problema com supressões ou desativando regras. Os testes continuam sendo executados antes de cada commit, conforme `AGENTS.md`.
+
 Use project virtual environment:
 
 ```powershell

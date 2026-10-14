@@ -4,16 +4,16 @@ import argparse
 import asyncio
 
 from dotenv import load_dotenv
-
-load_dotenv()
-
-from sqlalchemy import select  # noqa: E402
-from backend.app.core.db.session import AsyncSessionLocal, engine  # noqa: E402
-from backend.app.models.user import User  # noqa: E402
+from sqlalchemy import select
 
 
 async def set_role(email: str, role: str) -> None:
     """Change an existing database role; never create or promote from signup data."""
+    load_dotenv()
+    # The database module reads DATABASE_URL at import time, after loading .env.
+    from backend.app.core.db.session import AsyncSessionLocal, engine
+    from backend.app.models.user import User
+
     try:
         async with AsyncSessionLocal() as db:
             result = await db.execute(select(User).where(User.email == email))

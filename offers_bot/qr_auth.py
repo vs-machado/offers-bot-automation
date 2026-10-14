@@ -43,7 +43,7 @@ def _load_qr_template() -> str | None:
 
 def _build_html_page(png_data: bytes) -> str:
     """Build QR login page from template (or inline fallback)."""
-    global _QR_HTML_TEMPLATE  # noqa: PLW0603
+    global _QR_HTML_TEMPLATE
     if _QR_HTML_TEMPLATE is None:
         _QR_HTML_TEMPLATE = _load_qr_template()
 
@@ -131,7 +131,7 @@ async def serve_qr_and_wait(
         asyncio.TimeoutError: If QR expires before scan.
         OSError: If port is already in use.
     """
-    global _QR_SERVER  # noqa: PLW0603
+    global _QR_SERVER
 
     # Convert coroutine to Future/Task so we can poll .done()
     if asyncio.iscoroutine(wait_coro):
@@ -183,7 +183,7 @@ async def serve_qr_and_wait(
 
 def cleanup() -> None:
     """Cancel any active QR auth server. Safe to call multiple times."""
-    global _QR_SERVER  # noqa: PLW0603
+    global _QR_SERVER
     if _QR_SERVER is not None:
         try:
             _QR_SERVER.server_close()

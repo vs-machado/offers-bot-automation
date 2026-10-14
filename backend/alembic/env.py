@@ -9,7 +9,7 @@ from sqlalchemy import pool
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from backend.app.core.db.base import Base
-from backend.app.models import user, worker  # noqa: F401
+from backend.app.models import load_models
 
 
 config = context.config
@@ -17,6 +17,7 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
+load_models()
 target_metadata = Base.metadata
 
 

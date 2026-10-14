@@ -14,6 +14,13 @@ Or use full paths: `.\venv\Scripts\python.exe`, `.\venv\Scripts\ruff.exe`, etc.
 To ensure code quality and consistency, please follow this workflow before every commit:
 
 ## 1. Code Formatting & Linting
+Git pre-commit hooks are configured in `.pre-commit-config.yaml`. Install with
+`python -m pip install -r requirements-dev.txt` and
+`python -m pre_commit install --install-hooks` using the project venv.
+Hooks run Ruff fix/format and ESLint fix across the project on every commit.
+ESLint warnings fail the commit (`--max-warnings 0`). Review automatic fixes and
+stage them again before retrying. Fix diagnostic causes; do not add `noqa`,
+`eslint-disable`, or broad rule exclusions to make checks pass.
 Always run **Ruff** to format and lint the code:
 
 ```bash

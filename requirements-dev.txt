@@ -1,0 +1,5 @@
+pre-commit==4.7.0
+ruff==0.15.12
+# Keep development tooling compatible with the app's xai-sdk dependency.
+virtualenv==20.39.1
+packaging==25.0
