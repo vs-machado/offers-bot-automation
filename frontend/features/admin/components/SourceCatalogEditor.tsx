@@ -27,7 +27,7 @@ export function SourceCatalogEditor({ initialGroups }: { initialGroups: AdminSou
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <h3 className="break-words font-medium">{group.label}</h3>
+                      <h3 className="wrap-break-word font-medium">{group.label}</h3>
                       <span className={group.enabled ? "rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs text-emerald-700 dark:text-emerald-300" : "rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground"}>{group.enabled ? "Ativo" : "Desativado"}</span>
                     </div>
                     <a href={group.url} target="_blank" rel="noreferrer" className="mt-1 block break-all text-sm text-muted-foreground hover:text-primary">{group.url}</a>
@@ -55,7 +55,7 @@ export function SourceCatalogEditor({ initialGroups }: { initialGroups: AdminSou
 
       <section className="rounded-2xl border border-border bg-card p-5">
         <h2 className="font-semibold">{catalog.editingId === undefined ? "Adicionar grupo de origem" : "Editar grupo de origem"}</h2>
-        <p className="mt-2 text-sm leading-6 text-muted-foreground">Os usuários podem selecionar os grupos ativos. Ao desativar um grupo, o bot para de copiar as ofertas dele.</p>
+        <p className="mt-2 text-sm/6 text-muted-foreground">Os usuários podem selecionar os grupos ativos. Ao desativar um grupo, o bot para de copiar as ofertas dele.</p>
         <form className="mt-5 space-y-4" onSubmit={(event) => void catalog.submit(event)}>
           <fieldset disabled={catalog.busy} className="space-y-4 disabled:opacity-60">
             <label className="block space-y-2 text-sm font-medium">Nome do grupo<input className={inputClass} required maxLength={100} value={catalog.input.label} onChange={(event) => catalog.setInput((current) => ({ ...current, label: event.target.value }))} placeholder="Nome para exibir aos usuários" /></label>
@@ -68,7 +68,7 @@ export function SourceCatalogEditor({ initialGroups }: { initialGroups: AdminSou
           </fieldset>
         </form>
         {catalog.error ? <p role="alert" className="mt-4 text-sm text-destructive">{catalog.error}</p> : null}
-        {catalog.notice ? <p role="status" className="mt-4 text-sm leading-6 text-muted-foreground">{catalog.notice}</p> : null}
+        {catalog.notice ? <p role="status" className="mt-4 text-sm/6 text-muted-foreground">{catalog.notice}</p> : null}
       </section>
     </div>
   );

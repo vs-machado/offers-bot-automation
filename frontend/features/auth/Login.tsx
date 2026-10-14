@@ -85,18 +85,18 @@ export function Login({ errorCode }: { errorCode?: string }) {
   } = useAuthForm(errorCode);
 
   return (
-    <main className="relative isolate min-h-[100dvh] overflow-x-hidden bg-[#07110f] text-white">
+    <main className="relative isolate min-h-dvh overflow-x-hidden bg-[#07110f] text-white">
       <div className="absolute inset-0 -z-30 bg-[radial-gradient(circle_at_0%_0%,rgba(10,135,98,0.62),transparent_36%),radial-gradient(circle_at_94%_96%,rgba(5,165,113,0.46),transparent_34%),linear-gradient(120deg,#07110f_0%,#0a1213_48%,#07110f_100%)]" />
       <div className="absolute inset-0 -z-20 bg-[linear-gradient(115deg,rgba(255,255,255,0.06),transparent_30%,transparent_70%,rgba(255,255,255,0.04))]" />
-      <div className="absolute bottom-0 right-0 -z-10 hidden h-72 w-[42rem] bg-[radial-gradient(ellipse_at_bottom_right,rgba(16,185,129,0.18),transparent_68%)] lg:block" />
+      <div className="absolute bottom-0 right-0 -z-10 hidden h-72 w-2xl bg-[radial-gradient(ellipse_at_bottom_right,rgba(16,185,129,0.18),transparent_68%)] lg:block" />
 
       <header className="absolute left-4 top-5 z-10 flex items-center gap-3 text-sm font-bold tracking-wide text-white md:left-10 md:top-8 lg:hidden">
         <Send className="size-5 fill-emerald-500 text-emerald-500" />
         <span>TG OFFERS BOT</span>
       </header>
 
-      <section className="mx-auto grid min-h-[100dvh] w-full max-w-[1320px] gap-8 px-3 pb-5 pt-16 md:px-10 md:py-8 lg:grid-cols-[minmax(0,540px)_470px] lg:items-center lg:gap-28 lg:py-12 xl:gap-36">
-        <div className="order-2 mx-auto mt-28 w-full max-w-[540px] lg:order-1 lg:mx-0 lg:mt-0">
+      <section className="mx-auto grid min-h-dvh w-full max-w-330 gap-8 px-3 pb-5 pt-16 md:px-10 md:py-8 lg:grid-cols-[minmax(0,540px)_470px] lg:items-center lg:gap-28 lg:py-12 xl:gap-36">
+        <div className="order-2 mx-auto mt-28 w-full max-w-135 lg:order-1 lg:mx-0 lg:mt-0">
           <div className="mb-24 hidden items-center gap-3 text-sm font-bold tracking-wide text-white lg:flex">
             <Send className="size-5 fill-emerald-500 text-emerald-500" />
             <span>TG OFFERS BOT</span>
@@ -106,11 +106,11 @@ export function Login({ errorCode }: { errorCode?: string }) {
             Ofertas automáticas no Telegram
           </div>
 
-          <h1 className="mt-7 max-w-[500px] text-4xl font-bold leading-[1.12] tracking-[-0.04em] text-slate-100 sm:text-5xl lg:text-[3.45rem]">
+          <h1 className="mt-7 max-w-125 text-4xl font-bold leading-[1.12] tracking-[-0.04em] text-slate-100 sm:text-5xl lg:text-[3.45rem]">
             Publique ofertas automaticamente. <span className="text-emerald-500">Amplie seus ganhos.</span>
           </h1>
 
-          <p className="mt-6 max-w-[430px] text-base leading-7 text-slate-300">
+          <p className="mt-6 max-w-107.5 text-base/7 text-slate-300">
             Crie sua conta, escolha onde publicar e deixe o bot compartilhar as ofertas no Telegram.
           </p>
 
@@ -119,7 +119,7 @@ export function Login({ errorCode }: { errorCode?: string }) {
               const Icon = benefit.icon;
               return (
                 <div
-                  className="group flex items-center gap-4 rounded-2xl border border-white/5 bg-white/[0.035] p-4 shadow-[0_18px_45px_rgba(0,0,0,0.16)] backdrop-blur transition hover:border-emerald-400/20 hover:bg-white/[0.055]"
+                  className="group flex items-center gap-4 rounded-2xl border border-white/5 bg-white/[0.035] p-4 shadow-[0_18px_45px_rgba(0,0,0,0.16)] backdrop-blur transition hover:border-emerald-400/20 hover:bg-white/5.5"
                   key={benefit.title}
                 >
                   <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-400">
@@ -147,7 +147,7 @@ export function Login({ errorCode }: { errorCode?: string }) {
           </div>
         </div>
 
-        <div className="order-1 mx-auto flex min-h-[calc(100dvh-5.25rem)] w-full max-w-[500px] items-center sm:min-h-0 sm:max-w-[470px] lg:order-2">
+        <div className="order-1 mx-auto flex min-h-[calc(100dvh-5.25rem)] w-full max-w-125 items-center sm:min-h-0 sm:max-w-117.5 lg:order-2">
           <div className="w-full rounded-[1.75rem] border border-emerald-300/20 bg-white/[0.035] p-4 shadow-[0_28px_100px_rgba(0,0,0,0.38),inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-xl sm:p-9">
           <div className="mb-5 flex flex-col items-center text-center sm:mb-7">
             <div className="hidden size-12 items-center justify-center rounded-xl border border-emerald-300/20 bg-emerald-500/10 text-emerald-400 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] sm:flex">
@@ -255,7 +255,7 @@ export function Login({ errorCode }: { errorCode?: string }) {
           </div>
 
           <Button
-            className="flex h-12 w-full items-center justify-center gap-3 border-white/15 bg-transparent px-4 text-sm font-bold text-slate-100 transition hover:border-emerald-400/30 hover:bg-white/[0.04] active:translate-y-px"
+            className="flex h-12 w-full items-center justify-center gap-3 border-white/15 bg-transparent px-4 text-sm font-bold text-slate-100 transition hover:border-emerald-400/30 hover:bg-white/4 active:translate-y-px"
             disabled={formState === "submitting"}
             onClick={handleGoogleSignIn}
             size="lg"

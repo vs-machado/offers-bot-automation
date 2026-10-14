@@ -346,7 +346,7 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
     <>
       <div className="w-full max-w-sm space-y-3">
         <Button
-          className="h-12 w-full gap-3 bg-primary px-7 text-base font-bold text-primary-foreground shadow-[0_14px_30px_rgba(22,163,74,0.18)] transition-colors hover:bg-primary/90 active:translate-y-px dark:shadow-none sm:w-[172px]"
+          className="h-12 w-full gap-3 bg-primary px-7 text-base font-bold text-primary-foreground shadow-[0_14px_30px_rgba(22,163,74,0.18)] transition-colors hover:bg-primary/90 active:translate-y-px dark:shadow-none sm:w-43"
           onClick={openDialog}
           type="button"
         >
@@ -412,7 +412,7 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
                   >
                     {headerTitle}
                   </h2>
-                  <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
+                  <p className="mt-2 max-w-2xl text-sm/6 text-muted-foreground">
                     {headerDescription}
                   </p>
                 </div>
@@ -433,9 +433,9 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
             {screen === "destination" ? (
               <>
                 <div className="setup-screen-slide mt-6 grid gap-4 lg:grid-cols-[1fr_0.95fr]" key="destination-screen">
-                  <div className="rounded-3xl border border-border bg-muted/35 p-4 dark:border-white/10 dark:bg-white/[0.03]">
+                  <div className="rounded-3xl border border-border bg-muted/35 p-4 dark:border-white/10 dark:bg-white/3">
                     <p className="text-sm font-bold">Como adicionar o bot</p>
-                    <ol className="mt-4 space-y-3 text-sm leading-6 text-muted-foreground">
+                    <ol className="mt-4 space-y-3 text-sm/6 text-muted-foreground">
                       {setupSteps.map((step) => (
                         <li className="flex gap-3" key={step}>
                           <Check className="mt-1 size-4 shrink-0 text-primary" />
@@ -445,9 +445,9 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
                     </ol>
                   </div>
 
-                  <div className="rounded-3xl border border-border bg-muted/35 p-4 dark:border-white/10 dark:bg-white/[0.03]">
+                  <div className="rounded-3xl border border-border bg-muted/35 p-4 dark:border-white/10 dark:bg-white/3">
                     <p className="text-sm font-bold">Como encontrar o ID do grupo ou canal</p>
-                    <ol className="mt-4 space-y-3 text-sm leading-6 text-muted-foreground">
+                    <ol className="mt-4 space-y-3 text-sm/6 text-muted-foreground">
                       {chatIdSteps.map((step) => (
                         <li className="flex gap-3" key={step}>
                           <Copy className="mt-1 size-4 shrink-0 text-sky-600 dark:text-sky-300" />
@@ -464,7 +464,7 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
                       ID do grupo ou canal de publicação
                     </span>
                     <input
-                      className="h-12 w-full rounded-2xl border border-border bg-background px-4 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-primary focus:ring-4 focus:ring-primary/10 dark:border-white/10 dark:bg-white/[0.04]"
+                      className="h-12 w-full rounded-2xl border border-border bg-background px-4 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-primary focus:ring-4 focus:ring-primary/10 dark:border-white/10 dark:bg-white/4"
                       inputMode="text"
                       onChange={(event) => setChatId(event.target.value)}
                       placeholder="Exemplo: -1001234567890"
@@ -507,7 +507,7 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
             ) : screen === "providers" ? (
               <div className="setup-screen-slide mt-6 grid gap-5 lg:grid-cols-[260px_1fr]" key="providers-screen">
                 <div className="space-y-3">
-                  <div className="rounded-3xl border border-border bg-muted/35 p-4 dark:border-white/10 dark:bg-white/[0.03]">
+                  <div className="rounded-3xl border border-border bg-muted/35 p-4 dark:border-white/10 dark:bg-white/3">
                     <p className="text-sm font-bold">Programas configurados</p>
                     <div className="mt-3 flex flex-wrap gap-2">
                       {connectedProviderTypes.length > 0 ? (
@@ -523,7 +523,7 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
                           );
                         })
                       ) : (
-                        <p className="text-sm leading-6 text-muted-foreground">
+                        <p className="text-sm/6 text-muted-foreground">
                           Nenhum programa de afiliados configurado ainda. Escolha um para começar.
                         </p>
                       )}
@@ -550,7 +550,7 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
                             {item.name}
                             {isConnected ? <Check className="size-4 text-primary" /> : null}
                           </span>
-                          <span className="mt-1 block text-xs leading-5 text-muted-foreground">
+                          <span className="mt-1 block text-xs/5 text-muted-foreground">
                             {item.description}
                           </span>
                         </button>
@@ -560,11 +560,11 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
                 </div>
 
                 <div className="space-y-4">
-                  <form className="rounded-3xl border border-border bg-muted/25 p-4 dark:border-white/10 dark:bg-white/[0.03]" onSubmit={handleProviderSubmit}>
+                  <form className="rounded-3xl border border-border bg-muted/25 p-4 dark:border-white/10 dark:bg-white/3" onSubmit={handleProviderSubmit}>
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                       <div>
                         <p className="text-lg font-black tracking-tight">{provider.name}</p>
-                        <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                        <p className="mt-1 text-sm/6 text-muted-foreground">
                           {provider.description}
                         </p>
                       </div>
@@ -582,7 +582,7 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
                             {field.label}{field.required ? " *" : ""}
                           </span>
                           <input
-                            className="h-12 w-full rounded-2xl border border-border bg-background px-4 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-primary focus:ring-4 focus:ring-primary/10 dark:border-white/10 dark:bg-white/[0.04]"
+                            className="h-12 w-full rounded-2xl border border-border bg-background px-4 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-primary focus:ring-4 focus:ring-primary/10 dark:border-white/10 dark:bg-white/4"
                             onChange={(event) =>
                               setProviderData((current) => ({
                                 ...current,
@@ -623,7 +623,7 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
                   </form>
 
                   <div className="flex flex-col gap-3 rounded-3xl border border-primary/15 bg-primary/5 p-4 sm:flex-row sm:items-center sm:justify-between">
-                    <p className="text-sm leading-6 text-muted-foreground">
+                    <p className="text-sm/6 text-muted-foreground">
                       {canFinish
                         ? "Você já configurou um programa de afiliados. Agora escolha os grupos de origem das ofertas."
                         : "Configure pelo menos um programa de afiliados para continuar."}
@@ -640,7 +640,7 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
               </div>
             ) : (
               <div className="setup-screen-slide mt-6 grid h-[calc(100%-1.5rem)] min-h-0 gap-4 lg:grid-cols-[300px_minmax(0,1fr)]" key="sources-screen">
-                <div className="flex min-h-0 flex-col overflow-hidden rounded-3xl border border-border bg-muted/25 dark:border-white/10 dark:bg-white/[0.03]">
+                <div className="flex min-h-0 flex-col overflow-hidden rounded-3xl border border-border bg-muted/25 dark:border-white/10 dark:bg-white/3">
                   <div className="border-b border-border p-4 dark:border-white/10">
                     <div className="flex items-center justify-between gap-3">
                       <p className="text-sm font-bold">Grupos de origem</p>
@@ -648,7 +648,7 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
                         {selectedSourceChats.length} {selectedSourceChats.length === 1 ? "selecionado" : "selecionados"}
                       </span>
                     </div>
-                    <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                    <p className="mt-1 text-xs/5 text-muted-foreground">
                       Confira as mensagens recentes de cada grupo e marque os que quer acompanhar.
                     </p>
                   </div>
@@ -668,7 +668,7 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
                               className={
                                 active
                                   ? "flex items-center gap-2 rounded-2xl border border-primary/30 bg-primary/10 p-2 transition"
-                                  : "flex items-center gap-2 rounded-2xl border border-transparent p-2 transition hover:border-border hover:bg-background/70 dark:hover:border-white/10 dark:hover:bg-white/[0.04]"
+                                  : "flex items-center gap-2 rounded-2xl border border-transparent p-2 transition hover:border-border hover:bg-background/70 dark:hover:border-white/10 dark:hover:bg-white/4"
                               }
                               key={group.id}
                             >
@@ -693,7 +693,7 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
                                 className={
                                   selected
                                     ? "flex size-8 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground"
-                                    : "flex size-8 shrink-0 items-center justify-center rounded-full border border-border bg-background text-muted-foreground transition hover:border-primary/40 hover:text-primary dark:border-white/10 dark:bg-white/[0.04]"
+                                    : "flex size-8 shrink-0 items-center justify-center rounded-full border border-border bg-background text-muted-foreground transition hover:border-primary/40 hover:text-primary dark:border-white/10 dark:bg-white/4"
                                 }
                                 onClick={() => toggleSourceChat(group.id)}
                                 type="button"
@@ -705,7 +705,7 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
                         })}
                       </div>
                     ) : (
-                      <p className="rounded-2xl border border-dashed border-border p-4 text-sm leading-6 text-muted-foreground">
+                      <p className="rounded-2xl border border-dashed border-border p-4 text-sm/6 text-muted-foreground">
                         Não foi possível carregar os grupos de origem. Tente novamente mais tarde.
                       </p>
                     )}
@@ -714,7 +714,7 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
 
                 </div>
 
-                <div className="flex min-h-0 flex-col overflow-hidden rounded-3xl border border-border bg-muted/25 dark:border-white/10 dark:bg-white/[0.03]">
+                <div className="flex min-h-0 flex-col overflow-hidden rounded-3xl border border-border bg-muted/25 dark:border-white/10 dark:bg-white/3">
                   <div className="relative min-h-0 flex-1 overflow-hidden">
                     {sourceGroupsLoading ? (
                       <div className="h-full overflow-y-auto p-5">
@@ -764,7 +764,7 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
 
                                     if (telegramPostId) {
                                       return (
-                                        <div className="max-w-[760px]" key={previewMessage.id}>
+                                        <div className="max-w-190" key={previewMessage.id}>
                                           <TelegramPostEmbed
                                             onReady={markTelegramPostReady}
                                             postId={telegramPostId}
@@ -777,7 +777,7 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
 
                                     return (
                                       <div
-                                        className="relative max-w-[760px] overflow-hidden rounded-[1.25rem] rounded-tl-md bg-white text-sm leading-6 text-slate-800 shadow-sm ring-1 ring-sky-900/5 before:absolute before:left-[-6px] before:top-0 before:size-3 before:rounded-br-xl before:bg-white dark:bg-slate-900 dark:text-slate-100 dark:ring-white/10 dark:before:bg-slate-900"
+                                        className="relative max-w-190 overflow-hidden rounded-[1.25rem] rounded-tl-md bg-white text-sm/6 text-slate-800 shadow-sm ring-1 ring-sky-900/5 before:absolute before:-left-1.5 before:top-0 before:size-3 before:rounded-br-xl before:bg-white dark:bg-slate-900 dark:text-slate-100 dark:ring-white/10 dark:before:bg-slate-900"
                                         key={previewMessage.id}
                                       >
                                         {previewMessage.image_url ? (
@@ -788,7 +788,7 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
                                           >
                                             <Image
                                               alt=""
-                                              className="max-h-[360px] w-full object-cover"
+                                              className="max-h-90 w-full object-cover"
                                               height={520}
                                               sizes="(min-width: 1024px) 760px, 100vw"
                                               src={previewMessage.image_url}
@@ -799,7 +799,7 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
                                         ) : null}
                                         <div className="px-4 py-3">
                                           {previewMessage.text ? (
-                                            <p className="whitespace-pre-wrap break-words">
+                                            <p className="whitespace-pre-wrap wrap-break-word">
                                               <LinkedText text={previewMessage.text} />
                                             </p>
                                           ) : null}
@@ -836,7 +836,7 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
                               </div>
                             ) : (
                               <div className="flex h-full items-center justify-center">
-                                <div className="max-w-sm rounded-[1.25rem] bg-white/90 p-4 text-center text-sm leading-6 text-slate-700 shadow-sm ring-1 ring-sky-900/5 dark:bg-slate-900 dark:text-slate-200 dark:ring-white/10">
+                                <div className="max-w-sm rounded-[1.25rem] bg-white/90 p-4 text-center text-sm/6 text-slate-700 shadow-sm ring-1 ring-sky-900/5 dark:bg-slate-900 dark:text-slate-200 dark:ring-white/10">
                                   As mensagens recentes não estão disponíveis, mas você ainda pode selecionar este grupo.
                                 </div>
                               </div>
@@ -846,7 +846,7 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
                       })
                     ) : (
                       <div className="flex h-full items-center justify-center p-5">
-                        <div className="max-w-sm rounded-[1.25rem] bg-white/90 p-4 text-center text-sm leading-6 text-slate-700 shadow-sm ring-1 ring-sky-900/5 dark:bg-slate-900 dark:text-slate-200 dark:ring-white/10">
+                        <div className="max-w-sm rounded-[1.25rem] bg-white/90 p-4 text-center text-sm/6 text-slate-700 shadow-sm ring-1 ring-sky-900/5 dark:bg-slate-900 dark:text-slate-200 dark:ring-white/10">
                           As mensagens recentes não estão disponíveis, mas você ainda pode selecionar este grupo.
                         </div>
                       </div>
@@ -865,7 +865,7 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
                         {message}
                       </p>
                     ) : (
-                      <p className="text-sm leading-6 text-muted-foreground">
+                      <p className="text-sm/6 text-muted-foreground">
                         O bot vai publicar as ofertas dos grupos selecionados usando seus links de afiliado.
                       </p>
                     )}
@@ -891,7 +891,7 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
                   </span>
                   <div>
                     <p className="text-2xl font-black tracking-tight">Tudo pronto!</p>
-                    <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                    <p className="mt-2 text-sm/6 text-muted-foreground">
                       Seu bot está configurado para copiar as ofertas dos grupos selecionados.
                     </p>
                   </div>

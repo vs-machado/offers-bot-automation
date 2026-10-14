@@ -112,6 +112,11 @@ npm --prefix frontend ci
 
 Antes de cada commit, Ruff corrige e formata o Python; ESLint verifica todo o frontend com correções automáticas e `--max-warnings 0`. Todos os hooks rodam mesmo se o commit não alterar arquivos Python ou JavaScript. Se houver correções, o commit é interrompido: revise o diff, adicione os arquivos corrigidos e tente novamente. Erros e warnings restantes bloqueiam o commit. O hook não adiciona arquivos ao índice automaticamente.
 
+ESLint também verifica classes canônicas do Tailwind 4 usando
+`better-tailwindcss/enforce-canonical-classes`, com o tema de `app/globals.css`.
+Sugestões como `md:w-[440px]` → `md:w-110` passam a ser erros corrigíveis pelo
+mesmo hook. O diagnóstico do Tailwind IntelliSense permanece habilitado no editor.
+
 Para executar a mesma verificação manualmente:
 
 ```powershell

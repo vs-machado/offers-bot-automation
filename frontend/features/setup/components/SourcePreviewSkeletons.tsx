@@ -16,14 +16,14 @@ export function MessagePreviewSkeleton({ count = 3 }: { count?: number }) {
   return (
     <div className="space-y-3">
       {Array.from({ length: count }).map((_, index) => (
-        <div className="mx-auto flex w-full max-w-[560px] items-start gap-2" key={index}>
+        <div className="mx-auto flex w-full max-w-140 items-start gap-2" key={index}>
           <div className="mt-3 size-9 shrink-0 animate-pulse rounded-full bg-muted dark:bg-white/10" />
           <div className="min-w-0 flex-1 overflow-hidden rounded-[1rem] border border-border bg-background shadow-sm dark:border-white/10 dark:bg-[#111d2a]">
             <div className="flex items-center gap-2 px-3 pt-3">
               <div className="h-3.5 w-24 animate-pulse rounded-full bg-sky-200 dark:bg-sky-400/25" />
               <div className="ml-auto size-5 shrink-0 animate-pulse rounded-full bg-sky-200 dark:bg-sky-400/25" />
             </div>
-            <div className="space-y-3 px-3 py-3">
+            <div className="space-y-3 p-3">
               <div className="space-y-2.5">
                 <div className="h-3.5 w-11/12 animate-pulse rounded-full bg-muted dark:bg-white/10" />
                 <div className="h-3.5 w-3/4 animate-pulse rounded-full bg-muted dark:bg-white/10" />

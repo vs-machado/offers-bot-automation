@@ -15,8 +15,8 @@ export function LogoutButton({ compact = false }: LogoutButtonProps) {
       aria-label={compact ? "Sair" : undefined}
       className={
         compact
-          ? "size-9 border-transparent bg-transparent p-0 text-muted-foreground shadow-none hover:bg-red-500/[0.08] hover:text-red-700 dark:hover:text-red-200"
-          : "h-11 w-full justify-start gap-3 border-transparent bg-transparent text-sm font-medium text-muted-foreground hover:bg-red-500/[0.08] hover:text-red-700 dark:text-slate-400 dark:hover:text-red-200"
+          ? "size-9 border-transparent bg-transparent p-0 text-muted-foreground shadow-none hover:bg-red-500/8 hover:text-red-700 dark:hover:text-red-200"
+          : "h-11 w-full justify-start gap-3 border-transparent bg-transparent text-sm font-medium text-muted-foreground hover:bg-red-500/8 hover:text-red-700 dark:text-slate-400 dark:hover:text-red-200"
       }
       onClick={() => signOut({ callbackUrl: "/" })}
       type="button"
