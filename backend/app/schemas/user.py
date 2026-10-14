@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Any, Dict, Optional, Literal
 
-from pydantic import BaseModel, ConfigDict, EmailStr, field_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, field_validator, model_validator
 
 from backend.app.core.security import BCRYPT_MAX_PASSWORD_BYTES
 
@@ -100,22 +100,35 @@ class SourceGroupPreviewRequest(BaseModel):
 
 
 class DestinationChannelBase(BaseModel):
-    """Telegram destination metadata and enabled state."""
+    """Group/channel destination metadata for Telegram or linked WhatsApp account."""
 
     chat_id: str
     title: Optional[str] = None
     chat_type: str = "channel"
     enabled: bool = True
+    platform: Literal["telegram", "whatsapp"] = "telegram"
+
+    @model_validator(mode="after")
+    def validate_platform_chat(self):
+        if self.platform == "whatsapp":
+            from backend.app.core.whatsapp import GROUP_ID, CHANNEL_ID
+
+            pattern = {"group": GROUP_ID, "channel": CHANNEL_ID}.get(self.chat_type)
+            if pattern is None or not pattern.fullmatch(self.chat_id):
+                raise ValueError("Selecione um grupo ou canal válido do WhatsApp.")
+        elif self.chat_id.endswith(("@g.us", "@newsletter")):
+            raise ValueError("Destino WhatsApp não pode ser um destino Telegram.")
+        return self
 
 
 class DestinationChannelCreate(DestinationChannelBase):
-    """Payload for creating or replacing a Telegram destination."""
+    """Payload for creating or replacing a user-owned publication destination."""
 
     pass
 
 
 class DestinationChannelRead(DestinationChannelBase):
-    """Persisted Telegram destination response."""
+    """Persisted publication destination response."""
 
     id: int
     user_id: int

@@ -75,7 +75,7 @@ export function useSettings(initialData: SettingsData) {
   }
 
   function saveDestination(data: DestinationInput, id?: number) {
-    return run("destinations", "Destino salvo. As permissões do bot foram verificadas quando habilitado.", async () => {
+    return run("destinations", "Destino salvo. Conexão e acesso verificados quando habilitado.", async () => {
       if (destinations.some((destination) => destination.chat_id === data.chat_id && destination.id !== id)) {
         throw new Error("Esse grupo ou canal já está cadastrado nos seus destinos.");
       }
@@ -85,7 +85,7 @@ export function useSettings(initialData: SettingsData) {
   }
 
   function toggleDestination(destination: DestinationSummary) {
-    return saveDestination({ chat_id: destination.chat_id, title: destination.title ?? null, chat_type: destination.chat_type ?? "group", enabled: !destination.enabled }, destination.id);
+    return saveDestination({ chat_id: destination.chat_id, title: destination.title ?? null, chat_type: destination.chat_type ?? "group", enabled: !destination.enabled, platform: destination.platform ?? "telegram" }, destination.id);
   }
 
   function removeDestination(id: number) {

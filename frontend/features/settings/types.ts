@@ -6,9 +6,4 @@ export type SettingsData = {
   destinations: DestinationSummary[];
   sources: AvailableSource[];
 };
-export type DestinationInput = {
-  chat_id: string;
-  title: string | null;
-  chat_type: string;
-  enabled: boolean;
-};
+export type { DestinationInput } from "@/shared/contracts/user-config";

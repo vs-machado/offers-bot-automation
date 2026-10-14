@@ -26,7 +26,8 @@ import {
   getSourceDisplayLabel,
 } from "@/features/setup/lib/source-messages";
 import { getTelegramPostId } from "@/features/setup/lib/telegram";
-import type { ConfigSummary, DestinationSummary } from "@/shared/contracts/user-config";
+import type { ConfigSummary, DestinationSummary, DestinationInput } from "@/shared/contracts/user-config";
+import { WhatsAppConnection } from "@/features/whatsapp/WhatsAppConnection";
 import { CredentialValidation } from "@/features/credential-validation/CredentialValidation";
 
 const platformBotUsername = "tgtestoffersbot";
@@ -54,11 +55,14 @@ const chatIdSteps = [
 export function SetupDialog({ hasEnabledDestination, destinations, configs }: SetupDialogProps) {
   const router = useRouter();
   const enabledDestination = destinations.find((destination) => destination.enabled);
+  const telegramDestination = destinations.find((destination) => destination.enabled && destination.platform !== "whatsapp");
   const [open, setOpen] = useState(false);
   const [screen, setScreen] = useState<"destination" | "providers" | "sources">(
     hasEnabledDestination ? "providers" : "destination"
   );
-  const [chatId, setChatId] = useState(enabledDestination?.chat_id ?? "");
+  const [chatId, setChatId] = useState(telegramDestination?.chat_id ?? "");
+  const [destinationPlatform, setDestinationPlatform] = useState<"telegram" | "whatsapp">(enabledDestination?.platform ?? "telegram");
+  const [telegramChatType, setTelegramChatType] = useState(telegramDestination?.chat_type ?? "group");
   const [selectedProvider, setSelectedProvider] = useState<ProviderType>("amazon");
   const [providerData, setProviderData] = useState<Record<string, string>>(
     getProviderData(providers[0], configs)
@@ -94,7 +98,7 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
   const canSaveSources = selectedSourceChats.length > 0;
   const headerLabel =
     screen === "destination"
-      ? "Configuração do Telegram"
+      ? "Telegram e WhatsApp"
       : screen === "providers"
         ? "Programas de afiliados"
         : "Grupos de origem";
@@ -106,7 +110,7 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
         : "Escolha de quais grupos copiar ofertas";
   const headerDescription =
     screen === "destination"
-      ? "Adicione o bot da plataforma ao seu grupo ou canal e informe o ID abaixo."
+      ? "Escolha Telegram ou WhatsApp e conecte um grupo ou canal para receber ofertas."
       : screen === "providers"
         ? "Configure pelo menos um programa de afiliados para que o bot use seus links nas ofertas."
         : "Veja as mensagens recentes e escolha de quais grupos o bot deve copiar as ofertas.";
@@ -227,7 +231,8 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
     try {
       const saved = await saveDestination({
         chatId: trimmedChatId,
-        id: savedDestination?.id,
+        id: (savedDestination?.platform ?? "telegram") === "telegram" ? savedDestination?.id : telegramDestination?.id,
+        chatType: telegramChatType,
       });
 
       setSavedDestination(saved);
@@ -240,6 +245,23 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
       setMessage(
         getRequestErrorMessage(error, "Não foi possível verificar o acesso do bot. Confira o ID e as permissões no grupo ou canal.")
       );
+    }
+  }
+
+  async function saveWhatsAppDestination(input: DestinationInput) {
+    setStatus("saving");
+    setMessage("");
+    try {
+      const saved = await saveDestination({ chatId: input.chat_id, chatType: input.chat_type, title: input.title, platform: "whatsapp" });
+      setSavedDestination(saved);
+      setStatus("success");
+      setMessage("Destino WhatsApp salvo! Agora configure seus programas de afiliados.");
+      router.refresh();
+      return true;
+    } catch (error) {
+      setStatus("error");
+      setMessage(getRequestErrorMessage(error, "Não foi possível salvar destino WhatsApp."));
+      return false;
     }
   }
 
@@ -392,6 +414,17 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
             <div className={screen === "sources" ? "flex-1 overflow-hidden p-5 pt-0" : "flex-1 overflow-y-auto p-5 pt-0"}>
             {screen === "destination" ? (
               <>
+                <div className="mt-6 flex gap-3" role="group" aria-label="Plataforma de publicação">
+                  <Button variant={destinationPlatform === "telegram" ? "default" : "outline"} aria-pressed={destinationPlatform === "telegram"} disabled={status === "saving"} onClick={() => { setDestinationPlatform("telegram"); setStatus("idle"); setMessage(""); }}>Telegram</Button>
+                  <Button variant={destinationPlatform === "whatsapp" ? "default" : "outline"} aria-pressed={destinationPlatform === "whatsapp"} disabled={status === "saving"} onClick={() => { setDestinationPlatform("whatsapp"); setStatus("idle"); setMessage(""); }}>WhatsApp</Button>
+                </div>
+                {destinationPlatform === "whatsapp" ? <div className="mt-5 space-y-4 rounded-3xl border border-border p-4">
+                  <h3 className="font-bold">Conectar WhatsApp e selecionar grupo ou canal</h3>
+                  <p className="text-sm/6 text-muted-foreground">Conecte sua conta pelo QR. Depois escolha um grupo onde pode enviar mensagens ou um canal que administra. Não precisa copiar IDs.</p>
+                  <WhatsAppConnection destinations={[...destinations, ...(savedDestination && !destinations.some((destination) => destination.id === savedDestination.id) ? [savedDestination] : [])]} saveDestination={saveWhatsAppDestination} busy={status === "saving"} />
+                  {message ? <p role="status" className={status === "error" ? "text-sm text-destructive" : "text-sm text-primary"}>{message}</p> : null}
+                  <Button disabled={!canGoToProviders || status === "saving"} onClick={goToProviders}>Configurar afiliados <ArrowRight className="size-4" /></Button>
+                </div> : <>
                 <div className="setup-screen-slide mt-6 grid gap-4 lg:grid-cols-[1fr_0.95fr]" key="destination-screen">
                   <div className="rounded-3xl border border-border bg-muted/35 p-4 dark:border-white/10 dark:bg-white/3">
                     <p className="text-sm font-bold">Como adicionar o bot</p>
@@ -419,6 +452,7 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
                 </div>
 
                 <form className="setup-screen-slide mt-5 rounded-3xl border border-primary/20 bg-primary/5 p-4" onSubmit={handleDestinationSubmit}>
+                  <label className="mb-4 block space-y-2 text-sm font-bold">Tipo de destino Telegram<select className="h-12 w-full rounded-2xl border border-border bg-background px-4" value={telegramChatType} onChange={(event) => setTelegramChatType(event.target.value)}><option value="group">Grupo</option><option value="channel">Canal</option></select></label>
                   <label className="block space-y-2">
                     <span className="text-sm font-bold text-card-foreground">
                       ID do grupo ou canal de publicação
@@ -463,6 +497,7 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
                     </Button>
                   </div>
                 </form>
+                </>}
               </>
             ) : screen === "providers" ? (
               <div className="setup-screen-slide mt-6 grid gap-5 lg:grid-cols-[260px_1fr]" key="providers-screen">

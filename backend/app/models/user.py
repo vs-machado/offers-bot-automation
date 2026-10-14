@@ -87,7 +87,7 @@ class Offer(Base):
 
 
 class DestinationChannel(Base):
-    """Telegram chat where shared bot may publish user's offers."""
+    """Telegram or WhatsApp chat where this user's offers may be published."""
 
     __tablename__ = "destination_channels"
 
@@ -96,6 +96,9 @@ class DestinationChannel(Base):
         ForeignKey("users.id", ondelete="CASCADE"), index=True
     )
     chat_id: Mapped[str] = mapped_column(String(100), index=True)
+    platform: Mapped[str] = mapped_column(
+        String(20), default="telegram", server_default="telegram", nullable=False
+    )
     title: Mapped[Optional[str]] = mapped_column(String(255))
     chat_type: Mapped[str] = mapped_column(String(50), default="channel")
     enabled: Mapped[bool] = mapped_column(default=True)

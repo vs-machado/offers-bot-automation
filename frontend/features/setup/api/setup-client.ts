@@ -12,6 +12,9 @@ type SaveConfigInput = {
 type SaveDestinationInput = {
   chatId: string;
   id?: number;
+  platform?: "telegram" | "whatsapp";
+  chatType?: string;
+  title?: string | null;
 };
 
 async function requestJson<T>(url: string, init: RequestInit, errorMessage: string): Promise<T> {
@@ -71,7 +74,7 @@ export function saveUserConfig({
   );
 }
 
-export function saveDestination({ chatId, id }: SaveDestinationInput) {
+export function saveDestination({ chatId, id, platform = "telegram", chatType = "group", title = null }: SaveDestinationInput) {
   return requestJson<DestinationSummary>(
     id
       ? `/api/backend/users/me/destinations/${id}`
@@ -83,8 +86,9 @@ export function saveDestination({ chatId, id }: SaveDestinationInput) {
       },
       body: JSON.stringify({
         chat_id: chatId,
-        title: null,
-        chat_type: "group",
+        title,
+        platform,
+        chat_type: chatType,
         enabled: true,
       }),
     },

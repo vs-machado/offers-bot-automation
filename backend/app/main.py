@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from backend.app.api.v1.endpoints import admin, users
+from backend.app.api.v1.endpoints import admin, users, whatsapp
 from backend.app.core.db.migrations import run_migrations
 
 app = FastAPI(
@@ -24,3 +24,4 @@ async def health_check():
 # Include routers
 app.include_router(users.router, prefix="/users", tags=["Users"])
 app.include_router(admin.router, prefix="/admin", tags=["Administration"])
+app.include_router(whatsapp.router)

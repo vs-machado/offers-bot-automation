@@ -357,3 +357,51 @@ Apply migration `0004_admin_source_catalog` (automatically on backend startup). 
 With Docker, run `docker compose exec backend python -m backend.set_admin admin@example.com` after the account is registered. No public API grants administrator roles.
 
 Administrators can add, edit, enable, disable, and remove public Telegram groups. Only enabled groups are selectable by users and accepted by configuration endpoints. The shared Telethon reader refreshes catalog changes every 30 seconds without restarting; removed or disabled groups stop delivering offers. Saved selections for unavailable groups stay stored but inactive until the group becomes available again. An empty catalog disables all sources. The operator Telegram account must be able to join/read each source.
+
+### WhatsApp destinations (WAHA)
+
+Users can connect their own WhatsApp account in **Settings → Publicar no WhatsApp**,
+scan the QR from **WhatsApp → Linked devices**, and select a group or channel from their account.
+The same QR and destination picker is available in the setup tutorial. Telegram
+group/channel configuration remains available alongside WhatsApp in both screens.
+Each user receives a separate WAHA session (`offers-user-<application-user-id>`).
+The API derives that name from the authenticated identity, never from browser input.
+The connected account must participate in the group and have permission to send;
+only WhatsApp channels with the `OWNER` or `ADMIN` role are selectable. If the WAHA
+engine cannot list channels, the interface reports this while keeping groups available.
+Messages are sent in that account's name, with the same prepared affiliate text/photo.
+
+Operator setup:
+
+1. Run WAHA with persistent session storage, API-key authentication, and support for
+   multiple sessions and `sendImage`. The installed WAHA `2026.9.2` WEBJS build has
+   these implementations; older builds may have different edition restrictions.
+2. Make WAHA reachable from backend and posting containers. For the existing Coolify
+   installation, attach its service to the external `coolify` Docker network with
+   alias `waha`. Declare the network in WAHA's Compose file so recreation preserves it:
+
+   ```yaml
+   services:
+     waha:
+       networks:
+         default:
+         offers:
+           aliases: [waha]
+   networks:
+     offers:
+       external: true
+       name: coolify
+   ```
+
+3. Set `WAHA_BASE_URL=http://waha:3000` and `WAHA_API_KEY=<operator WAHA API key>`
+   in Offers Bot's Coolify environment, then deploy. Do not use `localhost`: from
+   a container it points to that container, not WAHA. Backend startup applies
+   migration `0009_whatsapp_destinations`, keeping existing destinations on Telegram.
+
+WAHA credentials stay server-side; the browser receives only status, its own QR,
+and group names/IDs. Pairing QR responses use `Cache-Control: no-store`. Unlinking
+disables the user's WhatsApp destinations; queued jobs recheck enabled state and
+ownership before delivery. WhatsApp sends use the existing Celery queue and expiry
+rules. Text/photo sends with uncertain results are not automatically replayed.
+The standalone legacy bot remains Telegram-only; WhatsApp is part of the multiuser
+backend worker. Validate a real QR connection and test group after deployment.

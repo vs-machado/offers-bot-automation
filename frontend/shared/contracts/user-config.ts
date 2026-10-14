@@ -10,4 +10,13 @@ export type DestinationSummary = {
   enabled: boolean;
   title?: string | null;
   chat_type?: string;
+  platform?: "telegram" | "whatsapp";
+};
+
+export type DestinationInput = {
+  chat_id: string;
+  title: string | null;
+  chat_type: string;
+  enabled: boolean;
+  platform?: "telegram" | "whatsapp";
 };

@@ -1,4 +1,5 @@
 import json
+import httpx
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from typing import Literal
@@ -155,16 +156,31 @@ def _validate_config(
         )
 
 
-async def _verify_destination_enabled(chat_id: str, enabled: bool) -> None:
+async def _verify_destination_enabled(
+    chat_id: str,
+    enabled: bool,
+    platform: str = "telegram",
+    user_id: int | None = None,
+    chat_type: str = "group",
+) -> None:
     """Confirm platform bot can post before enabling a destination."""
     if not enabled:
         return
     try:
+        if platform == "whatsapp":
+            from backend.app.core.whatsapp import WahaClient
+
+            await WahaClient(user_id).verify_destination(chat_id, chat_type)
+            return
         can_post = await BotPoster().can_post(chat_id)
     except BotPosterError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(exc),
+        ) from exc
+    except httpx.HTTPError as exc:
+        raise HTTPException(
+            400, "Não foi possível verificar conexão e permissões do destino."
         ) from exc
     if not can_post:
         raise HTTPException(
@@ -345,7 +361,11 @@ async def create_destination(
 ):
     """Verify and persist one destination chat for authenticated user."""
     await _verify_destination_enabled(
-        destination_data.chat_id, destination_data.enabled
+        destination_data.chat_id,
+        destination_data.enabled,
+        destination_data.platform,
+        current_user.id,
+        destination_data.chat_type,
     )
     new_destination = DestinationChannel(
         user_id=current_user.id,
@@ -353,6 +373,7 @@ async def create_destination(
         title=destination_data.title,
         chat_type=destination_data.chat_type,
         enabled=destination_data.enabled,
+        platform=destination_data.platform,
     )
     db.add(new_destination)
     await db.commit()
@@ -381,13 +402,18 @@ async def update_destination(
         )
 
     await _verify_destination_enabled(
-        destination_data.chat_id, destination_data.enabled
+        destination_data.chat_id,
+        destination_data.enabled,
+        destination_data.platform,
+        current_user.id,
+        destination_data.chat_type,
     )
 
     destination.chat_id = destination_data.chat_id
     destination.title = destination_data.title
     destination.chat_type = destination_data.chat_type
     destination.enabled = destination_data.enabled
+    destination.platform = destination_data.platform
     await db.commit()
     await db.refresh(destination)
     return destination

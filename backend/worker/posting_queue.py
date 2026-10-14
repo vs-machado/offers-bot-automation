@@ -185,6 +185,8 @@ async def deliver(
     image_data: str | None,
     image_url: str | None,
     parse_mode: str | None,
+    user_id: int | None = None,
+    platform: str = "telegram",
 ) -> None:
     """Send before deadline; only explicit photo rejection permits text fallback."""
     path = None
@@ -195,6 +197,16 @@ async def deliver(
                 stream.write(base64.b64decode(image_data, validate=True))
         if time.time() >= deadline:
             raise PromotionExpired
+        if platform == "whatsapp":
+            from backend.app.core.whatsapp import WahaClient
+
+            await WahaClient(user_id).send_offer(
+                chat_id,
+                text,
+                image_file=path or image_url,
+                request_timeout=min(20, deadline - time.time()),
+            )
+            return
         poster = BotPoster()
         try:
             await poster.send_offer(
@@ -250,7 +262,7 @@ def post_promotion(
         if not claimed:
             return
         allowed = conn.execute(
-            "SELECT 1 FROM destination_channels WHERE user_id=%s AND chat_id=%s AND enabled=true",
+            "SELECT platform FROM destination_channels WHERE user_id=%s AND chat_id=%s AND enabled=true",
             (user_id, chat_id),
         ).fetchone()
     if not allowed:
@@ -261,7 +273,18 @@ def post_promotion(
         update_status(identity, "expired")
         return
     try:
-        asyncio.run(deliver(chat_id, text, deadline, image_data, image_url, parse_mode))
+        asyncio.run(
+            deliver(
+                chat_id,
+                text,
+                deadline,
+                image_data,
+                image_url,
+                parse_mode,
+                user_id=user_id,
+                platform=allowed[0],
+            )
+        )
     except PromotionExpired:
         update_status(identity, "expired")
     except (BotPosterError, httpx.HTTPError) as exc:
