@@ -32,15 +32,19 @@ class UserCreate(UserBase):
     def validate_password(cls, value: str) -> str:
         """Enforce length, strength, and bcrypt-compatible password constraints."""
         if len(value) < 8:
-            raise ValueError("Password must be at least 8 characters.")
+            raise ValueError("Use uma senha com pelo menos 8 caracteres.")
         if len(value.encode("utf-8")) > BCRYPT_MAX_PASSWORD_BYTES:
-            raise ValueError("Password must be at most 72 bytes when UTF-8 encoded.")
+            raise ValueError(
+                "Sua senha ficou muito longa. Reduza a quantidade de caracteres."
+            )
         if value.lower() in COMMON_PASSWORDS:
-            raise ValueError("Password is too common.")
+            raise ValueError(
+                "Essa senha é muito comum. Escolha uma senha mais difícil."
+            )
         if not any(char.isupper() for char in value):
-            raise ValueError("Password must include one uppercase letter.")
+            raise ValueError("Inclua uma letra maiúscula na senha.")
         if not any(char.isdigit() or not char.isalnum() for char in value):
-            raise ValueError("Password must include one number or symbol.")
+            raise ValueError("Inclua um número ou símbolo na senha.")
         return value
 
 

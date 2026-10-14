@@ -17,7 +17,7 @@ async def _save(db: AsyncSession, group: SourceGroup) -> SourceGroup:
     except IntegrityError as exc:
         await db.rollback()
         raise HTTPException(
-            status_code=409, detail="This Telegram group is already in the catalog"
+            status_code=409, detail="Este grupo do Telegram já está cadastrado."
         ) from exc
     await db.refresh(group)
     return group
@@ -27,7 +27,7 @@ async def _find(db: AsyncSession, group_id: int) -> SourceGroup:
     result = await db.execute(select(SourceGroup).where(SourceGroup.id == group_id))
     group = result.scalar_one_or_none()
     if group is None:
-        raise HTTPException(status_code=404, detail="Source group not found")
+        raise HTTPException(status_code=404, detail="Grupo de origem não encontrado.")
     return group
 
 

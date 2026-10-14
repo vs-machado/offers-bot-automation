@@ -11,32 +11,41 @@ export type AuthFormState = "idle" | "submitting" | "success" | "error";
 
 function getPasswordError(password: string) {
   if (password.length < 8) {
-    return "Password must be at least 8 characters.";
+    return "Use uma senha com pelo menos 8 caracteres.";
   }
   if (!/[A-Z]/.test(password)) {
-    return "Password must include one uppercase letter.";
+    return "Inclua uma letra maiúscula na senha.";
   }
   if (!/[0-9\W_]/.test(password)) {
-    return "Password must include one number or symbol.";
+    return "Inclua um número ou símbolo na senha.";
   }
   return "";
 }
 
 function getEmailError(email: string) {
   if (!email) {
-    return "Email is required.";
+    return "Informe seu e-mail.";
   }
   if (!/^\S+@\S+\.\S+$/.test(email)) {
-    return "Enter a valid email address.";
+    return "Confira se o e-mail foi digitado corretamente.";
   }
   return "";
 }
 
-export function useAuthForm() {
+function getSignInError(code?: string) {
+  if (!code) return "";
+  if (code === "Configuration") return "O acesso não está disponível no momento. Entre em contato com o administrador.";
+  if (code === "OAuthAccountNotLinked") return "Este e-mail já está associado a outra forma de acesso. Entre com a opção que usou ao criar sua conta.";
+  if (code === "SessionRequired") return "Sua sessão expirou. Entre novamente.";
+  if (code === "CredentialsSignin") return "E-mail ou senha incorretos.";
+  return "Não foi possível entrar na sua conta. Tente novamente ou entre com seu e-mail e sua senha.";
+}
+
+export function useAuthForm(errorCode?: string) {
   const router = useRouter();
   const [authMode, setAuthMode] = useState<AuthMode>("register");
-  const [formState, setFormState] = useState<AuthFormState>("idle");
-  const [message, setMessage] = useState("");
+  const [formState, setFormState] = useState<AuthFormState>(errorCode ? "error" : "idle");
+  const [message, setMessage] = useState(() => getSignInError(errorCode));
   const [showPassword, setShowPassword] = useState(false);
 
   async function register(formData: FormData, email: string, password: string) {
@@ -59,7 +68,7 @@ export function useAuthForm() {
   async function signInWithCredentials(email: string, password: string) {
     if (!password) {
       setFormState("error");
-      setMessage("Password is required.");
+      setMessage("Informe sua senha.");
       return false;
     }
 
@@ -70,7 +79,7 @@ export function useAuthForm() {
       redirect: false,
     });
     if (result?.error) {
-      throw new Error("Incorrect email or password.");
+      throw new Error("E-mail ou senha incorretos.");
     }
     return true;
   }
@@ -108,19 +117,21 @@ export function useAuthForm() {
       setFormState("success");
       setMessage(
         authMode === "register"
-          ? "Account created. Redirecting to dashboard..."
-          : "Signed in. Redirecting to dashboard..."
+          ? "Conta criada! Abrindo seu painel…"
+          : "Você entrou! Abrindo seu painel…"
       );
       router.push("/dashboard");
       router.refresh();
     } catch (error) {
       setFormState("error");
       setMessage(
-        error instanceof Error
+        error instanceof TypeError
+          ? "Não foi possível conectar. Confira sua conexão e tente novamente."
+          : error instanceof Error
           ? error.message
           : authMode === "register"
-            ? "Could not create account."
-            : "Could not sign in."
+            ? "Não foi possível criar sua conta. Tente novamente."
+            : "Não foi possível entrar. Tente novamente."
       );
     }
   }

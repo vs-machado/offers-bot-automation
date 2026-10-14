@@ -1,3 +1,5 @@
+import { getApiErrorMessage } from "@/lib/api-error-message";
+
 type RegisterInput = {
   email: string;
   full_name: string | null;
@@ -15,7 +17,6 @@ export async function registerUser(input: RegisterInput) {
 
   if (!response.ok) {
     const data = await response.json().catch(() => null);
-    const detail = data?.detail;
-    throw new Error(typeof detail === "string" ? detail : "Could not create account.");
+    throw new Error(getApiErrorMessage(data, "Não foi possível criar sua conta. Tente novamente."));
   }
 }

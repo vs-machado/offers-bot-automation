@@ -12,7 +12,7 @@ type LogoutButtonProps = {
 export function LogoutButton({ compact = false }: LogoutButtonProps) {
   return (
     <Button
-      aria-label={compact ? "Logout" : undefined}
+      aria-label={compact ? "Sair" : undefined}
       className={
         compact
           ? "size-9 border-transparent bg-transparent p-0 text-muted-foreground shadow-none hover:bg-red-500/[0.08] hover:text-red-700 dark:hover:text-red-200"
@@ -23,7 +23,7 @@ export function LogoutButton({ compact = false }: LogoutButtonProps) {
       variant="outline"
     >
       <LogOut className="size-4" strokeWidth={1.8} />
-      {compact ? null : <span>Logout</span>}
+      {compact ? null : <span>Sair</span>}
     </Button>
   );
 }

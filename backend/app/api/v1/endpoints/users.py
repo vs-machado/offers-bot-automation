@@ -83,7 +83,7 @@ def _validate_config(
             if not isinstance(chats, list) or any(
                 not isinstance(chat, str) for chat in chats
             ):
-                raise ValueError("source_chats must be a list of catalog groups")
+                raise ValueError("Selecione os grupos de origem na lista disponível.")
             config_data.config_data = {
                 "source_chats": list(
                     dict.fromkeys(approved_source(chat, catalog) for chat in chats)
@@ -99,10 +99,16 @@ def _validate_config(
         key for key in required_keys if not str(config_data.config_data.get(key, ""))
     ]
     if missing:
+        provider_name = {
+            "amazon": "Amazon",
+            "mercado_livre": "Mercado Livre",
+            "shopee": "Shopee",
+            "aliexpress": "AliExpress",
+        }.get(config_data.config_type, "seu programa de afiliados")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={
-                "message": f"Missing required {config_data.config_type} config keys",
+                "message": f"Preencha os campos obrigatórios para configurar {provider_name}.",
                 "missing_keys": missing,
             },
         )
@@ -122,7 +128,7 @@ async def _verify_destination_enabled(chat_id: str, enabled: bool) -> None:
     if not can_post:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Telegram bot cannot post to this destination",
+            detail="O bot não tem permissão para publicar neste grupo ou canal. Confira as permissões de administrador.",
         )
 
 
@@ -173,7 +179,7 @@ async def preview_source_group(
     if not chat:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Source group URL or ID is required",
+            detail="Informe um grupo de origem do catálogo.",
         )
 
     response = await _preview_source_groups([chat])
@@ -230,7 +236,7 @@ async def update_config(
     config = result.scalar_one_or_none()
     if not config:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Config not found"
+            status_code=status.HTTP_404_NOT_FOUND, detail="Configuração não encontrada."
         )
 
     config.config_type = config_data.config_type
@@ -254,7 +260,7 @@ async def delete_config(
     config = result.scalar_one_or_none()
     if not config:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Config not found"
+            status_code=status.HTTP_404_NOT_FOUND, detail="Configuração não encontrada."
         )
 
     await db.delete(config)
@@ -317,7 +323,8 @@ async def update_destination(
     destination = result.scalar_one_or_none()
     if not destination:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Destination not found"
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Grupo ou canal de publicação não encontrado.",
         )
 
     await _verify_destination_enabled(
@@ -350,7 +357,8 @@ async def delete_destination(
     destination = result.scalar_one_or_none()
     if not destination:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Destination not found"
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Grupo ou canal de publicação não encontrado.",
         )
 
     await db.delete(destination)
@@ -407,7 +415,7 @@ async def update_offer(
     offer = result.scalar_one_or_none()
     if not offer:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Offer not found"
+            status_code=status.HTTP_404_NOT_FOUND, detail="Oferta não encontrada."
         )
 
     offer.platform = offer_data.platform
@@ -435,7 +443,7 @@ async def delete_offer(
     offer = result.scalar_one_or_none()
     if not offer:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Offer not found"
+            status_code=status.HTTP_404_NOT_FOUND, detail="Oferta não encontrada."
         )
 
     await db.delete(offer)

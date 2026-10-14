@@ -1,4 +1,5 @@
 import type { AdminSourceGroup, SourceGroupInput } from "@/features/admin/types";
+import { getApiErrorMessage } from "@/lib/api-error-message";
 
 async function requestCatalog<T>(path: string, method: string, body?: SourceGroupInput): Promise<T> {
   const response = await fetch(`/api/backend/admin/source-groups${path}`, {
@@ -9,13 +10,7 @@ async function requestCatalog<T>(path: string, method: string, body?: SourceGrou
   if (response.status === 204) return undefined as T;
   const data = await response.json().catch(() => null);
   if (!response.ok) {
-    const detail = data?.detail;
-    const message = typeof detail === "string"
-      ? detail
-      : Array.isArray(detail) && typeof detail[0]?.msg === "string"
-        ? detail[0].msg
-        : "Could not save the source catalog.";
-    throw new Error(message);
+    throw new Error(getApiErrorMessage(data, "Não foi possível salvar o catálogo de grupos. Tente novamente."));
   }
   return data as T;
 }

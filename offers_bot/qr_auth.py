@@ -55,13 +55,13 @@ def _build_html_page(png_data: bytes) -> str:
         )
 
     return (
-        "<!DOCTYPE html><html><head><meta charset='UTF-8'>"
+        "<!DOCTYPE html><html lang='pt-BR'><head><meta charset='UTF-8'>"
         "<meta http-equiv='refresh' content='30'>"
-        "<title>QR Login</title>"
+        "<title>Conectar o Telegram</title>"
         "<style>body{font-family:sans-serif;display:flex;justify-content:center;"
         "align-items:center;min-height:100vh;background:#f0f2f5}</style>"
         "</head><body>"
-        f"<img src='data:image/png;base64,{qr_b64}' alt='QR Code' "
+        f"<img src='data:image/png;base64,{qr_b64}' alt='Código QR para conectar o Telegram' "
         "style='width:300px;height:300px'>"
         "</body></html>"
     )

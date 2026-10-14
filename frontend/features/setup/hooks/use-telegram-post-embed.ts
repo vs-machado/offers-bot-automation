@@ -93,6 +93,7 @@ export function useTelegramPostEmbed({
     script.src = "https://telegram.org/js/telegram-widget.js?24";
     script.dataset.telegramPost = postId;
     script.dataset.width = "100%";
+    script.dataset.lang = "pt";
     script.dataset.dark = document.documentElement.classList.contains("dark") ? "1" : "0";
     container.appendChild(script);
     const fallbackTimer = window.setTimeout(markReady, 7000);

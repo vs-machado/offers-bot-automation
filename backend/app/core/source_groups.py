@@ -31,12 +31,16 @@ def normalize_source(chat: str) -> str:
             or parsed.query
             or parsed.fragment
         ):
-            raise ValueError("Use a public Telegram group URL or @username")
+            raise ValueError(
+                "Informe o link de um grupo público do Telegram ou o @usuário do grupo."
+            )
         name = parsed.path.strip("/")
     else:
         name = value
     if not re.fullmatch(r"[A-Za-z][A-Za-z0-9_]{3,31}", name):
-        raise ValueError("Use a public Telegram group URL or @username")
+        raise ValueError(
+            "Informe o link de um grupo público do Telegram ou o @usuário do grupo."
+        )
     return f"https://t.me/{name.lower()}"
 
 
@@ -55,4 +59,4 @@ def approved_source(chat: str, catalog: list[str] | None = None) -> str:
     url = normalize_source(chat)
     if url in (DEFAULT_SOURCE_GROUP_URLS if catalog is None else catalog):
         return url
-    raise ValueError("Select a source group from the platform catalog")
+    raise ValueError("Selecione um dos grupos disponíveis no catálogo da plataforma.")

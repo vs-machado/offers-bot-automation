@@ -65,41 +65,41 @@ const defaultOnboardingState: OnboardingState = {
 const onboardingSteps: OnboardingStep[] = [
   {
     id: "connectedTelegram",
-    title: "Add platform Telegram bot",
-    shortTitle: "Add bot",
-    description: "Add @tgtestoffersbot to the destination where offers should appear.",
+    title: "Adicione o bot da plataforma",
+    shortTitle: "Adicionar bot",
+    description: "Adicione @tgtestoffersbot ao grupo ou canal onde quer publicar as ofertas.",
     icon: Send,
     color: "bg-sky-100 text-sky-600 dark:bg-sky-400/15 dark:text-sky-300",
   },
   {
     id: "addedFirstGroup",
-    title: "Add your first group",
-    shortTitle: "Add group",
-    description: "Add the bot to the group or channel where offers should appear.",
+    title: "Escolha onde publicar",
+    shortTitle: "Escolher destino",
+    description: "Adicione o bot ao grupo ou canal que vai receber as ofertas.",
     icon: UsersRound,
     color: "bg-emerald-100 text-emerald-600 dark:bg-emerald-400/15 dark:text-emerald-300",
   },
   {
     id: "selectedMessageTemplate",
-    title: "Add destination chat ID",
-    shortTitle: "Add chat ID",
-    description: "Paste the destination chat ID so we can verify bot posting access.",
+    title: "Informe o ID do grupo ou canal",
+    shortTitle: "Informar ID",
+    description: "Informe o ID para verificarmos se o bot pode publicar nesse grupo ou canal.",
     icon: MessageSquareText,
     color: "bg-orange-100 text-orange-600 dark:bg-orange-400/15 dark:text-orange-300",
   },
   {
     id: "configuredAffiliates",
-    title: "Configure affiliate sources",
-    shortTitle: "Configure affiliates",
-    description: "Add affiliate sources and tracking settings.",
+    title: "Configure seus programas de afiliados",
+    shortTitle: "Configurar afiliados",
+    description: "Cadastre suas credenciais de afiliado para usar seus próprios links.",
     icon: Link2,
     color: "bg-violet-100 text-violet-600 dark:bg-violet-400/15 dark:text-violet-300",
   },
   {
     id: "addedBotToGroup",
-    title: "Choose source groups",
-    shortTitle: "Choose sources",
-    description: "Select which Telegram groups the bot should copy offers from.",
+    title: "Escolha de quais grupos copiar ofertas",
+    shortTitle: "Escolher grupos",
+    description: "Escolha os grupos de origem das ofertas que o bot vai copiar.",
     icon: CalendarClock,
     color: "bg-blue-100 text-blue-600 dark:bg-blue-400/15 dark:text-blue-300",
   },
@@ -113,20 +113,20 @@ const setupBenefits: Array<{
 }> = [
   {
     icon: Clock,
-    title: "Save time",
-    description: "Automate repetitive tasks",
+    title: "Economize tempo",
+    description: "Deixe as tarefas repetitivas com o bot",
     color: "bg-sky-100 text-sky-600 dark:bg-sky-400/15 dark:text-sky-300",
   },
   {
     icon: TrendingUp,
-    title: "Increase earnings",
-    description: "Publish more, earn more",
+    title: "Ganhe com seus links",
+    description: "Compartilhe mais ofertas com seus links de afiliado",
     color: "bg-emerald-100 text-emerald-600 dark:bg-emerald-400/15 dark:text-emerald-300",
   },
   {
     icon: UsersRound,
-    title: "Grow your audience",
-    description: "Reach more people daily",
+    title: "Amplie seu público",
+    description: "Alcance mais pessoas todos os dias",
     color: "bg-violet-100 text-violet-600 dark:bg-violet-400/15 dark:text-violet-300",
   },
 ];
@@ -136,34 +136,34 @@ const sidebarItems: Array<{
   label: string;
   active?: boolean;
 }> = [
-  { icon: Home, label: "Home", active: true },
-  { icon: MessageSquareText, label: "Messages" },
-  { icon: CalendarClock, label: "Scheduled messages" },
-  { icon: UsersRound, label: "Groups" },
-  { icon: Link2, label: "Affiliate sources" },
-  { icon: FileText, label: "Templates" },
-  { icon: Settings, label: "Settings" },
+  { icon: Home, label: "Início", active: true },
+  { icon: MessageSquareText, label: "Mensagens" },
+  { icon: CalendarClock, label: "Agendamentos" },
+  { icon: UsersRound, label: "Grupos" },
+  { icon: Link2, label: "Afiliados" },
+  { icon: FileText, label: "Modelos de mensagem" },
+  { icon: Settings, label: "Configurações" },
 ];
 
 const workflowSteps = [
   {
-    title: "Use platform Telegram bot",
-    description: "The app posts through @tgtestoffersbot, not your Telegram user account.",
+    title: "Use o bot da plataforma",
+    description: "O bot @tgtestoffersbot publica as ofertas nos grupos e canais que você escolher.",
     icon: UsersRound,
   },
   {
-    title: "Add bot to destinations",
-    description: "Make the bot admin in every group or channel where offers should be published.",
+    title: "Adicione o bot aos seus grupos",
+    description: "Dê ao bot permissão de administrador nos grupos e canais que vão receber as ofertas.",
     icon: MessageSquareText,
   },
   {
-    title: "Configure affiliate sources",
-    description: "Add affiliate sources and tracking settings before offers go live.",
+    title: "Configure seus programas de afiliados",
+    description: "Cadastre suas credenciais para converter os links antes de publicar as ofertas.",
     icon: Sparkles,
   },
   {
-    title: "Verify posting access",
-    description: "Save the destination chat ID so the bot can publish there.",
+    title: "Confirme a permissão de publicação",
+    description: "Salve o ID do grupo ou canal para verificarmos se o bot pode publicar nele.",
     icon: Link2,
   },
 ];
@@ -176,28 +176,28 @@ const productionMetrics: Array<{
   bar: string;
 }> = [
   {
-    label: "Messages posted",
+    label: "Mensagens publicadas",
     value: "128",
     icon: Send,
     accent: "bg-emerald-100 text-emerald-600 dark:bg-emerald-400/15 dark:text-emerald-300",
     bar: "bg-emerald-500",
   },
   {
-    label: "Scheduled posts",
+    label: "Publicações agendadas",
     value: "16",
     icon: CalendarClock,
     accent: "bg-sky-100 text-sky-600 dark:bg-sky-400/15 dark:text-sky-300",
     bar: "bg-sky-500",
   },
   {
-    label: "Converted links",
+    label: "Links convertidos",
     value: "94",
     icon: Link2,
     accent: "bg-violet-100 text-violet-600 dark:bg-violet-400/15 dark:text-violet-300",
     bar: "bg-violet-500",
   },
   {
-    label: "Connected groups",
+    label: "Grupos configurados",
     value: "8",
     icon: UsersRound,
     accent: "bg-orange-100 text-orange-600 dark:bg-orange-400/15 dark:text-orange-300",
@@ -306,10 +306,10 @@ function OperationalDashboard() {
       <Card className="border border-border bg-card py-0 shadow-[0_16px_50px_rgba(15,23,42,0.04)] dark:border-white/10 dark:bg-white/[0.035] dark:shadow-[0_24px_80px_rgba(0,0,0,0.24)]">
         <CardHeader className="p-6 pb-2">
           <CardTitle className="text-2xl font-black tracking-tight">
-            Recent activity
+            Atividade recente
           </CardTitle>
           <p className="text-sm text-muted-foreground">
-            Production workspace activity appears here after onboarding completes.
+            Depois de concluir a configuração, acompanhe aqui as publicações do bot.
           </p>
         </CardHeader>
         <CardContent className="p-6 pt-4">
@@ -319,10 +319,10 @@ function OperationalDashboard() {
             </div>
             <div>
               <p className="text-sm font-semibold text-card-foreground">
-                Nothing posted yet
+                Nenhuma oferta publicada ainda
               </p>
               <p className="mt-1 text-sm text-muted-foreground">
-                Once your bot publishes an offer, it will show up here.
+                As ofertas aparecerão aqui quando o bot começar a publicar.
               </p>
             </div>
           </div>
@@ -359,8 +359,8 @@ export async function Dashboard() {
     addedBotToGroup: hasSourceChatsConfig,
   };
   const dbFullName = dbUser?.full_name?.trim();
-  const userEmail = dbUser?.email || session.user?.email || "Signed in";
-  const userName = dbFullName || session.user?.name || userEmail || "Workspace user";
+  const userEmail = dbUser?.email || session.user?.email || "Conta conectada";
+  const userName = dbFullName || session.user?.name || userEmail || "Usuário";
   const userInitial = (userName || userEmail || "U")
     .trim()
     .charAt(0)
@@ -386,7 +386,7 @@ export async function Dashboard() {
             <ThemeToggle />
           </div>
 
-          <nav aria-label="Dashboard sections" className="mt-5 space-y-1.5">
+          <nav aria-label="Seções do painel" className="mt-5 space-y-1.5">
             {sidebarItems.map((item) => {
               const Icon = item.icon;
 
@@ -410,7 +410,7 @@ export async function Dashboard() {
 
           {dbUser?.role === "admin" ? (
             <Link href="/admin/source-groups" className="mt-3 flex h-12 items-center gap-4 rounded-xl px-4 text-sm font-medium text-sidebar-primary hover:bg-sidebar-accent">
-              <Settings className="size-5" />Admin source catalog
+              <Settings className="size-5" />Administrar grupos de origem
             </Link>
           ) : null}
 
@@ -458,29 +458,29 @@ export async function Dashboard() {
         </div>
 
         {dbUser?.role === "admin" ? (
-          <Link href="/admin/source-groups" className="mx-4 mt-4 flex items-center gap-2 text-sm font-medium text-primary lg:hidden"><Settings className="size-4" />Admin source catalog</Link>
+          <Link href="/admin/source-groups" className="mx-4 mt-4 flex items-center gap-2 text-sm font-medium text-primary lg:hidden"><Settings className="size-4" />Administrar grupos de origem</Link>
         ) : null}
 
         <div className="px-4 pt-5 lg:px-0 lg:pt-0">
         <header className="relative pb-6 pr-0 md:min-h-36 md:pr-[300px] lg:min-h-40 lg:pr-[360px] xl:pr-[470px]">
           <div className="relative z-10 pt-1">
             <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl md:text-[2.1rem]">
-              Good morning, {userName}! <span aria-hidden="true">👋</span>
+              Olá, {userName}! <span aria-hidden="true">👋</span>
             </h1>
             <p className="mt-2 max-w-md text-base text-muted-foreground">
               {allStepsCompleted
-                ? "Your bot is live and posting offers to your groups automatically."
-                : "Finish setup and your bot starts posting offers on its own."}
+                ? "Seu bot está configurado para publicar ofertas automaticamente nos seus grupos."
+                : "Conclua a configuração para começar a publicar ofertas automaticamente."}
             </p>
             <div className="mt-4 inline-flex items-center gap-2 rounded-full border border-border bg-muted/50 px-3 py-1.5 text-xs font-semibold text-muted-foreground">
               {allStepsCompleted ? (
                 <>
                   <Activity className="dash-status-dot size-3.5 text-emerald-600 dark:text-emerald-300" />
-                  <span className="text-card-foreground">Bot is live</span>
+                  <span className="text-card-foreground">Bot configurado</span>
                 </>
               ) : (
                 <>
-                  {completedCount} of {totalSteps} setup steps done
+                  {completedCount} de {totalSteps} etapas concluídas
                 </>
               )}
             </div>
@@ -498,17 +498,17 @@ export async function Dashboard() {
               <CardContent className="grid gap-6 p-5 sm:p-6 xl:grid-cols-[200px_1fr] xl:items-center 2xl:grid-cols-[200px_1fr_auto]">
                 <div>
                   <CardTitle className="text-2xl font-semibold tracking-tight">
-                    Let&apos;s set up your bot
+                    Vamos configurar seu bot
                   </CardTitle>
                   <p className="mt-2 text-sm text-muted-foreground">
-                    Complete these steps to publish your first automated offer.
+                    Siga estas etapas para publicar sua primeira oferta automaticamente.
                   </p>
                   <p className="mt-6 text-sm font-semibold text-card-foreground">
-                    Your progress
+                    Seu progresso
                   </p>
                   <div className="mt-2 flex items-baseline gap-2">
                     <p className="text-3xl font-bold text-foreground">
-                      {completedCount} of {totalSteps}
+                      {completedCount} de {totalSteps}
                     </p>
                     <span className="text-sm font-semibold text-primary">
                       {progressPercent}%
@@ -579,11 +579,11 @@ export async function Dashboard() {
                     <div className="flex items-center gap-3">
                       <Sparkles className="size-5 text-primary" />
                       <CardTitle className="text-2xl font-semibold tracking-tight">
-                        How your bot works
+                        Como o bot funciona
                       </CardTitle>
                     </div>
                     <p className="text-sm text-muted-foreground">
-                      Your bot automatically finds, formats and posts offers for you.
+                      O bot recebe as ofertas dos grupos escolhidos, prepara as mensagens e publica para você.
                     </p>
                   </CardHeader>
                   <CardContent className="flex flex-1 items-center p-6 pt-4">
@@ -620,7 +620,7 @@ export async function Dashboard() {
 
                 <div className="hidden min-h-[500px] items-center justify-center p-4 pt-12 md:flex xl:min-h-[560px] xl:pt-16">
                   <Image
-                    alt="How the bot clones offers, converts links, and publishes them to your groups"
+                    alt="Como o bot copia ofertas, converte links e publica nos seus grupos"
                     className="h-auto max-h-full w-full scale-110 object-contain object-center dark:opacity-90"
                     height={1024}
                     loading="eager"
@@ -634,10 +634,10 @@ export async function Dashboard() {
                 <CardHeader className="flex flex-col gap-4 p-6 pb-2 sm:flex-row sm:items-start sm:justify-between">
                   <div>
                     <CardTitle className="text-2xl font-semibold tracking-tight">
-                      Setup checklist
+                      Etapas da configuração
                     </CardTitle>
                     <p className="mt-2 text-sm text-muted-foreground">
-                      Complete steps below to activate your automation.
+                      Conclua as etapas abaixo para ativar a publicação automática.
                     </p>
                   </div>
                 </CardHeader>
@@ -665,7 +665,7 @@ export async function Dashboard() {
                               {step.description}
                             </p>
                             <span className="mt-2 inline-flex rounded-md bg-muted px-2 py-1 text-[11px] font-semibold text-muted-foreground sm:hidden">
-                              {isCompleted ? "Completed" : "Not started"}
+                              {isCompleted ? "Concluído" : "Pendente"}
                             </span>
                           </div>
                           <span
@@ -675,7 +675,7 @@ export async function Dashboard() {
                                 : "hidden shrink-0 rounded-md bg-muted px-3 py-1.5 text-xs font-semibold text-muted-foreground sm:inline-flex"
                             }
                           >
-                            {isCompleted ? "Completed" : "Not started"}
+                            {isCompleted ? "Concluído" : "Pendente"}
                           </span>
                         </div>
                       );
@@ -700,10 +700,10 @@ export async function Dashboard() {
                 </div>
                 <div>
                   <h2 className="text-2xl font-semibold tracking-tight text-card-foreground">
-                    Ready to go live!
+                    Falta pouco para começar!
                   </h2>
                   <p className="mt-2 text-base leading-7 text-muted-foreground">
-                    Finish setup to start scheduling and publishing offers automatically.
+                    Conclua a configuração para começar a publicar ofertas automaticamente.
                   </p>
                 </div>
                 {setupBenefits.map((benefit) => {

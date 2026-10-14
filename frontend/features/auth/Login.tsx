@@ -23,25 +23,25 @@ import { useAuthForm } from "@/features/auth/hooks/use-auth-form";
 const benefits = [
   {
     icon: UsersRound,
-    title: "Multi-tenant",
-    text: "Isolated configs and data per workspace.",
+    title: "Sua conta, suas configurações",
+    text: "Suas configurações e seus dados ficam separados dos de outras contas.",
   },
   {
     icon: Send,
-    title: "Smart posting",
-    text: "Send offers to multiple Telegram destinations.",
+    title: "Publicação automática",
+    text: "Publique ofertas em vários grupos e canais do Telegram.",
   },
   {
     icon: Link2,
-    title: "Affiliate ready",
-    text: "Convert and track links across marketplaces.",
+    title: "Links de afiliado",
+    text: "Use seus links de afiliado nas principais lojas.",
   },
 ];
 
 const trustItems = [
-  { icon: Lock, text: "Secure by design" },
-  { icon: Shield, text: "Your data is private" },
-  { icon: Zap, text: "Built for speed" },
+  { icon: Lock, text: "Acesso protegido" },
+  { icon: Shield, text: "Seus dados são privados" },
+  { icon: Zap, text: "Mais agilidade no dia a dia" },
 ];
 
 function Field({
@@ -72,7 +72,7 @@ function Field({
   );
 }
 
-export function Login() {
+export function Login({ errorCode }: { errorCode?: string }) {
   const {
     authMode,
     formState,
@@ -82,7 +82,7 @@ export function Login() {
     setShowPassword,
     showPassword,
     switchAuthMode,
-  } = useAuthForm();
+  } = useAuthForm(errorCode);
 
   return (
     <main className="relative isolate min-h-[100dvh] overflow-x-hidden bg-[#07110f] text-white">
@@ -103,15 +103,15 @@ export function Login() {
           </div>
 
           <div className="w-fit rounded-full border border-emerald-400/20 bg-emerald-400/5 px-4 py-2 text-[11px] font-bold uppercase tracking-[0.2em] text-emerald-300 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
-            Telegram Offers Bot Automation
+            Ofertas automáticas no Telegram
           </div>
 
           <h1 className="mt-7 max-w-[500px] text-4xl font-bold leading-[1.12] tracking-[-0.04em] text-slate-100 sm:text-5xl lg:text-[3.45rem]">
-            Automate offer delivery. <span className="text-emerald-500">Scale your earnings.</span>
+            Publique ofertas automaticamente. <span className="text-emerald-500">Amplie seus ganhos.</span>
           </h1>
 
           <p className="mt-6 max-w-[430px] text-base leading-7 text-slate-300">
-            Create your workspace, connect destinations, and start delivering offers across Telegram automatically.
+            Crie sua conta, escolha onde publicar e deixe o bot compartilhar as ofertas no Telegram.
           </p>
 
           <div className="mt-8 space-y-3">
@@ -154,28 +154,28 @@ export function Login() {
               <UserRoundPlus className="size-6" strokeWidth={1.8} />
             </div>
             <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-emerald-400 sm:mt-6">
-              {authMode === "register" ? "Registration" : "Sign in"}
+              {authMode === "register" ? "Cadastro" : "Entrar"}
             </p>
             <h2 className="mt-2 text-2xl font-bold tracking-[-0.04em] text-slate-100 sm:mt-3 sm:text-3xl">
-              {authMode === "register" ? "Create your account" : "Welcome back"}
+              {authMode === "register" ? "Crie sua conta" : "Que bom ter você de volta!"}
             </h2>
             <p className="mt-2 text-sm text-slate-400 sm:mt-3">
               {authMode === "register"
-                ? "Use your email and password to create your workspace."
-                : "Sign in with your email and password."}
+                ? "Cadastre seu e-mail e uma senha para começar."
+                : "Entre com seu e-mail e sua senha."}
             </p>
           </div>
 
           <form className="space-y-4 sm:space-y-5" noValidate onSubmit={handleSubmit}>
             {authMode === "register" ? (
-              <Field icon={User} label="Full name" name="fullName" placeholder="Jane Doe" type="text" />
+              <Field icon={User} label="Nome completo" name="fullName" placeholder="Seu nome completo" type="text" />
             ) : null}
 
             <Field
               icon={Mail}
-              label="Email"
+              label="E-mail"
               name="email"
-              placeholder="you@example.com"
+              placeholder="voce@exemplo.com.br"
               required
               type="email"
             />
@@ -183,7 +183,7 @@ export function Login() {
             <Field
               action={
                 <button
-                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
                   className="absolute right-2 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-full text-slate-500 outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/40"
                   onClick={() => setShowPassword((value) => !value)}
                   type="button"
@@ -196,20 +196,20 @@ export function Login() {
                 </button>
               }
               icon={Lock}
-              label="Password"
+              label="Senha"
               name="password"
-              placeholder="At least 8 characters"
+              placeholder="No mínimo 8 caracteres"
               type={showPassword ? "text" : "password"}
             />
 
             {authMode === "register" ? (
             <div className="rounded-xl border border-emerald-400/10 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-100 sm:px-4 sm:py-3 sm:text-sm">
-              <p className="font-semibold text-emerald-300">Password must contain:</p>
+              <p className="font-semibold text-emerald-300">Sua senha precisa ter:</p>
               <div className="mt-1.5 space-y-1 text-[11px] text-slate-300 sm:mt-2 sm:space-y-1.5 sm:text-xs">
                 {[
-                  "At least 8 characters",
-                  "One uppercase letter",
-                  "One number or symbol",
+                  "No mínimo 8 caracteres",
+                  "Uma letra maiúscula",
+                  "Um número ou símbolo",
                 ].map((rule) => (
                   <div className="flex items-center gap-2" key={rule}>
                     <CheckCircle2 className="size-3.5 text-emerald-400" strokeWidth={2} />
@@ -228,11 +228,11 @@ export function Login() {
             >
               {formState === "submitting"
                 ? authMode === "register"
-                  ? "Creating account..."
-                  : "Signing in..."
+                  ? "Criando sua conta…"
+                  : "Entrando…"
                 : authMode === "register"
-                  ? "Create account"
-                  : "Sign in"}
+                  ? "Criar conta"
+                  : "Entrar"}
             </Button>
 
             {message ? (
@@ -250,7 +250,7 @@ export function Login() {
 
           <div className="my-6 grid grid-cols-[1fr_auto_1fr] items-center gap-4 text-xs text-slate-500">
             <div className="h-px bg-white/10" />
-            <span>OR</span>
+            <span>OU</span>
             <div className="h-px bg-white/10" />
           </div>
 
@@ -263,18 +263,18 @@ export function Login() {
             variant="outline"
           >
             <span className="text-base font-black text-emerald-400">G</span>
-            Continue with Google
+            Continuar com o Google
           </Button>
 
           <p className="mt-7 text-center text-sm text-slate-400">
-            {authMode === "register" ? "Already have an account?" : "Need an account?"}{" "}
+            {authMode === "register" ? "Já tem uma conta?" : "Ainda não tem conta?"}{" "}
             <Button
               className="h-auto rounded-none p-0 font-bold text-emerald-400 hover:bg-transparent hover:text-emerald-300 hover:no-underline"
               onClick={() => switchAuthMode(authMode === "register" ? "signin" : "register")}
               type="button"
               variant="link"
             >
-              {authMode === "register" ? "Sign in" : "Create account"}
+              {authMode === "register" ? "Entrar" : "Criar conta"}
             </Button>
           </p>
           </div>

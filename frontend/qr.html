@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="refresh" content="30">
-  <title>Connect Telegram</title>
+  <title>Conectar o Telegram</title>
   <style>
     *, *::before, *::after {
       box-sizing: border-box;
@@ -186,37 +186,37 @@
       </svg>
     </div>
 
-    <h1>Connect Telegram</h1>
-    <p class="subtitle">Link your Telegram account to activate the bot</p>
+    <h1>Conectar o Telegram</h1>
+    <p class="subtitle">Conecte a conta da plataforma para receber as ofertas dos grupos de origem</p>
 
     <div class="qr-wrapper">
-      <img src="data:image/png;base64,{{QR_B64}}" alt="QR Code">
+      <img src="data:image/png;base64,{{QR_B64}}" alt="Código QR para conectar o Telegram">
     </div>
 
     <div class="steps">
       <div class="step">
         <span class="step-number">1</span>
-        <div class="step-content">Open <strong>Telegram</strong> on your phone</div>
+        <div class="step-content">Abra o <strong>Telegram</strong> no celular</div>
       </div>
       <div class="step">
         <span class="step-number">2</span>
-        <div class="step-content">Go to <strong>Settings</strong> → <strong>Devices</strong> → <strong>Scan QR</strong></div>
+        <div class="step-content">Acesse <strong>Configurações</strong> → <strong>Dispositivos</strong> → <strong>Conectar dispositivo</strong></div>
       </div>
       <div class="step">
         <span class="step-number">3</span>
-        <div class="step-content">Point your camera at the code above</div>
+        <div class="step-content">Aponte a câmera para o código acima</div>
       </div>
     </div>
 
     <div class="status">
       <span class="status-dot"></span>
-      Waiting for scan
+      Aguardando a leitura do código…
     </div>
 
     <div class="footer">
-      <span>Auto-refresh every 30s</span>
+      <span>Atualiza automaticamente a cada 30 segundos</span>
       <span class="dot">·</span>
-      <span>Expires in {{QR_AUTH_TIMEOUT}}s</span>
+      <span>Expira em {{QR_AUTH_TIMEOUT}} segundos</span>
     </div>
   </div>
 </body>

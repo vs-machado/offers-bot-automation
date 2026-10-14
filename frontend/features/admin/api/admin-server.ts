@@ -17,6 +17,6 @@ export async function getAdminSourceGroups(): Promise<AdminSourceGroup[]> {
   });
   if (response.status === 401) redirect("/");
   if (response.status === 403) redirect("/dashboard");
-  if (!response.ok) throw new Error("Could not load the source catalog.");
+  if (!response.ok) throw new Error("Não foi possível carregar o catálogo de grupos.");
   return response.json() as Promise<AdminSourceGroup[]>;
 }

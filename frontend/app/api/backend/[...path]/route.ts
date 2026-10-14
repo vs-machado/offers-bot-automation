@@ -75,7 +75,7 @@ async function handler(request: NextRequest, context: RouteContext) {
   const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
   const accessToken = token?.accessToken;
   if (typeof accessToken !== "string") {
-    return NextResponse.json({ detail: "Authentication required" }, { status: 401 });
+    return NextResponse.json({ detail: "Entre na sua conta para continuar." }, { status: 401 });
   }
 
   let response = await proxyToBackend(request, context, accessToken);
@@ -88,7 +88,7 @@ async function handler(request: NextRequest, context: RouteContext) {
 
   if (response.status === 401) {
     return NextResponse.json(
-      { detail: "FastAPI session expired. Sign in again." },
+      { detail: "Sua sessão expirou. Entre novamente." },
       { status: 401 },
     );
   }

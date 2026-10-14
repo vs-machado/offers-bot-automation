@@ -1,4 +1,5 @@
 import type { SourceGroup } from "@/features/setup/types";
+import { getApiErrorMessage } from "@/lib/api-error-message";
 import type { ConfigSummary, DestinationSummary } from "@/shared/contracts/user-config";
 
 type SaveConfigInput = {
@@ -13,29 +14,12 @@ type SaveDestinationInput = {
   id?: number;
 };
 
-function getErrorMessage(data: unknown, fallback: string) {
-  if (!data || typeof data !== "object" || !("detail" in data)) {
-    return fallback;
-  }
-
-  const detail = data.detail;
-  if (typeof detail === "string") {
-    return detail;
-  }
-
-  if (detail && typeof detail === "object" && "message" in detail) {
-    return typeof detail.message === "string" ? detail.message : fallback;
-  }
-
-  return fallback;
-}
-
 async function requestJson<T>(url: string, init: RequestInit, errorMessage: string): Promise<T> {
   const response = await fetch(url, init);
   const data = await response.json().catch(() => null);
 
   if (!response.ok) {
-    throw new Error(getErrorMessage(data, errorMessage));
+    throw new Error(getApiErrorMessage(data, errorMessage));
   }
 
   return data as T;
@@ -45,7 +29,7 @@ export async function getSourceGroups() {
   const data = await requestJson<{ groups?: SourceGroup[] }>(
     "/api/backend/users/me/source-groups/messages",
     {},
-    "Could not load source groups."
+    "Não foi possível carregar os grupos de origem."
   );
   return data.groups ?? [];
 }
@@ -60,7 +44,7 @@ export async function previewSourceGroup(chat: string) {
       },
       body: JSON.stringify({ chat }),
     },
-    "Could not preview source group."
+    "Não foi possível carregar as mensagens deste grupo."
   );
   return data.groups?.[0] ?? null;
 }
@@ -104,6 +88,6 @@ export function saveDestination({ chatId, id }: SaveDestinationInput) {
         enabled: true,
       }),
     },
-    "Could not verify bot access to this destination."
+    "Não foi possível verificar o acesso do bot. Confira o ID e as permissões no grupo ou canal."
   );
 }

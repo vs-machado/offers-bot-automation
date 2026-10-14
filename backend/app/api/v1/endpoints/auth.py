@@ -52,7 +52,7 @@ def _check_rate_limit(action: str, request: Request) -> None:
     if len(bucket) >= RATE_LIMIT_MAX_ATTEMPTS:
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail="Too many authentication attempts. Try again later.",
+            detail="Você fez muitas tentativas em pouco tempo. Aguarde um minuto e tente novamente.",
         )
     bucket.append(now)
 
@@ -71,7 +71,7 @@ async def get_current_user(
     """Decode bearer token and load its user from the database."""
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
+        detail="Sua sessão não é válida. Entre novamente.",
         headers={"WWW-Authenticate": "Bearer"},
     )
     try:
@@ -94,7 +94,10 @@ async def get_current_user(
 async def require_admin(current_user: User = Depends(get_current_user)) -> User:
     """Check database role on every request; stale JWT claims cannot grant access."""
     if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Administrator access required")
+        raise HTTPException(
+            status_code=403,
+            detail="Você não tem permissão para acessar essa página.",
+        )
     return current_user
 
 
@@ -110,7 +113,8 @@ async def register(
     result = await db.execute(statement)
     if result.scalar_one_or_none():
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Email already registered"
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Este e-mail já está cadastrado. Entre na sua conta ou use outro e-mail.",
         )
 
     new_user = User(
@@ -145,7 +149,7 @@ async def login(
     ):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password",
+            detail="E-mail ou senha incorretos.",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
@@ -164,12 +168,12 @@ async def exchange_session(
     if not expected_secret:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Backend session exchange is not configured.",
+            detail="O acesso com o Google não está disponível no momento.",
         )
     if not secrets.compare_digest(body.secret, expected_secret):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Could not validate session proof",
+            detail="Não foi possível validar sua sessão. Entre novamente.",
         )
 
     statement = select(User).where(User.email == body.email)

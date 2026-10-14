@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { getRequestErrorMessage } from "@/lib/api-error-message";
 import { saveDestination, saveUserConfig } from "@/features/setup/api/setup-client";
 import { LinkedText } from "@/features/setup/components/LinkedText";
 import {
@@ -36,56 +37,56 @@ type SetupDialogProps = {
 };
 
 const setupSteps = [
-  `Add @${platformBotUsername} to your destination group or channel.`,
-  "Promote that bot to admin with permission to post messages and photos.",
-  "Paste the destination chat ID below and confirm setup.",
+  `Adicione @${platformBotUsername} ao grupo ou canal onde quer publicar as ofertas.`,
+  "Torne o bot administrador e permita que ele envie mensagens e fotos.",
+  "Cole abaixo o ID do grupo ou canal e salve a configuração.",
 ];
 
 const chatIdSteps = [
-  "Add @RawDataBot to the group, send any message, then copy the chat.id value.",
-  "For channels, forward one channel post to @RawDataBot and copy forward_from_chat.id.",
-  "Group and channel IDs often start with -100. Keep the minus sign.",
-  "Remove @RawDataBot after copying the ID if you do not want to keep it there.",
+  "Adicione @RawDataBot ao grupo, envie uma mensagem e copie o valor de chat.id.",
+  "Se for um canal, encaminhe uma publicação para @RawDataBot e copie forward_from_chat.id.",
+  "Os IDs de grupos e canais geralmente começam com -100. Mantenha o sinal de menos.",
+  "Depois de copiar o ID, você pode remover @RawDataBot do grupo.",
 ];
 
 const providers: Provider[] = [
   {
     type: "amazon",
     name: "Amazon",
-    description: "Use your affiliate tag plus Amazon session cookie tokens.",
+    description: "Informe sua tag de afiliado e os cookies da sua sessão na Amazon.",
     fields: [
-      { key: "amazon_affiliate_tag", label: "Affiliate tag", placeholder: "yourtag-20", required: true },
-      { key: "amazon_cookie_header", label: "Cookie header", placeholder: "session-id=...; at-acbbr=...", required: true },
-      { key: "amazon_marketplace_id", label: "Marketplace ID", placeholder: "526970" },
+      { key: "amazon_affiliate_tag", label: "Tag de afiliado", placeholder: "suatag-20", required: true },
+      { key: "amazon_cookie_header", label: "Cookies da sessão", placeholder: "session-id=...; at-acbbr=...", required: true },
+      { key: "amazon_marketplace_id", label: "ID do marketplace", placeholder: "526970" },
     ],
   },
   {
     type: "shopee",
     name: "Shopee",
-    description: "Use Shopee Open Platform affiliate credentials.",
+    description: "Informe as credenciais do seu programa de afiliados na Shopee Open Platform.",
     fields: [
-      { key: "shopee_app_id", label: "App ID", required: true },
-      { key: "shopee_app_secret", label: "App secret", required: true },
+      { key: "shopee_app_id", label: "ID do aplicativo", required: true },
+      { key: "shopee_app_secret", label: "Chave secreta do aplicativo", required: true },
     ],
   },
   {
     type: "mercado_livre",
     name: "Mercado Livre",
-    description: "Use affiliate tag, browser cookie, and CSRF token.",
+    description: "Informe sua tag de afiliado, os cookies da sessão e o token CSRF do Mercado Livre.",
     fields: [
-      { key: "ml_affiliate_tag", label: "Affiliate tag", required: true },
-      { key: "ml_cookie_header", label: "Cookie header", required: true },
-      { key: "ml_csrf_token", label: "CSRF token", required: true },
+      { key: "ml_affiliate_tag", label: "Tag de afiliado", required: true },
+      { key: "ml_cookie_header", label: "Cookies da sessão", required: true },
+      { key: "ml_csrf_token", label: "Token CSRF", required: true },
     ],
   },
   {
     type: "aliexpress",
     name: "AliExpress",
-    description: "Use AliExpress app credentials and optional tracking ID.",
+    description: "Informe as credenciais do AliExpress e, se tiver, seu ID de rastreamento.",
     fields: [
-      { key: "aliexpress_app_key", label: "App key", required: true },
-      { key: "aliexpress_app_secret", label: "App secret", required: true },
-      { key: "aliexpress_tracking_id", label: "Tracking ID", placeholder: "default" },
+      { key: "aliexpress_app_key", label: "Chave do aplicativo", required: true },
+      { key: "aliexpress_app_secret", label: "Chave secreta do aplicativo", required: true },
+      { key: "aliexpress_tracking_id", label: "ID de rastreamento", placeholder: "default" },
     ],
   },
 ];
@@ -133,22 +134,22 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
   const canSaveSources = selectedSourceChats.length > 0;
   const headerLabel =
     screen === "destination"
-      ? "Telegram bot setup"
+      ? "Configuração do Telegram"
       : screen === "providers"
-        ? "Affiliate provider setup"
-        : "Source group setup";
+        ? "Programas de afiliados"
+        : "Grupos de origem";
   const headerTitle =
     screen === "destination"
-      ? "Connect your destination"
+      ? "Escolha onde publicar as ofertas"
       : screen === "providers"
-        ? "Connect affiliate providers"
-        : "Choose source groups";
+        ? "Configure seus programas de afiliados"
+        : "Escolha de quais grupos copiar ofertas";
   const headerDescription =
     screen === "destination"
-      ? "Add the platform Telegram bot to your destination, then save the destination chat ID."
+      ? "Adicione o bot da plataforma ao seu grupo ou canal e informe o ID abaixo."
       : screen === "providers"
-        ? "Save credentials for at least one provider so the bot can convert product links into your affiliate links."
-        : "Review recent messages from built-in source groups, then select which ones should be copied.";
+        ? "Configure pelo menos um programa de afiliados para que o bot use seus links nas ofertas."
+        : "Veja as mensagens recentes e escolha de quais grupos o bot deve copiar as ofertas.";
 
   function openDialog() {
     setScreen(hasEnabledDestination ? "providers" : "destination");
@@ -197,7 +198,7 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
   function goToProviders() {
     if (!canGoToProviders) {
       setStatus("error");
-      setMessage("Save a destination before continuing to affiliate providers.");
+      setMessage("Salve o grupo ou canal de publicação antes de configurar seus afiliados.");
       return;
     }
 
@@ -209,7 +210,7 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
   function goToSources() {
     if (!canFinish) {
       setStatus("error");
-      setMessage("Connect at least one affiliate provider before choosing source groups.");
+      setMessage("Configure pelo menos um programa de afiliados antes de escolher os grupos de origem.");
       return;
     }
 
@@ -221,7 +222,7 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
   async function saveSourceGroups() {
     if (!canSaveSources) {
       setStatus("error");
-      setMessage("Select or add at least one source group.");
+      setMessage("Selecione pelo menos um grupo de origem.");
       return;
     }
 
@@ -234,7 +235,7 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
       const savedConfig = await saveUserConfig({
         configData: { source_chats: selectedSourceChats },
         configType: "source_chats",
-        errorMessage: "Could not save source groups.",
+        errorMessage: "Não foi possível salvar os grupos de origem. Tente novamente.",
         id: existingConfig?.id,
       });
       setSavedConfigs((current) => [
@@ -242,11 +243,11 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
         savedConfig,
       ]);
       setStatus("success");
-      setMessage("Setup complete. Your bot will now copy offers from these source groups.");
+      setMessage("Tudo pronto! O bot vai copiar as ofertas dos grupos escolhidos.");
       setIsCompleting(true);
     } catch (error) {
       setStatus("error");
-      setMessage(error instanceof Error ? error.message : "Could not save source groups.");
+      setMessage(getRequestErrorMessage(error, "Não foi possível salvar os grupos de origem. Tente novamente."));
     }
   }
 
@@ -256,7 +257,7 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
     const trimmedChatId = chatId.trim();
     if (!trimmedChatId) {
       setStatus("error");
-      setMessage("Destination chat ID is required.");
+      setMessage("Informe o ID do grupo ou canal onde as ofertas serão publicadas.");
       return;
     }
 
@@ -271,15 +272,13 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
 
       setSavedDestination(saved);
       setStatus("success");
-      setMessage("Destination saved. Continue to affiliate providers when ready.");
+      setMessage("Grupo ou canal salvo! Agora configure seus programas de afiliados.");
       setChatId(saved.chat_id);
       router.refresh();
     } catch (error) {
       setStatus("error");
       setMessage(
-        error instanceof Error
-          ? error.message
-          : "Could not verify bot access to this destination."
+        getRequestErrorMessage(error, "Não foi possível verificar o acesso do bot. Confira o ID e as permissões no grupo ou canal.")
       );
     }
   }
@@ -292,7 +291,7 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
     );
     if (missingField) {
       setStatus("error");
-      setMessage(`${missingField.label} is required for ${provider.name}.`);
+      setMessage(`Preencha o campo “${missingField.label}” para configurar ${provider.name}.`);
       return;
     }
 
@@ -310,7 +309,7 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
       const savedConfig = await saveUserConfig({
         configData,
         configType: provider.type,
-        errorMessage: `Could not save ${provider.name} credentials.`,
+        errorMessage: `Não foi possível salvar as credenciais de ${provider.name}. Tente novamente.`,
         id: existingConfig?.id,
       });
 
@@ -323,14 +322,12 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
       );
       setProviderData(getProviderData(provider, [savedConfig]));
       setStatus("success");
-      setMessage(`${provider.name} connected. You can add another provider or finish setup.`);
+      setMessage(`${provider.name} configurado! Você pode configurar outro programa ou escolher os grupos de origem.`);
       router.refresh();
     } catch (error) {
       setStatus("error");
       setMessage(
-        error instanceof Error
-          ? error.message
-          : `Could not save ${provider.name} credentials.`
+        getRequestErrorMessage(error, `Não foi possível salvar as credenciais de ${provider.name}. Tente novamente.`)
       );
     }
   }
@@ -338,7 +335,7 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
   function finishProviderSetup() {
     if (!canFinish) {
       setStatus("error");
-      setMessage("Connect at least one affiliate provider to continue.");
+      setMessage("Configure pelo menos um programa de afiliados para continuar.");
       return;
     }
 
@@ -353,7 +350,7 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
           onClick={openDialog}
           type="button"
         >
-          {hasStartedSetup ? "Continue setup" : "Start setup"} <ArrowRight className="size-4" />
+          {hasStartedSetup ? "Continuar" : "Começar"} <ArrowRight className="size-4" />
         </Button>
 
       </div>
@@ -384,7 +381,7 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
               <div className="flex min-w-0 items-start gap-3">
                 {screen !== "destination" ? (
                   <Button
-                    aria-label="Back to destination setup"
+                    aria-label="Voltar à etapa anterior"
                     className="mt-0.5 size-10 shrink-0 rounded-full"
                     onClick={goBackToDestination}
                     size="icon"
@@ -421,7 +418,7 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
                 </div>
               </div>
               <Button
-                aria-label="Close setup dialog"
+                aria-label="Fechar configuração"
                 className="size-10 rounded-full"
                 onClick={closeDialog}
                 size="icon"
@@ -437,7 +434,7 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
               <>
                 <div className="setup-screen-slide mt-6 grid gap-4 lg:grid-cols-[1fr_0.95fr]" key="destination-screen">
                   <div className="rounded-3xl border border-border bg-muted/35 p-4 dark:border-white/10 dark:bg-white/[0.03]">
-                    <p className="text-sm font-bold">Platform bot instructions</p>
+                    <p className="text-sm font-bold">Como adicionar o bot</p>
                     <ol className="mt-4 space-y-3 text-sm leading-6 text-muted-foreground">
                       {setupSteps.map((step) => (
                         <li className="flex gap-3" key={step}>
@@ -449,7 +446,7 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
                   </div>
 
                   <div className="rounded-3xl border border-border bg-muted/35 p-4 dark:border-white/10 dark:bg-white/[0.03]">
-                    <p className="text-sm font-bold">How to get chat ID</p>
+                    <p className="text-sm font-bold">Como encontrar o ID do grupo ou canal</p>
                     <ol className="mt-4 space-y-3 text-sm leading-6 text-muted-foreground">
                       {chatIdSteps.map((step) => (
                         <li className="flex gap-3" key={step}>
@@ -464,13 +461,13 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
                 <form className="setup-screen-slide mt-5 rounded-3xl border border-primary/20 bg-primary/5 p-4" onSubmit={handleDestinationSubmit}>
                   <label className="block space-y-2">
                     <span className="text-sm font-bold text-card-foreground">
-                      Destination chat ID
+                      ID do grupo ou canal de publicação
                     </span>
                     <input
                       className="h-12 w-full rounded-2xl border border-border bg-background px-4 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-primary focus:ring-4 focus:ring-primary/10 dark:border-white/10 dark:bg-white/[0.04]"
                       inputMode="text"
                       onChange={(event) => setChatId(event.target.value)}
-                      placeholder="Example: -1001234567890"
+                      placeholder="Exemplo: -1001234567890"
                       value={chatId}
                     />
                   </label>
@@ -495,14 +492,14 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
                       variant="outline"
                     >
                       {status === "saving" ? <Loader2 className="size-4 animate-spin" /> : null}
-                      Save destination
+                      Salvar grupo ou canal
                     </Button>
                     <Button
                       className="h-12 gap-2 bg-primary px-6 text-sm font-bold text-primary-foreground hover:bg-primary/90"
                       onClick={goToProviders}
                       type="button"
                     >
-                      Continue to providers <ArrowRight className="size-4" />
+                      Configurar afiliados <ArrowRight className="size-4" />
                     </Button>
                   </div>
                 </form>
@@ -511,7 +508,7 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
               <div className="setup-screen-slide mt-6 grid gap-5 lg:grid-cols-[260px_1fr]" key="providers-screen">
                 <div className="space-y-3">
                   <div className="rounded-3xl border border-border bg-muted/35 p-4 dark:border-white/10 dark:bg-white/[0.03]">
-                    <p className="text-sm font-bold">Connected providers</p>
+                    <p className="text-sm font-bold">Programas configurados</p>
                     <div className="mt-3 flex flex-wrap gap-2">
                       {connectedProviderTypes.length > 0 ? (
                         connectedProviderTypes.map((providerType) => {
@@ -527,7 +524,7 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
                         })
                       ) : (
                         <p className="text-sm leading-6 text-muted-foreground">
-                          No provider connected yet. Add at least one.
+                          Nenhum programa de afiliados configurado ainda. Escolha um para começar.
                         </p>
                       )}
                     </div>
@@ -573,7 +570,7 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
                       </div>
                       {connectedProviderTypes.includes(provider.type) ? (
                         <span className="w-fit rounded-full bg-primary/10 px-3 py-1 text-xs font-bold text-primary">
-                          Connected
+                          Configurado
                         </span>
                       ) : null}
                     </div>
@@ -620,7 +617,7 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
                         variant="outline"
                       >
                         {status === "saving" ? <Loader2 className="size-4 animate-spin" /> : null}
-                        Save {provider.name}
+                        Salvar {provider.name}
                       </Button>
                     </div>
                   </form>
@@ -628,15 +625,15 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
                   <div className="flex flex-col gap-3 rounded-3xl border border-primary/15 bg-primary/5 p-4 sm:flex-row sm:items-center sm:justify-between">
                     <p className="text-sm leading-6 text-muted-foreground">
                       {canFinish
-                        ? "At least one provider is connected. Continue to choose which source groups the bot should copy."
-                        : "Connect at least one provider before finishing setup."}
+                        ? "Você já configurou um programa de afiliados. Agora escolha os grupos de origem das ofertas."
+                        : "Configure pelo menos um programa de afiliados para continuar."}
                     </p>
                     <Button
                       className="h-12 gap-2 bg-primary px-6 font-bold text-primary-foreground hover:bg-primary/90"
                       onClick={finishProviderSetup}
                       type="button"
                     >
-                      Continue to sources <ArrowRight className="size-4" />
+                      Escolher grupos de origem <ArrowRight className="size-4" />
                     </Button>
                   </div>
                 </div>
@@ -646,13 +643,13 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
                 <div className="flex min-h-0 flex-col overflow-hidden rounded-3xl border border-border bg-muted/25 dark:border-white/10 dark:bg-white/[0.03]">
                   <div className="border-b border-border p-4 dark:border-white/10">
                     <div className="flex items-center justify-between gap-3">
-                      <p className="text-sm font-bold">Sources</p>
+                      <p className="text-sm font-bold">Grupos de origem</p>
                       <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-bold text-primary">
-                        {selectedSourceChats.length} selected
+                        {selectedSourceChats.length} {selectedSourceChats.length === 1 ? "selecionado" : "selecionados"}
                       </span>
                     </div>
                     <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                      Pick a source, read recent messages, then add it to copying.
+                      Confira as mensagens recentes de cada grupo e marque os que quer acompanhar.
                     </p>
                   </div>
 
@@ -692,7 +689,7 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
                                 </span>
                               </button>
                               <button
-                                aria-label={selected ? `Remove ${displayLabel}` : `Select ${displayLabel}`}
+                                aria-label={selected ? `Remover ${displayLabel}` : `Selecionar ${displayLabel}`}
                                 className={
                                   selected
                                     ? "flex size-8 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground"
@@ -709,7 +706,7 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
                       </div>
                     ) : (
                       <p className="rounded-2xl border border-dashed border-border p-4 text-sm leading-6 text-muted-foreground">
-                        Source catalog unavailable. Please try again later.
+                        Não foi possível carregar os grupos de origem. Tente novamente mais tarde.
                       </p>
                     )}
                   </div>
@@ -828,7 +825,7 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
                                               rel="noreferrer"
                                               target="_blank"
                                             >
-                                              Open original message
+                                              Ver mensagem no Telegram
                                             </a>
                                           ) : null}
                                         </div>
@@ -840,7 +837,7 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
                             ) : (
                               <div className="flex h-full items-center justify-center">
                                 <div className="max-w-sm rounded-[1.25rem] bg-white/90 p-4 text-center text-sm leading-6 text-slate-700 shadow-sm ring-1 ring-sky-900/5 dark:bg-slate-900 dark:text-slate-200 dark:ring-white/10">
-                                  Recent messages unavailable. You can still select this source.
+                                  As mensagens recentes não estão disponíveis, mas você ainda pode selecionar este grupo.
                                 </div>
                               </div>
                             )}
@@ -850,7 +847,7 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
                     ) : (
                       <div className="flex h-full items-center justify-center p-5">
                         <div className="max-w-sm rounded-[1.25rem] bg-white/90 p-4 text-center text-sm leading-6 text-slate-700 shadow-sm ring-1 ring-sky-900/5 dark:bg-slate-900 dark:text-slate-200 dark:ring-white/10">
-                          Recent messages unavailable. You can still select this source.
+                          As mensagens recentes não estão disponíveis, mas você ainda pode selecionar este grupo.
                         </div>
                       </div>
                     )}
@@ -869,7 +866,7 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
                       </p>
                     ) : (
                       <p className="text-sm leading-6 text-muted-foreground">
-                        Selected sources will be copied into your destination after provider conversion.
+                        O bot vai publicar as ofertas dos grupos selecionados usando seus links de afiliado.
                       </p>
                     )}
                     <Button
@@ -879,7 +876,7 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
                       type="button"
                     >
                       {status === "saving" ? <Loader2 className="size-4 animate-spin" /> : null}
-                      Save source groups
+                      Salvar grupos de origem
                     </Button>
                   </div>
                 </div>
@@ -893,12 +890,12 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
                     <Check className="size-8" />
                   </span>
                   <div>
-                    <p className="text-2xl font-black tracking-tight">Setup complete</p>
+                    <p className="text-2xl font-black tracking-tight">Tudo pronto!</p>
                     <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                      Your bot is ready to copy offers from selected source groups.
+                      Seu bot está configurado para copiar as ofertas dos grupos selecionados.
                     </p>
                   </div>
-                  <p className="text-xs font-semibold text-primary">Opening your dashboard…</p>
+                  <p className="text-xs font-semibold text-primary">Abrindo seu painel…</p>
                 </div>
               </div>
             ) : null}

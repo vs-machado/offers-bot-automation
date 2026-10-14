@@ -22,7 +22,7 @@ export function ThemeToggle() {
 
   return (
     <Button
-      aria-label={isDark ? "Use light theme" : "Use dark theme"}
+      aria-label={isDark ? "Ativar tema claro" : "Ativar tema escuro"}
       className="size-9 border-transparent bg-transparent p-0 text-muted-foreground shadow-none hover:bg-accent hover:text-foreground"
       onClick={() => setTheme(isDark ? "light" : "dark")}
       suppressHydrationWarning

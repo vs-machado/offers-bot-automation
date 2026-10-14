@@ -26,13 +26,13 @@ const mobileSidebarItems: Array<{
   label: string;
   active?: boolean;
 }> = [
-  { icon: Home, label: "Home", active: true },
-  { icon: MessageSquareText, label: "Messages" },
-  { icon: CalendarClock, label: "Scheduled messages" },
-  { icon: UsersRound, label: "Groups" },
-  { icon: Link2, label: "Affiliate sources" },
-  { icon: FileText, label: "Templates" },
-  { icon: Settings, label: "Settings" },
+  { icon: Home, label: "Início", active: true },
+  { icon: MessageSquareText, label: "Mensagens" },
+  { icon: CalendarClock, label: "Agendamentos" },
+  { icon: UsersRound, label: "Grupos" },
+  { icon: Link2, label: "Afiliados" },
+  { icon: FileText, label: "Modelos de mensagem" },
+  { icon: Settings, label: "Configurações" },
 ];
 
 type MobileSidebarProps = {
@@ -76,7 +76,7 @@ export function MobileSidebar({
       <Button
         aria-expanded={isOpen}
         aria-haspopup="dialog"
-        aria-label="Open navigation"
+        aria-label="Abrir menu"
         className="size-9 border-transparent bg-transparent p-0 text-foreground shadow-none hover:bg-accent"
         onClick={() => setIsOpen(true)}
         ref={triggerRef}
@@ -90,13 +90,13 @@ export function MobileSidebar({
         ? createPortal(
             <div className="fixed inset-0 z-50 lg:hidden">
               <button
-                aria-label="Close navigation"
+                aria-label="Fechar menu"
                 className="animate-in fade-in absolute inset-0 bg-slate-950/55 backdrop-blur-[2px] duration-200 motion-reduce:animate-none"
                 onClick={() => setIsOpen(false)}
                 type="button"
               />
               <aside
-                aria-label="Mobile navigation"
+                aria-label="Menu de navegação"
                 aria-modal="true"
                 className="animate-in slide-in-from-left relative flex h-full w-[min(84vw,320px)] flex-col border-r border-sidebar-border bg-sidebar p-4 text-sidebar-foreground shadow-2xl duration-300 ease-out motion-reduce:animate-none"
                 role="dialog"
@@ -107,7 +107,7 @@ export function MobileSidebar({
                     <span>TG OFFERS BOT</span>
                   </div>
                   <Button
-                    aria-label="Close navigation"
+                    aria-label="Fechar menu"
                     className="size-9 border-transparent bg-transparent p-0 shadow-none hover:bg-sidebar-accent"
                     onClick={() => setIsOpen(false)}
                     ref={closeButtonRef}
@@ -118,7 +118,7 @@ export function MobileSidebar({
                   </Button>
                 </div>
 
-                <nav aria-label="Dashboard sections" className="mt-5 space-y-1">
+                <nav aria-label="Seções do painel" className="mt-5 space-y-1">
                   {mobileSidebarItems.map((item) => {
                     const Icon = item.icon;
 

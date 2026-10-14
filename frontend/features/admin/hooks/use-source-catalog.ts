@@ -4,6 +4,7 @@ import { useState, type FormEvent } from "react";
 
 import { removeSourceGroup, saveSourceGroup } from "@/features/admin/api/admin-client";
 import type { AdminSourceGroup, SourceGroupInput } from "@/features/admin/types";
+import { getRequestErrorMessage } from "@/lib/api-error-message";
 
 const emptyInput: SourceGroupInput = { label: "", url: "", enabled: true };
 
@@ -35,9 +36,9 @@ export function useSourceCatalog(initialGroups: AdminSourceGroup[]) {
     setNotice("");
     try {
       await action();
-      setNotice("Catalog updated. The Telegram reader applies changes within 30 seconds.");
+      setNotice("Catálogo atualizado! As alterações entram em vigor em até 30 segundos.");
     } catch (failure) {
-      setError(failure instanceof Error ? failure.message : "Could not update the catalog.");
+      setError(getRequestErrorMessage(failure, "Não foi possível atualizar o catálogo. Tente novamente."));
     } finally {
       setBusy(false);
     }
