@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import ForeignKey, String, DateTime, func, UniqueConstraint
+from sqlalchemy import ForeignKey, String, Text, DateTime, func, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 from backend.app.core.db.base import Base
 
@@ -42,3 +42,27 @@ class TelegramSession(Base):
     session_string: Mapped[str] = mapped_column(String(500))
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+class PlatformTelegramSession(Base):
+    """Shared operator session; independent of individual user accounts."""
+
+    __tablename__ = "platform_telegram_sessions"
+
+    name: Mapped[str] = mapped_column(Text, primary_key=True)
+    session_string: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+class TokenUsage(Base):
+    """LLM accounting with an optional identity for idempotent legacy import."""
+
+    __tablename__ = "token_usage"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    timestamp: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    prompt_tokens: Mapped[int]
+    completion_tokens: Mapped[int]
+    total_tokens: Mapped[int]
+    legacy_id: Mapped[int | None] = mapped_column(unique=True)

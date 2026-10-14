@@ -55,7 +55,6 @@ services:
       - TELEGRAM_SESSION_STRING=${TELEGRAM_SESSION_STRING:-}
       - TELEGRAM_PHONE=${TELEGRAM_PHONE:-}
       - QR_AUTH_PORT=8081
-      - DATABASE_PATH=data/offers.sqlite3
     ports:
       - "${QR_AUTH_PORT:-8081}:8081"
     volumes:

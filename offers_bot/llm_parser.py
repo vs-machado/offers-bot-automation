@@ -143,6 +143,25 @@ Extract the details precisely in Portuguese. Return a valid JSON matching the sc
 
 
 def save_token_usage(prompt_tokens: int, completion_tokens: int) -> None:
+    """Record usage in PostgreSQL on the platform, or SQLite for standalone mode."""
+    if os.getenv("DATABASE_URL"):
+        from offers_bot.postgres_store import connect
+
+        try:
+            with connect() as conn:
+                conn.execute(
+                    "INSERT INTO token_usage (prompt_tokens, completion_tokens, total_tokens) VALUES (%s, %s, %s)",
+                    (
+                        prompt_tokens,
+                        completion_tokens,
+                        prompt_tokens + completion_tokens,
+                    ),
+                )
+        except Exception as e:
+            logger.warning(
+                "Failed to save token usage to PostgreSQL: %s", type(e).__name__
+            )
+        return
     db_path = os.getenv("DATABASE_PATH", "data/offers.sqlite3")
     try:
         db_dir = Path(db_path).parent

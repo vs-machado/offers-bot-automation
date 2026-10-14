@@ -139,7 +139,31 @@ Use project virtual environment:
 
 ### Shared Telegram reader
 
-Set `TELEGRAM_API_ID` and `TELEGRAM_API_HASH` for the operator account. Supply `TELEGRAM_SESSION_STRING` or set `TELEGRAM_PHONE` and scan the QR served on port 8081. The session is persisted in `data/offers.sqlite3`; Docker mounts this directory. Catalog sources are maintained in the admin screen and persisted in PostgreSQL. User destinations and affiliate credentials remain in PostgreSQL. Set `OPENROUTER_API_KEY` to enable the primary Qwen parser.
+Set `TELEGRAM_API_ID` and `TELEGRAM_API_HASH` for the operator account. Supply `TELEGRAM_SESSION_STRING` or set `TELEGRAM_PHONE` and scan the QR served on port 8081. Operator sessions, LLM accounting, catalog sources, user destinations and affiliate credentials are persisted in PostgreSQL. Docker mounts `data` for temporary media and legacy import files. Set `OPENROUTER_API_KEY` to enable the primary Qwen parser.
+
+### Migração da persistência da plataforma
+
+Configure `DATABASE_URL` conforme `.env.example`. A porta local padrão é 5434;
+dentro do Docker, os serviços usam `db:5432`. Instale as dependências atualizadas.
+O backend aplica a migração `0005_platform_persistence` ao iniciar.
+
+Para importar sessão do operador e histórico de tokens de uma instalação anterior,
+pare o worker e execute, com o banco e o backend disponíveis:
+
+```powershell
+docker compose up -d db backend
+.\venv\Scripts\python.exe -m backend.import_sqlite data/offers.sqlite3
+docker compose up -d worker
+```
+
+A importação é transacional e pode ser repetida usando o mesmo arquivo. Não altera
+o SQLite nem sobrescreve sessões já existentes no PostgreSQL. Os IDs de origem
+identificam um único banco legado; não use esse comando para combinar arquivos
+SQLite independentes. Ofertas do bot antigo não são importadas: sua deduplicação
+global não identifica o usuário exigido pelo modelo da plataforma.
+
+O bot legado executado separadamente continua compatível com SQLite. A plataforma
+usa PostgreSQL; `DATABASE_PATH` serve apenas ao modo legado e à importação.
 
 ### Administrator access and source catalog
 

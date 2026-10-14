@@ -10,7 +10,7 @@ from telethon.errors import UserAlreadyParticipantError
 from telethon.tl.functions.channels import JoinChannelRequest
 
 from backend.app.core.source_groups import DEFAULT_SOURCE_GROUP_URLS
-from offers_bot.session_store import SessionStore
+from offers_bot.postgres_store import PostgresSessionStore as SessionStore
 from offers_bot.telegram_bot import TelegramOfferBot
 
 LOGGER = logging.getLogger(__name__)
@@ -24,9 +24,7 @@ class TelegramSourceReader:
         self._sources: dict[str, str] = {}
         self._ready = False
         self._refresh_lock = asyncio.Lock()
-        self._store = SessionStore(
-            Path(os.getenv("DATABASE_PATH", "data/offers.sqlite3"))
-        )
+        self._store = SessionStore()
         self._bot = TelegramOfferBot(
             api_id=int(os.environ["TELEGRAM_API_ID"]),
             api_hash=os.environ["TELEGRAM_API_HASH"],
@@ -43,7 +41,9 @@ class TelegramSourceReader:
         try:
             await self._bot.start()
             if self._bot.session_string:
-                self._store.save_session(self._bot.session_string)
+                await asyncio.to_thread(
+                    self._store.save_session, self._bot.session_string
+                )
             self._ready = True
             await self.refresh_sources(self._desired_sources)
 

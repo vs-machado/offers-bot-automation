@@ -8,6 +8,20 @@ load_dotenv()
 
 
 def show_stats():
+    if os.getenv("DATABASE_URL"):
+        from offers_bot.postgres_store import connect
+
+        with connect() as conn:
+            rows = conn.execute(
+                """SELECT CAST(timestamp AS DATE), COUNT(*), SUM(prompt_tokens),
+                SUM(completion_tokens), SUM(total_tokens) FROM token_usage
+                GROUP BY CAST(timestamp AS DATE) ORDER BY CAST(timestamp AS DATE) DESC LIMIT 14"""
+            ).fetchall()
+        print("Consumo de tokens por dia (PostgreSQL)")
+        print("Data | Requisições | Entrada | Saída | Total")
+        for row in rows:
+            print(" | ".join(str(value) for value in row))
+        return
     db_path = os.getenv("DATABASE_PATH", "data/offers.sqlite3")
     if not Path(db_path).exists():
         print(f"Database not found at: {db_path}")
