@@ -17,6 +17,9 @@ class User(Base):
     hashed_password: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     full_name: Mapped[Optional[str]] = mapped_column(String(255))
     auth_provider: Mapped[str] = mapped_column(String(50), default="credentials")
+    role: Mapped[str] = mapped_column(
+        String(20), default="user", server_default="user", nullable=False
+    )
     provider_account_id: Mapped[Optional[str]] = mapped_column(String(255), index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
@@ -45,6 +48,19 @@ class UserConfig(Base):
     config_data: Mapped[str] = mapped_column(String)  # JSON string of credentials
 
     user: Mapped["User"] = relationship(back_populates="configs")
+
+
+class SourceGroup(Base):
+    """Operator-managed Telegram sources available for user subscriptions."""
+
+    __tablename__ = "source_groups"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    url: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
+    label: Mapped[str] = mapped_column(String(100), nullable=False)
+    enabled: Mapped[bool] = mapped_column(
+        default=True, server_default="true", nullable=False
+    )
 
 
 class Offer(Base):

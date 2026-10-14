@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Literal
 
 from pydantic import BaseModel, ConfigDict, EmailStr, field_validator
 
@@ -49,7 +49,13 @@ class UserRead(UserBase):
 
     id: int
     created_at: datetime
+    role: Literal["user", "admin"] = "user"
     model_config = ConfigDict(from_attributes=True)
+
+    @field_validator("role", mode="before")
+    @classmethod
+    def default_role(cls, value):
+        return value or "user"
 
 
 class SessionExchangeRequest(BaseModel):

@@ -18,6 +18,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 import { getServerSession } from "next-auth";
 import Image from "next/image";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { authOptions } from "@/auth";
@@ -407,6 +408,12 @@ export async function Dashboard() {
             })}
           </nav>
 
+          {dbUser?.role === "admin" ? (
+            <Link href="/admin/source-groups" className="mt-3 flex h-12 items-center gap-4 rounded-xl px-4 text-sm font-medium text-sidebar-primary hover:bg-sidebar-accent">
+              <Settings className="size-5" />Admin source catalog
+            </Link>
+          ) : null}
+
           <div className="mt-auto">
             <Separator className="my-4" />
 
@@ -449,6 +456,10 @@ export async function Dashboard() {
           </div>
           <ThemeToggle />
         </div>
+
+        {dbUser?.role === "admin" ? (
+          <Link href="/admin/source-groups" className="mx-4 mt-4 flex items-center gap-2 text-sm font-medium text-primary lg:hidden"><Settings className="size-4" />Admin source catalog</Link>
+        ) : null}
 
         <div className="px-4 pt-5 lg:px-0 lg:pt-0">
         <header className="relative pb-6 pr-0 md:min-h-36 md:pr-[300px] lg:min-h-40 lg:pr-[360px] xl:pr-[470px]">

@@ -5,6 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.app.core.db.session import AsyncSessionLocal
+from backend.app.core.source_groups import enabled_source_groups
 from backend.app.models.user import UserConfig
 from backend.worker.manager import UserBotInstance
 from backend.worker.telegram_reader import TelegramSourceReader
@@ -18,12 +19,15 @@ class WorkerService:
 
     def __init__(self):
         self._bots: dict[int, UserBotInstance] = {}
+        self._source_catalog: list[str] = []
+        self._reader: TelegramSourceReader | None = None
 
     async def start(self) -> None:
         """Listen continuously and refresh user configuration every 30 seconds."""
         LOGGER.info("Worker service starting")
         await self._sync_bots()
-        reader = TelegramSourceReader()
+        reader = TelegramSourceReader(self._source_catalog)
+        self._reader = reader
         sync_task = asyncio.create_task(self._sync_loop())
         try:
             await reader.listen(self._receive_message)
@@ -54,6 +58,11 @@ class WorkerService:
 
     async def _sync_bots(self) -> None:
         async with AsyncSessionLocal() as db:
+            self._source_catalog = [
+                group.url for group in await enabled_source_groups(db)
+            ]
+            if self._reader:
+                await self._reader.refresh_sources(self._source_catalog)
             candidate_user_ids = await self._get_candidate_user_ids(db)
             next_bots: dict[int, UserBotInstance] = {}
             for user_id in candidate_user_ids:
@@ -61,7 +70,7 @@ class WorkerService:
                     user_id, AsyncSessionLocal
                 )
                 try:
-                    await bot.configure(db)
+                    await bot.configure(db, self._source_catalog)
                 except Exception:
                     LOGGER.exception("Failed to configure bot for user %s", user_id)
                     continue

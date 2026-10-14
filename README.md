@@ -118,4 +118,20 @@ Use project virtual environment:
 
 ### Shared Telegram reader
 
-Set `TELEGRAM_API_ID` and `TELEGRAM_API_HASH` for the operator account. Supply `TELEGRAM_SESSION_STRING` or set `TELEGRAM_PHONE` and scan the QR served on port 8081. The session is persisted in `data/offers.sqlite3`; Docker mounts this directory. Catalog sources are maintained in `backend/app/core/source_groups.py`. User destinations and affiliate credentials remain in PostgreSQL. Set `OPENROUTER_API_KEY` to enable the primary Qwen parser.
+Set `TELEGRAM_API_ID` and `TELEGRAM_API_HASH` for the operator account. Supply `TELEGRAM_SESSION_STRING` or set `TELEGRAM_PHONE` and scan the QR served on port 8081. The session is persisted in `data/offers.sqlite3`; Docker mounts this directory. Catalog sources are maintained in the admin screen and persisted in PostgreSQL. User destinations and affiliate credentials remain in PostgreSQL. Set `OPENROUTER_API_KEY` to enable the primary Qwen parser.
+
+### Administrator access and source catalog
+
+The `/admin/source-groups` screen and every `/admin/source-groups` API operation require the `admin` role. The API checks the current database role on every request; changing or revoking a role applies even to existing tokens. Public registration always creates a `user` account.
+
+Apply migration `0004_admin_source_catalog` (automatically on backend startup). It gives existing users the `user` role and seeds the seven original Telegram sources once. Register your administrator account, then promote it through trusted operator access:
+
+```powershell
+.\venv\Scripts\python.exe -m backend.set_admin admin@example.com
+# Revoke administrator access:
+.\venv\Scripts\python.exe -m backend.set_admin admin@example.com --role user
+```
+
+With Docker, run `docker compose exec backend python -m backend.set_admin admin@example.com` after the account is registered. No public API grants administrator roles.
+
+Administrators can add, edit, enable, disable, and remove public Telegram groups. Only enabled groups are selectable by users and accepted by configuration endpoints. The shared Telethon reader refreshes catalog changes every 30 seconds without restarting; removed or disabled groups stop delivering offers. Saved selections for unavailable groups stay stored but inactive until the group becomes available again. An empty catalog disables all sources. The operator Telegram account must be able to join/read each source.

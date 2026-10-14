@@ -91,6 +91,13 @@ async def get_current_user(
     return user
 
 
+async def require_admin(current_user: User = Depends(get_current_user)) -> User:
+    """Check database role on every request; stale JWT claims cannot grant access."""
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Administrator access required")
+    return current_user
+
+
 @router.post("/register", response_model=UserRead)
 async def register(
     user_data: UserCreate,
@@ -111,6 +118,7 @@ async def register(
         hashed_password=get_password_hash(user_data.password),
         full_name=user_data.full_name,
         auth_provider="credentials",
+        role="user",
     )
     db.add(new_user)
     await db.commit()
@@ -173,6 +181,7 @@ async def exchange_session(
             hashed_password=None,
             full_name=body.full_name,
             auth_provider=body.provider,
+            role="user",
             provider_account_id=body.provider_account_id,
         )
         db.add(user)

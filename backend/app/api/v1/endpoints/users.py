@@ -15,11 +15,23 @@ from backend.app.schemas.user import (
 )
 from backend.app.schemas.offer import OfferCreate, OfferRead
 from backend.app.api.v1.endpoints.auth import get_current_user
-from backend.app.core.source_groups import DEFAULT_SOURCE_GROUP_URLS, approved_source
+from backend.app.core.source_groups import approved_source, enabled_source_groups
 from backend.app.core.telegram_sources import fetch_source_messages
 from backend.worker.poster import BotPoster, BotPosterError
 
 router = APIRouter()
+
+
+def _config_response(config: UserConfig) -> dict[str, object]:
+    """Decode response data without marking the ORM's text column dirty."""
+    return {
+        "id": config.id,
+        "user_id": config.user_id,
+        "config_type": config.config_type,
+        "config_data": json.loads(config.config_data)
+        if isinstance(config.config_data, str)
+        else config.config_data,
+    }
 
 
 REQUIRED_CONFIG_KEYS = {
@@ -32,6 +44,7 @@ REQUIRED_CONFIG_KEYS = {
 
 async def _preview_source_groups(
     source_chats: list[str],
+    labels: dict[str, str] | None = None,
 ) -> dict[str, list[dict[str, object]]]:
     """Fetch recent public Telegram messages, returning empty groups on fetch errors."""
     try:
@@ -43,7 +56,7 @@ async def _preview_source_groups(
         "groups": [
             {
                 "id": chat,
-                "label": f"Source option {index + 1}",
+                "label": (labels or {}).get(chat, f"Source option {index + 1}"),
                 "messages": [
                     {
                         "id": message.message_id,
@@ -60,7 +73,9 @@ async def _preview_source_groups(
     }
 
 
-def _validate_config(config_data: UserConfigCreate) -> None:
+def _validate_config(
+    config_data: UserConfigCreate, catalog: list[str] | None = None
+) -> None:
     """Validate required credential fields for known affiliate providers."""
     if config_data.config_type == "source_chats":
         chats = config_data.config_data.get("source_chats")
@@ -71,7 +86,7 @@ def _validate_config(config_data: UserConfigCreate) -> None:
                 raise ValueError("source_chats must be a list of catalog groups")
             config_data.config_data = {
                 "source_chats": list(
-                    dict.fromkeys(approved_source(chat) for chat in chats)
+                    dict.fromkeys(approved_source(chat, catalog) for chat in chats)
                 )
             }
         except ValueError as exc:
@@ -120,9 +135,7 @@ async def list_configs(
     statement = select(UserConfig).where(UserConfig.user_id == current_user.id)
     result = await db.execute(statement)
     configs = result.scalars().all()
-    for c in configs:
-        c.config_data = json.loads(c.config_data)
-    return configs
+    return [_config_response(config) for config in configs]
 
 
 @router.get("/me", response_model=UserRead)
@@ -136,19 +149,25 @@ async def read_current_user(
 @router.get("/me/source-groups/messages")
 async def list_source_group_messages(
     current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
     """Return recent messages from configured default source groups."""
-    return await _preview_source_groups(DEFAULT_SOURCE_GROUP_URLS)
+    groups = await enabled_source_groups(db)
+    return await _preview_source_groups(
+        [group.url for group in groups], {group.url: group.label for group in groups}
+    )
 
 
 @router.post("/me/source-groups/preview")
 async def preview_source_group(
     preview_data: SourceGroupPreviewRequest,
     current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
     """Preview recent messages from one public Telegram source."""
     try:
-        chat = approved_source(preview_data.chat)
+        groups = await enabled_source_groups(db)
+        chat = approved_source(preview_data.chat, [group.url for group in groups])
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     if not chat:
@@ -173,7 +192,12 @@ async def create_config(
     db: AsyncSession = Depends(get_db),
 ):
     """Persist one configuration record for authenticated user."""
-    _validate_config(config_data)
+    catalog = (
+        [group.url for group in await enabled_source_groups(db)]
+        if config_data.config_type == "source_chats"
+        else None
+    )
+    _validate_config(config_data, catalog)
     new_config = UserConfig(
         user_id=current_user.id,
         config_type=config_data.config_type,
@@ -182,8 +206,7 @@ async def create_config(
     db.add(new_config)
     await db.commit()
     await db.refresh(new_config)
-    new_config.config_data = json.loads(new_config.config_data)
-    return new_config
+    return _config_response(new_config)
 
 
 @router.put("/me/configs/{config_id}", response_model=UserConfigRead)
@@ -194,7 +217,12 @@ async def update_config(
     db: AsyncSession = Depends(get_db),
 ):
     """Replace owned configuration record after provider validation."""
-    _validate_config(config_data)
+    catalog = (
+        [group.url for group in await enabled_source_groups(db)]
+        if config_data.config_type == "source_chats"
+        else None
+    )
+    _validate_config(config_data, catalog)
     statement = select(UserConfig).where(
         UserConfig.id == config_id, UserConfig.user_id == current_user.id
     )
@@ -209,8 +237,7 @@ async def update_config(
     config.config_data = json.dumps(config_data.config_data)
     await db.commit()
     await db.refresh(config)
-    config.config_data = json.loads(config.config_data)
-    return config
+    return _config_response(config)
 
 
 @router.delete("/me/configs/{config_id}", status_code=status.HTTP_204_NO_CONTENT)

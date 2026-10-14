@@ -74,13 +74,15 @@ class UserBotInstance:
             )
         )
 
-    async def configure(self, db: AsyncSession) -> None:
+    async def configure(
+        self, db: AsyncSession, source_catalog: list[str] | None = None
+    ) -> None:
         """Reload persisted routing and provider clients when configuration changes."""
         configs = await self._load_configs(db)
         approved = []
         for chat in self._parse_chats(configs.get("source_chats", [])):
             try:
-                approved.append(approved_source(chat))
+                approved.append(approved_source(chat, source_catalog))
             except ValueError:
                 LOGGER.warning("Ignoring non-catalog source for user %s", self.user_id)
         source_chats = tuple(dict.fromkeys(approved))
@@ -89,6 +91,7 @@ class UserBotInstance:
             {
                 "configs": configs,
                 "destinations": destination_chat_ids,
+                "sources": source_chats,
             },
             sort_keys=True,
             default=str,

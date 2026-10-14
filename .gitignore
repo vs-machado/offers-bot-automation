@@ -9,3 +9,4 @@ data/
 venv
 .omo/
 tasks/
+frontend/node_modules

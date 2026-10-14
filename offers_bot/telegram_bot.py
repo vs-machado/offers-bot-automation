@@ -49,6 +49,7 @@ class TelegramOfferBot:
         tech_chat: str | None = None,
         home_chat: str | None = None,
         clothes_chat: str | None = None,
+        listen_all_chats: bool = False,
     ) -> None:
         # Always use StringSession — portable, no disk I/O, Docker-safe
         session = StringSession(session_string) if session_string else StringSession()
@@ -56,6 +57,8 @@ class TelegramOfferBot:
         self._session_string = session_string
         self._qr_auth_port = qr_auth_port
         self._source_chats = source_chats or []
+        self._listen_all_chats = listen_all_chats
+        self._allowed_source_ids: set[str] = set()
         if target_chats is not None:
             self._target_chats: list[str] = [
                 c.strip() for c in target_chats if c and c.strip()
@@ -158,8 +161,15 @@ class TelegramOfferBot:
                             media_path,
                         )
 
-        @self.client.on(events.NewMessage(chats=source_entities))
+        @self.client.on(
+            events.NewMessage(chats=None if self._listen_all_chats else source_entities)
+        )
         async def on_new_message(event: events.NewMessage.Event) -> None:
+            if (
+                self._listen_all_chats
+                and str(event.chat_id) not in self._allowed_source_ids
+            ):
+                return
             text = self._message_text(event.message)
             LOGGER.info(
                 "Received Telegram message chat_id=%s message_id=%s chars=%s",
@@ -173,6 +183,10 @@ class TelegramOfferBot:
 
         LOGGER.info("Listening to %s source chats", len(source_entities))
         await self.client.run_until_disconnected()
+
+    def set_allowed_source_ids(self, chat_ids: set[str]) -> None:
+        """Update dynamic catalog filtering before media or text is processed."""
+        self._allowed_source_ids = set(chat_ids)
 
     @staticmethod
     def _message_text(message) -> str:

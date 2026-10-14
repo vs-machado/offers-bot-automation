@@ -18,6 +18,8 @@ This is the high-performance, multi-tenant backend for the Telegram Offers Bot. 
 - **Concurrency**: Utilizes an asynchronous connection pool (`pool_size=20`, `max_overflow=10`) to prevent connection exhaustion.
 - **Data Integrity**: Enforced via SQLAlchemy `relationship` cascades (`all, delete-orphan`) to ensure no orphaned data remains when a user is deleted.
 - **Identity Isolation**: The `get_current_user` dependency ensures that the user's identity is derived exclusively from a validated JWT, preventing ID-spoofing attacks.
+- **Administrator RBAC**: `/admin/source-groups` requires the database `admin` role on every request. Registration creates `user` accounts; operators promote/revoke via `python -m backend.set_admin`.
+- **Source Catalog**: Admins manage PostgreSQL `source_groups`; user validation and the live Telethon reader use only enabled catalog entries. Changes apply within the next 30-second worker refresh.
 
 ## Implemented Features
 - [x] **Asynchronous DB Engine**: Configured SQLAlchemy 2.0 with `asyncpg` and connection pooling.
