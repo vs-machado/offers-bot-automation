@@ -376,7 +376,9 @@ class UserBotInstance:
         if isinstance(self._poster, QueuePoster):
             results = await asyncio.gather(
                 *(
-                    self._poster.send_offer(chat_id, text, image_file=image_file)
+                    self._poster.send_offer(
+                        chat_id, text, image_file=image_file, parse_mode="Markdown"
+                    )
                     for chat_id in self._destination_chat_ids
                 ),
                 return_exceptions=True,
@@ -386,7 +388,9 @@ class UserBotInstance:
                     raise result
             return
         for chat_id in self._destination_chat_ids:
-            await self._poster.send_offer(chat_id, text, image_file=image_file)
+            await self._poster.send_offer(
+                chat_id, text, image_file=image_file, parse_mode="Markdown"
+            )
 
     async def _load_configs(self, db: AsyncSession) -> dict[str, object]:
         stmt = select(UserConfig).where(UserConfig.user_id == self.user_id)

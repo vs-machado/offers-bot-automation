@@ -138,7 +138,9 @@ class LLMParserTest(unittest.TestCase):
 
         formatted = format_offer(offers[0], "https://s.click.aliexpress.com/e/aff123")
 
-        self.assertIn("🎟️ CUPOM: `LIBRETX5600` + `IFPAF7UN` ou `MAES5`", formatted)
+        self.assertIn(
+            "🎟️ CUPOM: ```LIBRETX5600``` + ```IFPAF7UN``` ou ```MAES5```", formatted
+        )
         self.assertNotIn("LIBRETX5600 + IFPAF7UN", formatted)
 
     @patch("offers_bot.parser.parse_with_llm")
