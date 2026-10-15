@@ -247,7 +247,12 @@ class UserBotInstance:
                         continue
                     processed_product_keys.add(affiliate.product_key)
 
-                    if await store.seen_affiliate_url(affiliate.short_url):
+                    from backend.worker.posting_queue import QueuePoster
+
+                    uses_delivery_dedup = isinstance(self._poster, QueuePoster)
+                    if not uses_delivery_dedup and await store.seen_affiliate_url(
+                        affiliate.short_url
+                    ):
                         await store.mark(
                             source_chat,
                             message_id,
@@ -256,7 +261,9 @@ class UserBotInstance:
                             affiliate.product_key,
                         )
                         continue
-                    if await store.seen_product_key(affiliate.product_key):
+                    if not uses_delivery_dedup and await store.seen_product_key(
+                        affiliate.product_key
+                    ):
                         await store.mark(
                             source_chat,
                             message_id,
@@ -267,6 +274,13 @@ class UserBotInstance:
                         continue
 
                     is_ali = offer.platform == PLATFORM_ALIEXPRESS
+                    promotion_context.set(
+                        {
+                            **promotion_context.get(),
+                            "product_key": affiliate.product_key,
+                            "price": f"{offer.price}|{offer.card_price}",
+                        }
+                    )
                     failure_stage = "processing"
                     formatted_text = await format_outgoing_offer(
                         offer,

@@ -28,6 +28,7 @@ import {
 import { getTelegramPostId } from "@/features/setup/lib/telegram";
 import type { ConfigSummary, DestinationSummary, DestinationInput } from "@/shared/contracts/user-config";
 import { WhatsAppConnection } from "@/features/whatsapp/WhatsAppConnection";
+import { WhatsAppDeliveryControls } from "@/features/whatsapp/WhatsAppDeliveryControls";
 import { CredentialValidation } from "@/features/credential-validation/CredentialValidation";
 
 const platformBotUsername = "tgtestoffersbot";
@@ -71,6 +72,7 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
   const [message, setMessage] = useState("");
   const [isCompleting, setIsCompleting] = useState(false);
   const [savedDestination, setSavedDestination] = useState<DestinationSummary | undefined>(enabledDestination);
+  const [savedDestinations, setSavedDestinations] = useState(destinations);
   const [savedConfigs, setSavedConfigs] = useState<ConfigSummary[]>(configs);
   const [connectedProviderTypes, setConnectedProviderTypes] = useState<ProviderType[]>(
     configs
@@ -236,6 +238,7 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
       });
 
       setSavedDestination(saved);
+      setSavedDestinations((current) => [...current.filter((destination) => destination.id !== saved.id), saved]);
       setStatus("success");
       setMessage("Grupo ou canal salvo! Agora configure seus programas de afiliados.");
       setChatId(saved.chat_id);
@@ -254,6 +257,7 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
     try {
       const saved = await saveDestination({ chatId: input.chat_id, chatType: input.chat_type, title: input.title, platform: "whatsapp" });
       setSavedDestination(saved);
+      setSavedDestinations((current) => [...current.filter((destination) => destination.id !== saved.id), saved]);
       setStatus("success");
       setMessage("Destino WhatsApp salvo! Agora configure seus programas de afiliados.");
       router.refresh();
@@ -420,8 +424,17 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
                 </div>
                 {destinationPlatform === "whatsapp" ? <div className="mt-5 space-y-4 rounded-3xl border border-border p-4">
                   <h3 className="font-bold">Conectar WhatsApp e selecionar grupo ou canal</h3>
-                  <p className="text-sm/6 text-muted-foreground">Conecte sua conta pelo QR. Depois escolha um grupo onde pode enviar mensagens ou um canal que administra. Não precisa copiar IDs.</p>
-                  <WhatsAppConnection destinations={[...destinations, ...(savedDestination && !destinations.some((destination) => destination.id === savedDestination.id) ? [savedDestination] : [])]} saveDestination={saveWhatsAppDestination} busy={status === "saving"} />
+                  <ol className="list-decimal space-y-2 pl-5 text-sm/6 text-muted-foreground"><li>Clique em Conectar WhatsApp. No celular, abra Aparelhos conectados → Conectar aparelho e escaneie o QR.</li><li>Escolha um grupo onde pode enviar mensagens ou um canal que administra e adicione o destino. Não precisa copiar IDs.</li><li>Configure seus afiliados e selecione os grupos de origem do Telegram. As ofertas serão enviadas a todos os destinos habilitados no Telegram e no WhatsApp.</li></ol>
+                  <WhatsAppConnection destinations={savedDestinations} saveDestination={saveWhatsAppDestination} busy={status === "saving"} onDisconnect={() => {
+                    const remaining = savedDestinations.map((destination) => destination.platform === "whatsapp" ? { ...destination, enabled: false } : destination);
+                    setSavedDestinations(remaining);
+                    setSavedDestination(remaining.find((destination) => destination.enabled));
+                    setStatus("idle");
+                    setMessage("WhatsApp desconectado. Reconecte e habilite os destinos nas configurações para retomar os envios.");
+                    router.refresh();
+                  }} />
+                  <ul className="space-y-1 text-sm">{savedDestinations.filter((destination) => destination.platform === "whatsapp").map((destination) => <li key={destination.id}>{destination.title || destination.chat_id} · {destination.chat_type === "channel" ? "Canal" : "Grupo"} · {destination.enabled ? "Habilitado" : "Desativado"}</li>)}</ul>
+                  <WhatsAppDeliveryControls compact />
                   {message ? <p role="status" className={status === "error" ? "text-sm text-destructive" : "text-sm text-primary"}>{message}</p> : null}
                   <Button disabled={!canGoToProviders || status === "saving"} onClick={goToProviders}>Configurar afiliados <ArrowRight className="size-4" /></Button>
                 </div> : <>

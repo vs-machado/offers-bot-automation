@@ -41,9 +41,11 @@ class WahaClient:
                 json=body,
             )
         if response.is_error:
+            retry_after = response.headers.get("retry-after", "")
             raise BotPosterError(
                 "WhatsApp indisponível. Confira conexão e permissões do grupo.",
                 status_code=response.status_code,
+                retry_after=int(retry_after) if retry_after.isdigit() else None,
             )
         return response
 

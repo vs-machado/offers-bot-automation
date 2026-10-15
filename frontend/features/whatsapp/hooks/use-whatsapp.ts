@@ -11,6 +11,7 @@ export function useWhatsApp() {
   const [groups, setGroups] = useState<WhatsAppChat[]>([]);
   const [channels, setChannels] = useState<WhatsAppChat[]>([]);
   const [channelsError, setChannelsError] = useState("");
+  const [groupsError, setGroupsError] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const lock = useRef(false);
@@ -18,14 +19,19 @@ export function useWhatsApp() {
 
   const fetchChats = useCallback(async () => {
     const [groupResult, channelResult] = await Promise.allSettled([api.getWhatsAppGroups(), api.getWhatsAppChannels()]);
-    if (groupResult.status === "rejected") throw groupResult.reason;
-    setGroups(groupResult.value);
+    if (groupResult.status === "fulfilled") {
+      setGroups(groupResult.value);
+      setGroupsError("");
+    } else {
+      setGroups([]);
+      setGroupsError(getRequestErrorMessage(groupResult.reason, "Não foi possível listar grupos. Tente atualizar destinos."));
+    }
     if (channelResult.status === "fulfilled") {
       setChannels(channelResult.value);
       setChannelsError("");
     } else {
       setChannels([]);
-      setChannelsError("Canais indisponíveis nesta conexão. Grupos continuam disponíveis; tente atualizar destinos.");
+      setChannelsError("Canais indisponíveis nesta conexão. Tente atualizar destinos ou selecione grupos, se disponíveis.");
     }
   }, []);
 
@@ -45,6 +51,8 @@ export function useWhatsApp() {
       } else if (status.status !== "WORKING") {
         setGroups([]);
         setChannels([]);
+        setGroupsError("");
+        setChannelsError("");
       }
       lastStatus.current = status.status;
       setError("");
@@ -92,6 +100,8 @@ export function useWhatsApp() {
       setQr("");
       setGroups([]);
       setChannels([]);
+      setGroupsError("");
+      setChannelsError("");
       lastStatus.current = "";
     });
   }
@@ -100,5 +110,5 @@ export function useWhatsApp() {
     return run(fetchChats);
   }
 
-  return { connection, qr, groups, channels, channelsError, busy, error, start, disconnect, loadGroups };
+  return { connection, qr, groups, channels, groupsError, channelsError, busy, error, start, disconnect, loadGroups, refresh };
 }

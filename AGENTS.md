@@ -56,6 +56,10 @@ Types: `feat`, `fix`, `refactor`, `test`, `docs`, `chore`.
 - **Fix Code First:** Priority should always be given to fixing the code to satisfy the existing tests before considering a change to the test itself.
 
 ## Documentation
+When implementing or reviewing WhatsApp/WAHA functionality, read
+`WAHA_IMPLEMENTATION.md` and consider its channel delivery requirements,
+operational controls, and validation criteria.
+
 Document crucial functions or methods when behavior is not obvious. Add concise docstrings to:
 
 - public FastAPI route handlers and authentication dependencies;
