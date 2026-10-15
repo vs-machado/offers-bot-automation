@@ -62,6 +62,15 @@ Trocar as URLs não transfere dados entre bancos.
 
 Qwen 3.7 Flash (`qwen/qwen3.7-flash`) through OpenRouter is the primary structured parser. DeepSeek V4 Flash and Gemini 2.5 Flash Lite use direct provider APIs as fallbacks. Regex parser runs when AI credentials are absent or AI parsing fails.
 
+Incoming source text is cleaned of alert-bot advertising before either parser
+runs. The same cleanup applies when Shopee redemption offers or multi-link
+AliExpress offers reuse source formatting. Labels such as "Bot de alertas" and
+"Bot de monitoramento" are removed together with their destination, including a
+Telegram URL or username on a separate line. Product/coupon links and store coin
+discount conditions remain intact. Cleanup lives in
+`offers_bot/source_cleanup.py` and applies only to incoming content; future
+platform-owned alert-bot promotions should be appended after source cleanup.
+
 URL routing and affiliate conversion support:
 
 - Mercado Livre

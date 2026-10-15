@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from urllib.parse import urlparse
 
 from .llm_parser import parse_with_llm, parse_with_llm_async
+from .source_cleanup import clean_source_advertising
 
 
 MELI_SHORT_RE = re.compile(r"https?://meli\.la/[A-Za-z0-9]{7}", re.IGNORECASE)
@@ -103,10 +104,12 @@ class Offer:
 
 
 def extract_offers(text: str) -> list[Offer]:
+    text = clean_source_advertising(text)
     return _extract_offers(text, parse_with_llm(text))
 
 
 async def extract_offers_async(text: str) -> list[Offer]:
+    text = clean_source_advertising(text)
     return _extract_offers(text, await parse_with_llm_async(text))
 
 
