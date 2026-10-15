@@ -12,3 +12,4 @@ python-jose[cryptography]
 bcrypt
 python-dotenv
 httpx
+telethon==1.43.2
