@@ -87,6 +87,8 @@ services:
     restart: unless-stopped
 
   frontend:
+    labels:
+      - "traefik.docker.network=c12l6b1ey21jvoqk0mzex0b6"
     networks:
       - default
       - database
