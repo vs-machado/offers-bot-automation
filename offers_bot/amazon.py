@@ -1,9 +1,7 @@
 from __future__ import annotations
 
 import hashlib
-import logging
 import re
-from typing import Protocol
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
 import httpx
@@ -14,19 +12,13 @@ ASIN_RE = re.compile(r"/(?:dp|gp/product)/([A-Z0-9]{10})(?:[/?]|$)", re.IGNORECA
 LINK_AMAZON_ASIN_RE = re.compile(r"^/([A-Z0-9]{10})(?:[/?]|$)", re.IGNORECASE)
 
 
-class ImageResolver(Protocol):
-    def get_image(self, url: str) -> str | None: ...
-
-
 class AmazonClient:
     def __init__(
         self,
         tag: str,
-        image_resolver: ImageResolver | None = None,
         client: httpx.Client | None = None,
     ) -> None:
         self._tag = tag.strip()
-        self._image_resolver = image_resolver
         self._client = client or httpx.Client(
             timeout=25,
             follow_redirects=True,
@@ -45,7 +37,7 @@ class AmazonClient:
     def ready(self) -> bool:
         return bool(self._tag)
 
-    def create_link(self, url: str, *, resolve_image: bool = True) -> AffiliateLink:
+    def create_link(self, url: str) -> AffiliateLink:
         """Expand short links and replace affiliate tracking without SiteStripe.
 
         Preserve destination parameters; reject unresolved or non-Brazilian Amazon
@@ -87,22 +79,12 @@ class AmazonClient:
             if asin
             else f"AMZN:URL:{hashlib.sha256(destination_key.encode()).hexdigest()}"
         )
-        image_url = None
-        if asin and resolve_image and self._image_resolver:
-            try:
-                image_url = self._image_resolver.get_image(resolved_url)
-            except Exception:
-                logging.getLogger(__name__).warning(
-                    "Amazon image lookup failed; keeping affiliate link without image"
-                )
-
         return AffiliateLink(
             short_url=product_url,
             long_url=product_url,
             origin_url=resolved_url,
             raw_text=None,
             product_key=product_key,
-            image_url=image_url,
         )
 
     def _resolve_url(self, url: str) -> str:

@@ -1,5 +1,6 @@
 import json
 import unittest
+from unittest.mock import patch
 
 from backend.app.core.telegram_sources import (
     TelegramMessageHTMLParser,
@@ -97,8 +98,11 @@ class UserBotConfigurationTests(unittest.IsolatedAsyncioTestCase):
         ]
         destinations = [DestinationChannel(user_id=7, chat_id="-100123", enabled=True)]
         bot = UserBotInstance(user_id=7, db_factory=None)
+        self.addCleanup(bot.close)
 
-        await bot.configure(_FakeSession(configs, destinations))
+        with patch("backend.worker.manager.PlaywrightProductResolver") as resolver:
+            await bot.configure(_FakeSession(configs, destinations))
+        resolver.assert_not_called()
 
         self.assertTrue(bot.active)
         self.assertEqual(bot.source_chats, ("https://t.me/promotom",))

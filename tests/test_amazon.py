@@ -1,6 +1,5 @@
 import hashlib
 import unittest
-from unittest.mock import Mock
 from urllib.parse import parse_qsl, urlparse
 
 import httpx
@@ -226,36 +225,14 @@ class AmazonClientTest(unittest.TestCase):
         with self.assertRaises(httpx.ReadTimeout):
             self.make_client(timeout).create_link("https://amzn.to/timeout")
 
-    def test_image_resolution_is_optional_and_skipped_for_campaigns(self):
-        resolver = Mock(spec=["get_image"])
-        resolver.get_image.return_value = (
-            "https://m.media-amazon.com/images/I/example.jpg"
-        )
-        client = self.make_client(image_resolver=resolver)
-        original = "https://www.amazon.com.br/dp/B0DXR6MKR8?tag=old"
-        link = client.create_link(original)
-        self.assertEqual(link.image_url, resolver.get_image.return_value)
-        resolver.get_image.assert_called_once_with(original)
-        resolver.reset_mock()
-
-        self.assertIsNone(client.create_link(original, resolve_image=False).image_url)
-        self.assertIsNone(
-            client.create_link("https://www.amazon.com.br/b?node=123").image_url
-        )
-        resolver.get_image.assert_not_called()
-        resolver.get_image.return_value = None
-        self.assertIsNone(client.create_link(original).image_url)
-
-    def test_image_lookup_failure_does_not_block_affiliate_conversion(self):
-        resolver = Mock(spec=["get_image"])
-        resolver.get_image.side_effect = RuntimeError("Chromium unavailable")
-        client = self.make_client(image_resolver=resolver)
-        with self.assertLogs("offers_bot.amazon", level="WARNING"):
-            link = client.create_link("https://www.amazon.com.br/dp/B0DXR6MKR8")
-        self.assertEqual(
-            link.short_url, "https://www.amazon.com.br/dp/B0DXR6MKR8?tag=mytag-20"
-        )
-        self.assertIsNone(link.image_url)
+    def test_products_and_campaigns_do_not_fetch_images(self):
+        client = self.make_client()
+        for url in (
+            "https://www.amazon.com.br/dp/B0DXR6MKR8?tag=old",
+            "https://www.amazon.com.br/b?node=123",
+        ):
+            with self.subTest(url=url):
+                self.assertIsNone(client.create_link(url).image_url)
 
 
 if __name__ == "__main__":

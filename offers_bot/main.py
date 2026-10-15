@@ -587,13 +587,6 @@ async def run() -> None:
             cookie_domains=(".mercadolivre.com.br",),
             debug_dir=settings.browser_debug_dir,
         )
-    amazon_image_resolver = None
-    if settings.browser_resolver_enabled:
-        amazon_image_resolver = PlaywrightProductResolver(
-            headless=settings.browser_headless,
-            timeout_ms=settings.browser_timeout_ms,
-            debug_dir=settings.browser_debug_dir,
-        )
     ml = MercadoLivreClient(
         tag=settings.ml_affiliate_tag,
         cookie_header=settings.ml_cookie_header,
@@ -602,7 +595,6 @@ async def run() -> None:
     )
     amazon = AmazonClient(
         tag=settings.amazon_affiliate_tag,
-        image_resolver=amazon_image_resolver,
     )
     shopee = ShopeeClient(
         app_id=settings.shopee_app_id,
@@ -661,7 +653,7 @@ async def run() -> None:
                 prefer_source_image = is_ali or isinstance(
                     affiliate_client, (AmazonClient, MercadoLivreClient)
                 )
-                if isinstance(affiliate_client, (AmazonClient, MercadoLivreClient)):
+                if isinstance(affiliate_client, MercadoLivreClient):
                     affiliate = await asyncio.to_thread(
                         affiliate_client.create_link,
                         offer.url,

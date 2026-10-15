@@ -10,16 +10,14 @@ from offers_bot.models import AffiliateLink
 
 class SourceImageFallbackTests(unittest.TestCase):
     def test_amazon_generates_link_without_browser_image_lookup(self):
-        resolver = Mock()
         product_url = "https://www.amazon.com.br/dp/B0DXR6MKR8"
-        client = AmazonClient("example-20", image_resolver=resolver)
+        client = AmazonClient("example-20")
         self.addCleanup(client._client.close)
-        link = client.create_link(product_url, resolve_image=False)
+        link = client.create_link(product_url)
 
         self.assertEqual(link.short_url, product_url + "?tag=example-20")
         self.assertEqual(link.product_key, "AMZN:B0DXR6MKR8")
         self.assertIsNone(link.image_url)
-        resolver.get_image.assert_not_called()
 
     def test_ml_preserves_product_resolution_when_skipping_image_lookup(self):
         resolver = Mock()

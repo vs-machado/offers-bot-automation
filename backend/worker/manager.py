@@ -123,14 +123,6 @@ class UserBotInstance:
                 debug_dir=browser_debug,
             )
 
-        amazon_image_resolver = None
-        if browser_enabled:
-            amazon_image_resolver = PlaywrightProductResolver(
-                headless=browser_headless,
-                timeout_ms=browser_timeout,
-                debug_dir=browser_debug,
-            )
-
         self._ml = MercadoLivreClient(
             tag=str(configs.get("ml_affiliate_tag", "")),
             cookie_header=ml_cookie,
@@ -139,7 +131,6 @@ class UserBotInstance:
         )
         self._amazon = AmazonClient(
             tag=str(configs.get("amazon_affiliate_tag", "")),
-            image_resolver=amazon_image_resolver,
         )
         self._shopee = ShopeeClient(
             app_id=str(configs.get("shopee_app_id", "")),
@@ -242,7 +233,7 @@ class UserBotInstance:
                         )
                         continue
 
-                    if isinstance(affiliate_client, (AmazonClient, MercadoLivreClient)):
+                    if isinstance(affiliate_client, MercadoLivreClient):
                         affiliate = await asyncio.to_thread(
                             affiliate_client.create_link,
                             offer.url,

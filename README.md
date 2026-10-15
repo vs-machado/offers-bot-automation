@@ -129,6 +129,8 @@ Save only your Amazon Associates tag (for example, `yourtag-20`) in setup or set
 
 Amazon affiliate link generation through an API is planned but not yet implemented. The current flow expands short links, removes previous affiliate tracking, and adds the user's tag to the destination URL.
 
+Amazon does not use Playwright or fetch product images. Posts reuse source-message media when available; otherwise they are published without an image.
+
 ### Shopee
 
 Save Affiliate Open Platform app ID and app secret.
