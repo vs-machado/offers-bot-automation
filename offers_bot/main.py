@@ -125,7 +125,7 @@ def wrap_coupon_codes(coupon_text: str) -> str:
     if codes:
         result = coupon_text
         for code in codes:
-            result = result.replace(code, f"`{code}`")
+            result = result.replace(code, f"```{code}```")
         return result + suffix
 
     ignored_code_words = {"AMAZON", "ALIEXPRESS", "MERCADO", "LIVRE", "SHOPEE"}
@@ -133,7 +133,7 @@ def wrap_coupon_codes(coupon_text: str) -> str:
         re.fullmatch(r"[A-Za-z0-9]{4,}", coupon_text)
         and coupon_text.upper() not in ignored_code_words
     ):
-        return f"`{coupon_text.upper()}`" + suffix
+        return f"```{coupon_text.upper()}```" + suffix
 
     return coupon_text + suffix
 

@@ -179,7 +179,7 @@ class ParserTest(unittest.TestCase):
 
         formatted = format_offer(offer, "https://meli.la/final123")
 
-        self.assertIn("🎟️ CUPOM: `10MELIMAIS` ou `MELIMAISPROMO`", formatted)
+        self.assertIn("🎟️ CUPOM: ```10MELIMAIS``` ou ```MELIMAISPROMO```", formatted)
         self.assertIn("⭐ Exclusivo para clientes Meli+", formatted)
 
     def test_prefers_price_after_por_when_original_price_exists(self):
@@ -314,7 +314,7 @@ class ParserTest(unittest.TestCase):
         self.assertEqual(
             formatted,
             "☑️ Cupom Amazon!\n\n"
-            "🎟 10% OFF em compras abra de R$ 200, Limitado a R$ 50: `SUPER10OFF`\n\n"
+            "🎟 10% OFF em compras abra de R$ 200, Limitado a R$ 50: ```SUPER10OFF```\n\n"
             "🛒 Resgate aqui: https://amzn.to/affiliate123",
         )
 
@@ -333,7 +333,7 @@ class ParserTest(unittest.TestCase):
         self.assertEqual(
             formatted,
             "☑️ Cupom Amazon!\n\n"
-            "🎟 10% OFF acima de R$ 200 limite R$ 50: `SUPER10OFF`\n\n"
+            "🎟 10% OFF acima de R$ 200 limite R$ 50: ```SUPER10OFF```\n\n"
             "🛒 Resgate aqui: https://amzn.to/affiliate123",
         )
 
@@ -352,7 +352,7 @@ class ParserTest(unittest.TestCase):
         self.assertEqual(
             formatted,
             "🤑 15% OFF em compras acima de R$199, Limitado a R$2.000\n\n"
-            "🎟️ Cupom: `ELUX15OFF`\n\n"
+            "🎟️ Cupom: ```ELUX15OFF```\n\n"
             "🔗 https://meli.la/affiliate123",
         )
 
@@ -371,8 +371,8 @@ class ParserTest(unittest.TestCase):
         self.assertEqual(
             formatted,
             "🔥 Cupons Mercado Livre!\n\n"
-            "🎟 12% OFF acima de R$ 79, limite R$ 60: `CUPOMDOML`\n"
-            "🎟 12% OFF acima de R$ 79, limite R$ 50: `OFFDOZE`\n\n"
+            "🎟 12% OFF acima de R$ 79, limite R$ 60: ```CUPOMDOML```\n"
+            "🎟 12% OFF acima de R$ 79, limite R$ 50: ```OFFDOZE```\n\n"
             "🛒 Resgate aqui: https://meli.la/affiliate123",
         )
 
@@ -389,7 +389,7 @@ class ParserTest(unittest.TestCase):
         self.assertEqual(
             formatted,
             "15% OFF em produtos selecionados!\n\n"
-            "🎟️ Cupom: `GERAL15`\n\n"
+            "🎟️ Cupom: ```GERAL15```\n\n"
             "🔗 https://meli.la/aff123",
         )
 
@@ -404,7 +404,7 @@ class ParserTest(unittest.TestCase):
 
         formatted = format_offer(offer, "https://meli.la/aff456")
 
-        self.assertIn("CUPOM: `EXTRA5`", formatted)
+        self.assertIn("CUPOM: ```EXTRA5```", formatted)
         self.assertNotIn("🎟️ Cupom:", formatted)
 
     # --- 9 sample patterns from user ---
@@ -570,7 +570,7 @@ class ParserTest(unittest.TestCase):
             "☑️ Cupom Shopee - Acessórios para veículos!!!\n"
             " \n"
             "R$30 OFF nas compras acima de R$119\n\n"
-            "🎯 Usem o Cupom: `AUTOS30G4AF`\n\n"
+            "🎯 Usem o Cupom: ```AUTOS30G4AF```\n\n"
             "🛒 Resgate aqui: https://s.shopee.com.br/LXc7aGHOO\n\n"
             "🛒 Link do Carrinho: https://s.shopee.com.br/aff1\n\n"
             "- Anúncio",
@@ -708,7 +708,7 @@ class ParserTest(unittest.TestCase):
 
         print(f"\n--- {self._testMethodName} ---\n{formatted}")
         self.assertIn("12% OFF em compras", formatted)
-        self.assertIn("🎟️ Cupom: `RECEBIDOSPAGO`", formatted)
+        self.assertIn("🎟️ Cupom: ```RECEBIDOSPAGO```", formatted)
         self.assertIn("🔗 https://meli.la/aff123", formatted)
         self.assertNotIn("*anúncio", formatted)
 
