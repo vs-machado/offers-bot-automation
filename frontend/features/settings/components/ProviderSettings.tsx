@@ -1,6 +1,9 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { Popover } from "@base-ui/react/popover";
+import { CircleHelp } from "lucide-react";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { SettingsState } from "@/features/settings/hooks/use-settings";
@@ -21,7 +24,15 @@ export function ProviderSettings({ provider, settings }: { provider: Provider; s
       setConfirmRemoval(false);
     }
   }
-  return <Card><CardHeader><div className="flex flex-wrap items-center justify-between gap-2"><CardTitle>{provider.name}</CardTitle><span className="rounded-full bg-muted px-3 py-1 text-xs text-muted-foreground">{isConfigured ? "Cadastrada" : "Não cadastrada"}</span></div><p className="text-sm/6 text-muted-foreground">{provider.description}</p></CardHeader><CardContent>
+  return <Card><CardHeader><div className="flex flex-wrap items-center justify-between gap-2"><div className="flex items-center gap-1"><CardTitle>{provider.name}</CardTitle>{provider.type === "shopee" ? <Popover.Root>
+      <Popover.Trigger aria-label="Ajuda sobre credenciais da Shopee" className="inline-flex size-9 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"><CircleHelp aria-hidden="true" className="size-4" /></Popover.Trigger>
+      <Popover.Portal><Popover.Positioner sideOffset={8} className="z-50"><Popover.Popup className="w-80 max-w-[calc(100vw-2rem)] rounded-xl border border-border bg-background p-4 text-sm/6 text-foreground shadow-lg">
+        <Popover.Title className="mb-2 font-semibold">Credenciais da Shopee</Popover.Title>
+        <p>Requer credenciais de API: <a href="https://affiliate.shopee.com.br/open_api" target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-4">Acessar API de afiliados</a></p>
+        <p className="mt-2">Como solicitar: <a href="https://seller.br.shopee.cn/edu/article/3445/API--Access-Request-Process" target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-4">Processo de solicitação de acesso</a></p>
+        <Image src="/shopee_api.png" alt="Exemplo da tela Meu API da Shopee com AppID e senha ocultos" width={322} height={172} className="mt-3 h-auto w-full rounded-lg border border-border" />
+      </Popover.Popup></Popover.Positioner></Popover.Portal>
+    </Popover.Root> : null}</div><span className="rounded-full bg-muted px-3 py-1 text-xs text-muted-foreground">{isConfigured ? "Cadastrada" : "Não cadastrada"}</span></div><p className="text-sm/6 text-muted-foreground">{provider.description}</p></CardHeader><CardContent>
     <form onSubmit={submit} className="space-y-4">
       {provider.fields.map((field) => <label key={field.key} className="block space-y-2 text-sm font-medium"><span>{field.label}{field.required ? " *" : ""}</span><input className="h-11 w-full rounded-lg border border-border bg-background px-3 text-foreground" type={/secret|cookie|token|app_key/.test(field.key) ? "password" : "text"} autoComplete="off" required={field.required} disabled={Boolean(settings.busy)} placeholder={field.placeholder} value={fields[field.key] ?? ""} onChange={(event) => setFields((current) => ({ ...current, [field.key]: event.target.value }))} /></label>)}
       <div className="flex flex-wrap gap-2"><Button type="submit" disabled={Boolean(settings.busy)}>{settings.busy === provider.type ? "Salvando…" : provider.type === "amazon" ? "Salvar tag" : "Salvar credenciais"}</Button>{isConfigured ? <Button type="button" variant="outline" disabled={Boolean(settings.busy)} onClick={() => setConfirmRemoval(true)}>Remover integração</Button> : null}</div>
