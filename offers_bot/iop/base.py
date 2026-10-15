@@ -12,8 +12,6 @@ import hashlib
 import logging
 import os
 from os.path import expanduser
-import socket
-import platform
 
 # dir = os.getenv('HOME')
 dir = expanduser("~")
@@ -90,21 +88,8 @@ def mixStr(pstr):
 
 
 def logApiError(appkey, sdkVersion, requestUrl, code, message):
-    localIp = socket.gethostbyname(socket.gethostname())
-    platformType = platform.platform()
-    logger.error(
-        "%s^_^%s^_^%s^_^%s^_^%s^_^%s^_^%s^_^%s"
-        % (
-            appkey,
-            sdkVersion,
-            time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),
-            localIp,
-            platformType,
-            requestUrl,
-            code,
-            message,
-        )
-    )
+    """Log SDK status without keys, signed URLs, tokens or echoed provider data."""
+    logger.error("AliExpress SDK %s request failed (code: %s)", sdkVersion, code)
 
 
 class IopRequest(object):
@@ -204,9 +189,9 @@ class IopClient(object):
                 )
             else:
                 r = requests.get(api_url, sign_parameter, timeout=self._timeout)
-        except Exception as err:
-            logApiError(self._app_key, P_SDK_VERSION, full_url, "HTTP_ERROR", str(err))
-            raise err
+        except Exception:
+            logApiError(self._app_key, P_SDK_VERSION, full_url, "HTTP_ERROR", "")
+            raise RuntimeError("AliExpress HTTP request failed") from None
 
         response = IopResponse()
 

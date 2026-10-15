@@ -1,5 +1,4 @@
 import logging
-import json
 import httpx
 from .models import AffiliateLink
 from .iop import IopClient, IopRequest
@@ -75,12 +74,9 @@ class AliExpressClient:
 
         # The response.body is the parsed JSON
         data = response.body
-        LOGGER.info(f"AliExpress Response: {json.dumps(data)}")
 
         if response.code != "0" and response.code is not None:
-            raise RuntimeError(
-                f"AliExpress API error: {response.message} (code: {response.code})"
-            )
+            raise RuntimeError(f"AliExpress API error (code: {response.code})")
 
         # Parse resp_result according to the documentation
         # The structure is usually nested:
@@ -104,15 +100,12 @@ class AliExpressClient:
             links = resp_result.get("promotion_links", [])
 
         if not links:
-            raise RuntimeError(
-                f"AliExpress API returned no links. Response: {json.dumps(data)}"
-            )
+            raise RuntimeError("AliExpress API returned no links")
 
         promotion_link = links[0].get("promotion_link")
 
         if not promotion_link:
-            message = links[0].get("message", "Unknown error")
-            raise RuntimeError(f"AliExpress API failed to generate link: {message}")
+            raise RuntimeError("AliExpress API failed to generate link")
 
         image_url = self._get_product_image(product_id) if product_id else None
 

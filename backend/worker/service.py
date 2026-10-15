@@ -6,6 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.app.core.db.session import AsyncSessionLocal
+from backend.app.core.credentials import credential_cipher
 from backend.app.core.source_groups import enabled_source_groups
 from backend.app.models.user import UserConfig
 from backend.worker.manager import UserBotInstance
@@ -26,6 +27,7 @@ class WorkerService:
 
     async def start(self) -> None:
         """Listen continuously and refresh user configuration every 30 seconds."""
+        credential_cipher()
         LOGGER.info("Worker service starting")
         await self._sync_bots()
         reader = TelegramSourceReader(self._source_catalog)
