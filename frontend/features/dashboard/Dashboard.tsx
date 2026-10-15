@@ -247,7 +247,6 @@ export async function Dashboard() {
   const dbUser = await getDashboardUser(session.sessionToken);
   const destinations = await getDestinations(session.sessionToken);
   const configs = await getUserConfigs(session.sessionToken);
-  const deliveryHistory = await getDeliveryHistory(session.sessionToken);
   const hasEnabledDestination = destinations.some((destination) => destination.enabled);
   const hasAffiliateConfig = configs.some((config) =>
     ["amazon", "shopee", "mercado_livre", "aliexpress"].includes(config.config_type)
@@ -277,6 +276,9 @@ export async function Dashboard() {
   const totalSteps = onboardingSteps.length;
   const allStepsCompleted = completedCount === totalSteps;
   const progressPercent = Math.round((completedCount / totalSteps) * 100);
+  const deliveryHistory = allStepsCompleted
+    ? await getDeliveryHistory(session.sessionToken)
+    : null;
 
   return (
     <main className="relative isolate min-h-dvh overflow-x-clip bg-background text-foreground lg:h-dvh">
@@ -639,7 +641,6 @@ export async function Dashboard() {
             </Card>
           </>
         )}
-        {!allStepsCompleted ? <PublicationHistory initialData={deliveryHistory} /> : null}
         </div>
       </section>
     </main>
