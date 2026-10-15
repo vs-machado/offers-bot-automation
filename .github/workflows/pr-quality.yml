@@ -73,4 +73,6 @@ jobs:
         run: python -m playwright install --with-deps chromium
 
       - name: Run tests
-        run: python -m unittest discover tests
+        run: |
+          export CREDENTIALS_ENCRYPTION_KEY="$(python -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())')"
+          python -m unittest discover tests

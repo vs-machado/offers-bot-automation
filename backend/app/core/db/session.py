@@ -13,6 +13,7 @@ engine = create_async_engine(
     pool_timeout=30,
     pool_recycle=1800,
     echo=False,
+    hide_parameters=True,
 )
 
 AsyncSessionLocal = async_sessionmaker(

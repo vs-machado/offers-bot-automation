@@ -22,6 +22,8 @@ services:
       - "8000"
     environment:
       - DATABASE_URL=${DATABASE_URL:?Set DATABASE_URL for the external PostgreSQL}
+      - CREDENTIALS_ENCRYPTION_KEY=${CREDENTIALS_ENCRYPTION_KEY:?Set a persistent Fernet encryption key}
+      - CREDENTIALS_ENCRYPTION_PREVIOUS_KEYS=${CREDENTIALS_ENCRYPTION_PREVIOUS_KEYS:-}
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
       - WAHA_BASE_URL=${WAHA_BASE_URL:-}
       - WAHA_API_KEY=${WAHA_API_KEY:-}
@@ -41,6 +43,8 @@ services:
     command: ["python", "-m", "backend.worker"]
     environment:
       - REDIS_URL=redis://offers-redis:6379/0
+      - CREDENTIALS_ENCRYPTION_KEY=${CREDENTIALS_ENCRYPTION_KEY:?Set a persistent Fernet encryption key}
+      - CREDENTIALS_ENCRYPTION_PREVIOUS_KEYS=${CREDENTIALS_ENCRYPTION_PREVIOUS_KEYS:-}
       - WAHA_BASE_URL=${WAHA_BASE_URL:-}
       - WAHA_API_KEY=${WAHA_API_KEY:-}
       - PROMOTION_TTL_SECONDS=${PROMOTION_TTL_SECONDS:-600}
@@ -87,6 +91,8 @@ services:
     restart: unless-stopped
 
   frontend:
+    labels:
+      - "traefik.docker.network=c12l6b1ey21jvoqk0mzex0b6"
     networks:
       - default
       - database

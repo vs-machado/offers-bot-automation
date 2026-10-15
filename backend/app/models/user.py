@@ -37,7 +37,7 @@ class User(Base):
 
 
 class UserConfig(Base):
-    """JSON-serialized routing, provider, and resolver settings for one user."""
+    """Encrypted routing, provider, and resolver settings for one user."""
 
     __tablename__ = "user_configs"
 
@@ -48,7 +48,7 @@ class UserConfig(Base):
     config_type: Mapped[str] = mapped_column(
         String(50), index=True
     )  # 'telegram', 'amazon', etc.
-    config_data: Mapped[str] = mapped_column(String)  # JSON string of credentials
+    config_data: Mapped[str] = mapped_column(String)  # Versioned encrypted JSON
 
     user: Mapped["User"] = relationship(back_populates="configs")
 

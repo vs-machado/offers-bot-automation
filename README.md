@@ -100,6 +100,61 @@ Run migrations manually from repository root with project virtual environment:
 .\venv\Scripts\alembic.exe -c backend\alembic.ini upgrade head
 ```
 
+## Criptografia das credenciais
+
+Configurações de usuários (`user_configs.config_data`) são criptografadas por
+inteiro com Fernet (`cryptography`): AES-128-CBC + HMAC-SHA256, com IV aleatório.
+O conteúdo autenticado também identifica usuário e tipo da configuração, impedindo
+reutilizar um registro criptografado para outro usuário ou provedor.
+
+Antes do primeiro deploy desta versão, gere uma chave **uma única vez**:
+
+```bash
+python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+```
+
+Cadastre o resultado como `CREDENTIALS_ENCRYPTION_KEY` nos secrets/variáveis de
+ambiente do Coolify, ou no `.env` local. Compose entrega essa chave somente ao
+backend e worker. A chave é obrigatória, inclusive em desenvolvimento; não há
+chave padrão nem geração automática ao iniciar. Guarde backup seguro da chave
+separado dos backups do banco. Perdê-la torna as credenciais irrecuperáveis.
+
+A migração `0011_encrypt_user_configs` criptografa registros existentes em uma
+transação, antes de o backend ficar saudável. Faça backup do banco e interrompa
+instâncias antigas durante a atualização: versões antigas não leem ciphertext.
+Rollback da migração preserva os dados criptografados. Backups antigos e versões
+de linhas retidas pelo PostgreSQL podem ainda conter plaintext; a migração não
+reescreve backups nem garante apagamento físico desses dados.
+
+API devolve `********` no lugar de cookies, tokens, chaves e segredos. Ao atualizar
+ou testar uma integração, esse marcador reutiliza o valor salvo exclusivamente
+para o usuário/provedor autenticado. Para trocar uma credencial, envie o novo
+valor. O frontend nunca recebe a chave de criptografia ou o segredo salvo.
+Tráfego deve continuar protegido por HTTPS.
+
+### Rotação de chave
+
+1. Gere nova chave. Defina-a em `CREDENTIALS_ENCRYPTION_KEY` e mantenha a antiga
+   em `CREDENTIALS_ENCRYPTION_PREVIOUS_KEYS` (lista separada por vírgulas).
+2. Recrie backend e worker com as mesmas chaves. Aguarde todas as instâncias
+   antigas pararem; novas gravações passam a usar a chave nova.
+3. Recriptografe registros existentes com o comando abaixo. Operação transacional:
+   qualquer registro inválido ou chave incorreta aborta sem gravações parciais.
+
+   ```bash
+   docker compose exec backend python -m backend.app.core.db.credential_rotation
+   ```
+
+   No Coolify, execute `python -m backend.app.core.db.credential_rotation` no
+   terminal do serviço backend.
+
+4. Após sucesso, remova `CREDENTIALS_ENCRYPTION_PREVIOUS_KEYS` e recrie os dois
+   serviços. Preserve chaves antigas em backup separado enquanto existirem
+   backups do banco que dependam delas.
+
+Secrets de infraestrutura (WAHA, Telegram, IA, banco e autenticação) continuam
+administrados pelo ambiente/gerenciador de segredos, fora do banco de configurações.
+
 ## Configuration boundaries
 
 User-owned business configuration is stored only in PostgreSQL through authenticated `/users/me` endpoints:
