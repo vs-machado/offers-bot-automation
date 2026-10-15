@@ -592,8 +592,6 @@ async def run() -> None:
         amazon_image_resolver = PlaywrightProductResolver(
             headless=settings.browser_headless,
             timeout_ms=settings.browser_timeout_ms,
-            cookie_header=settings.amazon_cookie_header,
-            cookie_domains=(".amazon.com.br",),
             debug_dir=settings.browser_debug_dir,
         )
     ml = MercadoLivreClient(
@@ -604,8 +602,6 @@ async def run() -> None:
     )
     amazon = AmazonClient(
         tag=settings.amazon_affiliate_tag,
-        cookie_header=settings.amazon_cookie_header,
-        marketplace_id=settings.amazon_marketplace_id,
         image_resolver=amazon_image_resolver,
     )
     shopee = ShopeeClient(

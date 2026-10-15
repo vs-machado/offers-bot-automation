@@ -27,7 +27,7 @@ export function useCredentialValidation(provider: ProviderType, credentials: Rec
       const result = await validateCredentials(provider, values, productUrl, controller.signal);
       if (!controller.signal.aborted) setValidation({ snapshot, result });
     } catch (cause) {
-      if (!controller.signal.aborted) setValidation({ snapshot, error: getRequestErrorMessage(cause, "Não foi possível validar as credenciais. Tente novamente mais tarde.") });
+      if (!controller.signal.aborted) setValidation({ snapshot, error: getRequestErrorMessage(cause, "Não foi possível validar a configuração. Tente novamente mais tarde.") });
     } finally {
       request.current = null;
       if (!controller.signal.aborted) setIsValidating(false);

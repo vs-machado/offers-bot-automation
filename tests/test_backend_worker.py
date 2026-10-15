@@ -91,7 +91,6 @@ class UserBotConfigurationTests(unittest.IsolatedAsyncioTestCase):
                 config_data=json.dumps(
                     {
                         "amazon_affiliate_tag": "example-20",
-                        "amazon_cookie_header": "session-id=test",
                     }
                 ),
             ),

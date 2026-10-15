@@ -125,7 +125,9 @@ Save affiliate tag, authenticated cookie header, and CSRF token in dashboard. Co
 
 ### Amazon
 
-Save Associates tag, authenticated cookie header, and optional marketplace ID. Default marketplace ID is `526970`.
+Save only your Amazon Associates tag (for example, `yourtag-20`) in setup or settings. Product links use expanded Amazon URLs with your tag, not SiteStripe short links. Cookies, marketplace ID, and SiteStripe access are not required. Validation checks only the tag format; it does not authenticate with Amazon or confirm account ownership, eligibility, or commissions.
+
+Amazon affiliate link generation through an API is planned but not yet implemented. The current flow expands short links, removes previous affiliate tracking, and adds the user's tag to the destination URL.
 
 ### Shopee
 

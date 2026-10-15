@@ -112,7 +112,6 @@ class UserBotInstance:
         browser_debug = Path(str(browser_debug_value)) if browser_debug_value else None
 
         ml_cookie = str(configs.get("ml_cookie_header", ""))
-        amazon_cookie = str(configs.get("amazon_cookie_header", ""))
 
         product_url_resolver = None
         if browser_enabled and ml_cookie:
@@ -125,12 +124,10 @@ class UserBotInstance:
             )
 
         amazon_image_resolver = None
-        if browser_enabled and amazon_cookie:
+        if browser_enabled:
             amazon_image_resolver = PlaywrightProductResolver(
                 headless=browser_headless,
                 timeout_ms=browser_timeout,
-                cookie_header=amazon_cookie,
-                cookie_domains=(".amazon.com.br",),
                 debug_dir=browser_debug,
             )
 
@@ -142,8 +139,6 @@ class UserBotInstance:
         )
         self._amazon = AmazonClient(
             tag=str(configs.get("amazon_affiliate_tag", "")),
-            cookie_header=amazon_cookie,
-            marketplace_id=str(configs.get("amazon_marketplace_id", "526970")),
             image_resolver=amazon_image_resolver,
         )
         self._shopee = ShopeeClient(

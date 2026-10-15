@@ -18,7 +18,12 @@ from backend.app.schemas.user import (
 from backend.app.schemas.offer import OfferCreate, OfferRead
 from backend.app.schemas.delivery import DeliveryHistory
 from backend.app.core.delivery_history import get_delivery_history
-from backend.app.core.affiliate_validation import validate_credentials
+from backend.app.core.affiliate_validation import (
+    MESSAGES,
+    REQUIRED as REQUIRED_CONFIG_KEYS,
+    amazon_tag_reason,
+    validate_credentials,
+)
 from backend.app.schemas.affiliate_validation import (
     CredentialValidationRequest,
     CredentialValidationResult,
@@ -38,7 +43,7 @@ async def validate_affiliate_credentials(
     body: CredentialValidationRequest,
     current_user: User = Depends(get_current_user),
 ):
-    """Probe the authenticated user's draft credentials without persisting them."""
+    """Check Amazon tags locally or probe other stores without persisting drafts."""
     return await validate_credentials(body, current_user.id)
 
 
@@ -76,14 +81,6 @@ def _config_response(config: UserConfig) -> dict[str, object]:
     }
 
 
-REQUIRED_CONFIG_KEYS = {
-    "amazon": ("amazon_affiliate_tag", "amazon_cookie_header"),
-    "mercado_livre": ("ml_affiliate_tag", "ml_cookie_header", "ml_csrf_token"),
-    "shopee": ("shopee_app_id", "shopee_app_secret"),
-    "aliexpress": ("aliexpress_app_key", "aliexpress_app_secret"),
-}
-
-
 async def _preview_source_groups(
     source_chats: list[str],
     labels: dict[str, str] | None = None,
@@ -118,7 +115,18 @@ async def _preview_source_groups(
 def _validate_config(
     config_data: UserConfigCreate, catalog: list[str] | None = None
 ) -> None:
-    """Validate required credential fields for known affiliate providers."""
+    """Check required provider fields and Amazon tag syntax before persistence."""
+    if config_data.config_type == "amazon":
+        reason = amazon_tag_reason(config_data.config_data.get("amazon_affiliate_tag"))
+        if reason != "locally_valid":
+            detail: dict[str, object] = {"message": MESSAGES[reason]}
+            if reason == "missing_fields":
+                detail["missing_keys"] = ["amazon_affiliate_tag"]
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=detail)
+        config_data.config_data["amazon_affiliate_tag"] = config_data.config_data[
+            "amazon_affiliate_tag"
+        ].strip()
+        return
     if config_data.config_type == "source_chats":
         chats = config_data.config_data.get("source_chats")
         try:

@@ -8,7 +8,7 @@ export async function validateCredentials(provider: ProviderType, credentials: R
     body: JSON.stringify({ provider, config_data: credentials, product_url: productUrl.trim() || null }),
   });
   const data = await response.json().catch(() => null);
-  if (!response.ok) throw new Error(getApiErrorMessage(data, "Não foi possível validar as credenciais. Tente novamente mais tarde."));
+  if (!response.ok) throw new Error(getApiErrorMessage(data, "Não foi possível validar a configuração. Tente novamente mais tarde."));
   if (!data) throw new Error("O serviço de validação não retornou um resultado. Tente novamente.");
   return data as CredentialValidationResult;
 }
