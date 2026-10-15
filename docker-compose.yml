@@ -36,6 +36,8 @@ services:
       - "${BACKEND_PORT:-8000}:8000"
     environment:
       - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@db:5432/${POSTGRES_DB:-offers_db}
+      - CREDENTIALS_ENCRYPTION_KEY=${CREDENTIALS_ENCRYPTION_KEY:?Set a persistent Fernet encryption key}
+      - CREDENTIALS_ENCRYPTION_PREVIOUS_KEYS=${CREDENTIALS_ENCRYPTION_PREVIOUS_KEYS:-}
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
       - WAHA_BASE_URL=${WAHA_BASE_URL:-}
       - WAHA_API_KEY=${WAHA_API_KEY:-}
@@ -56,6 +58,8 @@ services:
     command: ["python", "-m", "backend.worker"]
     environment:
       - REDIS_URL=redis://redis:6379/0
+      - CREDENTIALS_ENCRYPTION_KEY=${CREDENTIALS_ENCRYPTION_KEY:?Set a persistent Fernet encryption key}
+      - CREDENTIALS_ENCRYPTION_PREVIOUS_KEYS=${CREDENTIALS_ENCRYPTION_PREVIOUS_KEYS:-}
       - WAHA_BASE_URL=${WAHA_BASE_URL:-}
       - WAHA_API_KEY=${WAHA_API_KEY:-}
       - PROMOTION_TTL_SECONDS=${PROMOTION_TTL_SECONDS:-600}

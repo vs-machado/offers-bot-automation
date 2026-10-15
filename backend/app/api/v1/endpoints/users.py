@@ -1,4 +1,3 @@
-import json
 import httpx
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -6,6 +5,13 @@ from typing import Literal
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from backend.app.core.db.session import get_db
+from backend.app.core.credentials import (
+    MASK,
+    decrypt_config,
+    encrypt_config,
+    mask_config,
+    restore_masked_secrets,
+)
 from backend.app.models.user import DestinationChannel, Offer, User, UserConfig
 from backend.app.schemas.user import (
     DestinationChannelCreate,
@@ -42,8 +48,29 @@ router = APIRouter()
 async def validate_affiliate_credentials(
     body: CredentialValidationRequest,
     current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
-    """Check Amazon tags locally or probe other stores without persisting drafts."""
+    """Probe drafts or owned saved secrets without persisting or returning secrets."""
+    values = {key: value.get_secret_value() for key, value in body.config_data.items()}
+    if MASK in values.values():
+        result = await db.execute(
+            select(UserConfig)
+            .where(
+                UserConfig.user_id == current_user.id,
+                UserConfig.config_type == body.provider,
+            )
+            .order_by(UserConfig.id)
+        )
+        config = result.scalars().first()
+        stored = (
+            decrypt_config(config.config_data, config.user_id, config.config_type)
+            if config
+            else None
+        )
+        values = _restore_secrets(values, stored)
+        body = CredentialValidationRequest(
+            provider=body.provider, config_data=values, product_url=body.product_url
+        )
     return await validate_credentials(body, current_user.id)
 
 
@@ -70,15 +97,22 @@ async def list_deliveries(
 
 
 def _config_response(config: UserConfig) -> dict[str, object]:
-    """Decode response data without marking the ORM's text column dirty."""
+    """Return owned configuration with secret fields masked, never ciphertext."""
     return {
         "id": config.id,
         "user_id": config.user_id,
         "config_type": config.config_type,
-        "config_data": json.loads(config.config_data)
-        if isinstance(config.config_data, str)
-        else config.config_data,
+        "config_data": mask_config(
+            decrypt_config(config.config_data, config.user_id, config.config_type)
+        ),
     }
+
+
+def _restore_secrets(data: dict, stored: dict | None = None) -> dict:
+    try:
+        return restore_masked_secrets(data, stored)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from None
 
 
 async def _preview_source_groups(
@@ -203,7 +237,11 @@ async def list_configs(
     db: AsyncSession = Depends(get_db),
 ):
     """Return configuration records belonging to authenticated user."""
-    statement = select(UserConfig).where(UserConfig.user_id == current_user.id)
+    statement = (
+        select(UserConfig)
+        .where(UserConfig.user_id == current_user.id)
+        .order_by(UserConfig.id)
+    )
     result = await db.execute(statement)
     configs = result.scalars().all()
     return [_config_response(config) for config in configs]
@@ -280,11 +318,14 @@ async def create_config(
         if config_data.config_type == "source_chats"
         else None
     )
+    config_data.config_data = _restore_secrets(config_data.config_data)
     _validate_config(config_data, catalog)
     new_config = UserConfig(
         user_id=current_user.id,
         config_type=config_data.config_type,
-        config_data=json.dumps(config_data.config_data),
+        config_data=encrypt_config(
+            config_data.config_data, current_user.id, config_data.config_type
+        ),
     )
     db.add(new_config)
     await db.commit()
@@ -305,7 +346,6 @@ async def update_config(
         if config_data.config_type == "source_chats"
         else None
     )
-    _validate_config(config_data, catalog)
     statement = select(UserConfig).where(
         UserConfig.id == config_id, UserConfig.user_id == current_user.id
     )
@@ -316,8 +356,17 @@ async def update_config(
             status_code=status.HTTP_404_NOT_FOUND, detail="Configuração não encontrada."
         )
 
+    stored = (
+        decrypt_config(config.config_data, config.user_id, config.config_type)
+        if config.config_type == config_data.config_type
+        else None
+    )
+    config_data.config_data = _restore_secrets(config_data.config_data, stored)
+    _validate_config(config_data, catalog)
     config.config_type = config_data.config_type
-    config.config_data = json.dumps(config_data.config_data)
+    config.config_data = encrypt_config(
+        config_data.config_data, current_user.id, config_data.config_type
+    )
     await db.commit()
     await db.refresh(config)
     return _config_response(config)

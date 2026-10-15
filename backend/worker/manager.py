@@ -10,6 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from backend.app.models.user import DestinationChannel, UserConfig
+from backend.app.core.credentials import decrypt_config
 from backend.app.core.source_groups import approved_source
 from backend.worker.poster import BotPoster
 from backend.worker.store import PgOfferStore
@@ -411,10 +412,7 @@ class UserBotInstance:
         result = await db.execute(stmt)
         configs: dict[str, object] = {}
         for row in result.scalars().all():
-            try:
-                data = json.loads(row.config_data)
-            except (json.JSONDecodeError, TypeError):
-                data = row.config_data
+            data = decrypt_config(row.config_data, row.user_id, row.config_type)
             if isinstance(data, dict):
                 configs.update(
                     {
