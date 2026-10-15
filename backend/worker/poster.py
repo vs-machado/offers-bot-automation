@@ -1,7 +1,23 @@
 import os
+import re
 from dataclasses import dataclass
 
 import httpx
+from telethon.extensions import html, markdown
+
+
+COUPON_CODE_BLOCK_RE = re.compile(r"(?<!`)```([A-Za-z0-9]{4,})```(?!`)")
+
+
+def _telegram_offer_html(text: str) -> str:
+    """Render offer Markdown as HTML with inline, individually copyable coupons.
+
+    Only single-code fences become inline code; multiline blocks remain intact.
+    Telethon's parser preserves the formatting used by the user-account sender.
+    """
+    text = COUPON_CODE_BLOCK_RE.sub(r"`\1`", text)
+    plain_text, entities = markdown.parse(text)
+    return html.unparse(plain_text, entities)
 
 
 class BotPosterError(RuntimeError):
@@ -48,7 +64,10 @@ class BotPoster:
     ) -> dict:
         """Send text or photo offer to chat and return Telegram result payload."""
         payload = {"chat_id": chat_id}
-        if parse_mode:
+        if parse_mode and parse_mode.lower() == "markdown":
+            text = _telegram_offer_html(text)
+            payload["parse_mode"] = "HTML"
+        elif parse_mode:
             payload["parse_mode"] = parse_mode
 
         method = "sendPhoto" if image_file else "sendMessage"
