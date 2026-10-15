@@ -104,16 +104,17 @@ class Offer:
 
 
 def extract_offers(text: str) -> list[Offer]:
-    text = clean_source_advertising(text)
     return _extract_offers(text, parse_with_llm(text))
 
 
 async def extract_offers_async(text: str) -> list[Offer]:
-    text = clean_source_advertising(text)
     return _extract_offers(text, await parse_with_llm_async(text))
 
 
 def _extract_offers(text: str, llm_res: dict | None) -> list[Offer]:
+    text = clean_source_advertising(
+        text, (llm_res or {}).get("source_advertising_spans", [])
+    )
     logger = logging.getLogger(__name__)
 
     if llm_res:
