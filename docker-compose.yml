@@ -39,6 +39,7 @@ services:
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
       - WAHA_BASE_URL=${WAHA_BASE_URL:-}
       - WAHA_API_KEY=${WAHA_API_KEY:-}
+      - PROMOTION_TTL_SECONDS=${PROMOTION_TTL_SECONDS:-600}
     depends_on:
       db:
         condition: service_healthy
@@ -57,7 +58,7 @@ services:
       - REDIS_URL=redis://redis:6379/0
       - WAHA_BASE_URL=${WAHA_BASE_URL:-}
       - WAHA_API_KEY=${WAHA_API_KEY:-}
-      - PROMOTION_TTL_SECONDS=${PROMOTION_TTL_SECONDS:-180}
+      - PROMOTION_TTL_SECONDS=${PROMOTION_TTL_SECONDS:-600}
       - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@db:5432/${POSTGRES_DB:-offers_db}
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
       - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
@@ -91,6 +92,7 @@ services:
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
       - WAHA_BASE_URL=${WAHA_BASE_URL:-}
       - WAHA_API_KEY=${WAHA_API_KEY:-}
+      - PROMOTION_TTL_SECONDS=${PROMOTION_TTL_SECONDS:-600}
     depends_on:
       redis:
         condition: service_healthy

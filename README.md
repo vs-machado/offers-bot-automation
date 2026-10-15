@@ -315,9 +315,9 @@ registros por promoção; seu diagnóstico depende dos logs operacionais.
 ### Fila de postagem de promoções
 
 O listener prepara os links e publica uma tarefa por destino no Redis. O serviço
-`posting` executa essas tarefas com Celery. O prazo padrão é de 180 segundos desde
+`posting` executa essas tarefas com Celery. O prazo padrão e máximo é de 600 segundos desde
 a data original da mensagem do Telegram, incluindo processamento; ajuste
-`PROMOTION_TTL_SECONDS` no ambiente do listener. Promoções vencidas são descartadas.
+`PROMOTION_TTL_SECONDS` (1–600) no ambiente do listener e da API. Promoções vencidas são descartadas.
 Não há Celery Beat: o envio é acionado por mensagens, sem agendamento periódico.
 
 ```powershell
@@ -376,6 +376,9 @@ Administrators can add, edit, enable, disable, and remove public Telegram groups
 
 ### WhatsApp destinations (WAHA)
 
+Implementation requirements and channel delivery recommendations:
+[`WAHA_IMPLEMENTATION.md`](WAHA_IMPLEMENTATION.md).
+
 Users can connect their own WhatsApp account in **Settings → Publicar no WhatsApp**,
 scan the QR from **WhatsApp → Linked devices**, and select a group or channel from their account.
 The same QR and destination picker is available in the setup tutorial. Telegram
@@ -386,6 +389,12 @@ The connected account must participate in the group and have permission to send;
 only WhatsApp channels with the `OWNER` or `ADMIN` role are selectable. If the WAHA
 engine cannot list channels, the interface reports this while keeping groups available.
 Messages are sent in that account's name, with the same prepared affiliate text/photo.
+Source selection remains the platform's Telegram catalog: each user's selected sources
+feed all their enabled Telegram and WhatsApp destinations through the same queue.
+Manage each destination independently in Settings; disabling one leaves the others active.
+Group and channel discovery fail independently, so an unavailable listing does not
+block the other destination type. After unlinking and pairing again, explicitly
+enable saved destinations in Settings to resume their deliveries.
 
 Operator setup:
 

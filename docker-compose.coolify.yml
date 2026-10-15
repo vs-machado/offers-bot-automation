@@ -25,6 +25,7 @@ services:
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
       - WAHA_BASE_URL=${WAHA_BASE_URL:-}
       - WAHA_API_KEY=${WAHA_API_KEY:-}
+      - PROMOTION_TTL_SECONDS=${PROMOTION_TTL_SECONDS:-600}
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 10s
@@ -42,7 +43,7 @@ services:
       - REDIS_URL=redis://offers-redis:6379/0
       - WAHA_BASE_URL=${WAHA_BASE_URL:-}
       - WAHA_API_KEY=${WAHA_API_KEY:-}
-      - PROMOTION_TTL_SECONDS=${PROMOTION_TTL_SECONDS:-180}
+      - PROMOTION_TTL_SECONDS=${PROMOTION_TTL_SECONDS:-600}
       - DATABASE_URL=${DATABASE_URL:?Set DATABASE_URL for the external PostgreSQL}
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
       - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
@@ -77,6 +78,7 @@ services:
       - WAHA_BASE_URL=${WAHA_BASE_URL:-}
       - WAHA_API_KEY=${WAHA_API_KEY:-}
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - PROMOTION_TTL_SECONDS=${PROMOTION_TTL_SECONDS:-600}
     depends_on:
       offers-redis:
         condition: service_healthy

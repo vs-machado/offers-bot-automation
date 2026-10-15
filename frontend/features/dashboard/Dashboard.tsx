@@ -66,9 +66,9 @@ const defaultOnboardingState: OnboardingState = {
 const onboardingSteps: OnboardingStep[] = [
   {
     id: "connectedTelegram",
-    title: "Adicione o bot da plataforma",
-    shortTitle: "Adicionar bot",
-    description: "Adicione @tgtestoffersbot ao grupo ou canal onde quer publicar as ofertas.",
+    title: "Conecte Telegram ou WhatsApp",
+    shortTitle: "Conectar conta",
+    description: "No Telegram, adicione @tgtestoffersbot. No WhatsApp, conecte sua conta pelo QR no tutorial ou nas configurações.",
     icon: Send,
     color: "bg-sky-100 text-sky-600 dark:bg-sky-400/15 dark:text-sky-300",
   },
@@ -76,15 +76,15 @@ const onboardingSteps: OnboardingStep[] = [
     id: "addedFirstGroup",
     title: "Escolha onde publicar",
     shortTitle: "Escolher destino",
-    description: "Adicione o bot ao grupo ou canal que vai receber as ofertas.",
+    description: "Escolha os grupos ou canais do Telegram e do WhatsApp que vão receber as ofertas.",
     icon: UsersRound,
     color: "bg-emerald-100 text-emerald-600 dark:bg-emerald-400/15 dark:text-emerald-300",
   },
   {
     id: "selectedMessageTemplate",
-    title: "Informe o ID do grupo ou canal",
-    shortTitle: "Informar ID",
-    description: "Informe o ID para verificarmos se o bot pode publicar nesse grupo ou canal.",
+    title: "Confirme o destino de publicação",
+    shortTitle: "Salvar destino",
+    description: "No Telegram, salve o ID com permissão de administrador. No WhatsApp, selecione um grupo ou canal da conta conectada.",
     icon: MessageSquareText,
     color: "bg-orange-100 text-orange-600 dark:bg-orange-400/15 dark:text-orange-300",
   },
@@ -149,13 +149,13 @@ const sidebarItems: Array<{
 
 const workflowSteps = [
   {
-    title: "Use o bot da plataforma",
-    description: "O bot @tgtestoffersbot publica as ofertas nos grupos e canais que você escolher.",
+    title: "Escolha Telegram ou WhatsApp",
+    description: "Use @tgtestoffersbot no Telegram ou conecte sua conta WhatsApp pelo QR.",
     icon: UsersRound,
   },
   {
-    title: "Adicione o bot aos seus grupos",
-    description: "Dê ao bot permissão de administrador nos grupos e canais que vão receber as ofertas.",
+    title: "Selecione seus grupos e canais",
+    description: "No Telegram, dê permissão ao bot. No WhatsApp, escolha grupos onde pode enviar ou canais que administra.",
     icon: MessageSquareText,
   },
   {
@@ -164,8 +164,8 @@ const workflowSteps = [
     icon: Sparkles,
   },
   {
-    title: "Confirme a permissão de publicação",
-    description: "Salve o ID do grupo ou canal para verificarmos se o bot pode publicar nele.",
+    title: "Ative o roteamento das ofertas",
+    description: "Escolha os grupos de origem do Telegram. Cada oferta será enviada a todos os destinos habilitados nas duas plataformas.",
     icon: Link2,
   },
 ];

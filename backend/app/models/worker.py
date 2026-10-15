@@ -77,7 +77,10 @@ class PromotionDelivery(Base):
     title: Mapped[str | None] = mapped_column(String(200))
     platform: Mapped[str | None] = mapped_column(String(50))
     stage: Mapped[str] = mapped_column(String(20), server_default="posting")
-    __table_args__ = (Index("ix_delivery_user_created", "user_id", "created_at", "id"),)
+    __table_args__ = (
+        Index("ix_delivery_user_created", "user_id", "created_at", "id"),
+        Index("ix_delivery_routing", "user_id", "chat_id", "created_at"),
+    )
     user_id: Mapped[int] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), index=True
     )
@@ -86,6 +89,8 @@ class PromotionDelivery(Base):
     reason: Mapped[str | None] = mapped_column(String(100))
     attempts: Mapped[int] = mapped_column(server_default="0")
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    source_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    dedup_key: Mapped[str | None] = mapped_column(String(64))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )

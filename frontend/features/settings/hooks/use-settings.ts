@@ -96,7 +96,14 @@ export function useSettings(initialData: SettingsData) {
     });
   }
 
-  return { configs, destinations, selectedSources, setSelectedSources, busy, error, message, saveProvider, disconnectProvider, saveSources, saveDestination, toggleDestination, removeDestination };
+  function handleWhatsAppDisconnect() {
+    setDestinations((current) => current.map((destination) => destination.platform === "whatsapp" ? { ...destination, enabled: false } : destination));
+    setError("");
+    setMessage("WhatsApp desconectado. Reconecte a conta e habilite os destinos para retomar a publicação.");
+    router.refresh();
+  }
+
+  return { configs, destinations, selectedSources, setSelectedSources, busy, error, message, saveProvider, disconnectProvider, saveSources, saveDestination, toggleDestination, removeDestination, handleWhatsAppDisconnect };
 }
 
 export type SettingsState = ReturnType<typeof useSettings>;

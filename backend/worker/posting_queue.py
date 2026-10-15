@@ -2,7 +2,7 @@
 
 import asyncio
 import base64
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import hashlib
 import logging
 import os
@@ -16,6 +16,7 @@ from celery.signals import task_revoked
 from backend.worker.celery_app import app
 from backend.worker.poster import BotPoster, BotPosterError
 from backend.app.core.delivery_errors import classify_failure
+from backend.app.schemas.whatsapp_policy import promotion_ttl
 from offers_bot.message_context import source_timestamp, promotion_context
 from offers_bot.postgres_store import connect
 
@@ -31,25 +32,21 @@ def record_expiration(request=None, expired=False, **kwargs):
     """Record broker-side expiration without replaying the promotion."""
     if expired and request and request.name == "promotions.post":
         try:
-            update_status(request.id, "expired")
+            update_status(request.id, "expired", pending_only=True)
         except Exception:
             LOGGER.warning("Could not record expiration for promotion %s", request.id)
 
 
-def promotion_ttl() -> int:
-    """Return operator-configured validity; reject unsafe configuration."""
-    value = int(os.getenv("PROMOTION_TTL_SECONDS", "180"))
-    if not 1 <= value <= 3600:
-        raise ValueError("PROMOTION_TTL_SECONDS must be between 1 and 3600")
-    return value
-
-
-def update_status(identity: str, status: str, reason: str | None = None) -> None:
+def update_status(
+    identity: str, status: str, reason: str | None = None, *, pending_only: bool = False
+) -> None:
     """Record a delivery outcome without storing credentials or response bodies."""
     with connect() as conn:
         conn.execute(
-            "UPDATE promotion_deliveries SET status=%s, reason=%s, updated_at=CURRENT_TIMESTAMP WHERE id=%s",
-            (status, reason, identity),
+            """UPDATE promotion_deliveries SET status=%s, reason=%s, updated_at=CURRENT_TIMESTAMP
+            WHERE id=%s AND status IN ('queued','retrying','sending')
+            AND (%s=false OR status IN ('queued','retrying'))""",
+            (status, reason, identity, pending_only),
         )
 
 
@@ -100,7 +97,11 @@ class QueuePoster:
         parse_mode: str | None = None,
     ) -> dict:
         """Publish one destination task without blocking the event loop."""
-        deadline = (source_timestamp.get() or time.time()) + promotion_ttl()
+        stamp = source_timestamp.get()
+        deadline = (
+            min(stamp if stamp is not None else time.time(), time.time())
+            + promotion_ttl()
+        )
         return await asyncio.to_thread(
             self._publish, chat_id, text, image_file, parse_mode, deadline
         )
@@ -139,9 +140,45 @@ class QueuePoster:
                         "Unavailable promotion image omitted for user %s", self.user_id
                     )
         with connect() as conn:
+            from backend.worker.whatsapp_delivery import (
+                load_policy,
+                lock_account,
+                offer_key,
+                trim_burst,
+            )
+
+            destination = conn.execute(
+                "SELECT platform,chat_type FROM destination_channels WHERE user_id=%s AND chat_id=%s",
+                (self.user_id, chat_id),
+            ).fetchone()
+            is_whatsapp = destination and destination[0] == "whatsapp"
+            lock_account(conn, self.user_id)
+            now = datetime.now(timezone.utc)
+            stamp = source_timestamp.get()
+            source_at = datetime.fromtimestamp(
+                min(stamp if stamp is not None else now.timestamp(), now.timestamp()),
+                timezone.utc,
+            )
+            key = offer_key(context, text)
+            if is_whatsapp:
+                policy = load_policy(conn, self.user_id)
+                deadline = min(
+                    deadline,
+                    (source_at + timedelta(seconds=policy.ttl_seconds)).timestamp(),
+                )
+                expired = now.timestamp() >= deadline
+            duplicate = conn.execute(
+                """SELECT id FROM promotion_deliveries WHERE user_id=%s AND chat_id=%s
+                AND dedup_key=%s AND created_at>=%s AND ((status IN ('queued','retrying') AND expires_at>%s)
+                OR status IN ('sending','sent','uncertain')
+                OR (status='cancelled' AND reason='burst_superseded')) LIMIT 1""",
+                (self.user_id, chat_id, key, now - timedelta(minutes=30), now),
+            ).fetchone()
+            if duplicate and not expired:
+                return {"status": "duplicate"}
             inserted = conn.execute(
-                """INSERT INTO promotion_deliveries (id, user_id, chat_id, status, expires_at, title, platform)
-                VALUES (%s, %s, %s, %s, %s, %s, %s) ON CONFLICT (id) DO NOTHING RETURNING id""",
+                """INSERT INTO promotion_deliveries (id, user_id, chat_id, status, expires_at, title, platform,source_at,dedup_key)
+                VALUES (%s, %s, %s, %s, %s, %s, %s,%s,%s) ON CONFLICT (id) DO NOTHING RETURNING id""",
                 (
                     identity,
                     self.user_id,
@@ -150,8 +187,12 @@ class QueuePoster:
                     datetime.fromtimestamp(deadline, timezone.utc),
                     context.get("title"),
                     context.get("platform"),
+                    source_at,
+                    key,
                 ),
             ).fetchone()
+            if inserted and is_whatsapp and destination[1] == "channel" and not expired:
+                trim_burst(conn, self.user_id, chat_id, policy, now)
         if not inserted:
             return {"status": "duplicate"}
         if expired:
@@ -250,21 +291,71 @@ def post_promotion(
     parse_mode: str | None = None,
 ):
     """Claim once, revalidate destination ownership, retry only definite non-delivery."""
+    # Recheck operator validity and the ten-minute ceiling for older queued tasks.
+    with connect() as conn:
+        audit = conn.execute(
+            "SELECT source_at,created_at FROM promotion_deliveries WHERE id=%s AND user_id=%s AND chat_id=%s",
+            (identity, user_id, chat_id),
+        ).fetchone()
+    if not audit:
+        return
+    deadline = min(deadline, (audit[0] or audit[1]).timestamp() + promotion_ttl())
     if time.time() >= deadline:
-        update_status(identity, "expired")
+        update_status(identity, "expired", pending_only=True)
         return
     with connect() as conn:
-        claimed = conn.execute(
-            """UPDATE promotion_deliveries SET status='sending', attempts=attempts+1,
-            updated_at=CURRENT_TIMESTAMP WHERE id=%s AND status IN ('queued', 'retrying') RETURNING id""",
-            (identity,),
-        ).fetchone()
-        if not claimed:
-            return
         allowed = conn.execute(
             "SELECT platform FROM destination_channels WHERE user_id=%s AND chat_id=%s AND enabled=true",
             (user_id, chat_id),
         ).fetchone()
+    is_whatsapp = allowed and allowed[0] == "whatsapp"
+    if is_whatsapp:
+        from backend.worker.whatsapp_delivery import reserve_delivery
+
+        action, delay = reserve_delivery(identity, user_id, chat_id, deadline)
+        if action == "stop":
+            return
+        with connect() as conn:
+            effective = conn.execute(
+                "SELECT expires_at FROM promotion_deliveries WHERE id=%s", (identity,)
+            ).fetchone()
+        deadline = min(deadline, effective[0].timestamp())
+        if action == "wait":
+            try:
+                self.apply_async(
+                    kwargs={
+                        "identity": identity,
+                        "user_id": user_id,
+                        "chat_id": chat_id,
+                        "text": text,
+                        "deadline": deadline,
+                        "image_data": image_data,
+                        "image_url": image_url,
+                        "parse_mode": parse_mode,
+                    },
+                    task_id=identity,
+                    countdown=delay,
+                    headers={
+                        "delivery_retries": (self.request.headers or {}).get(
+                            "delivery_retries", self.request.retries
+                        )
+                    },
+                    expires=datetime.fromtimestamp(deadline, timezone.utc),
+                    retry=False,
+                )
+            except Exception:
+                update_status(identity, "failed", "broker_unavailable")
+                raise
+            return
+    else:
+        with connect() as conn:
+            claimed = conn.execute(
+                """UPDATE promotion_deliveries SET status='sending', attempts=attempts+1,
+                updated_at=CURRENT_TIMESTAMP WHERE id=%s AND status IN ('queued', 'retrying') RETURNING id""",
+                (identity,),
+            ).fetchone()
+            if not claimed:
+                return
     if not allowed:
         update_status(identity, "cancelled", "destination_disabled_or_removed")
         return
@@ -288,27 +379,35 @@ def post_promotion(
     except PromotionExpired:
         update_status(identity, "expired")
     except (BotPosterError, httpx.HTTPError) as exc:
+        reason = classify_failure(exc, "posting", "whatsapp" if is_whatsapp else None)
+        if is_whatsapp:
+            from backend.worker.whatsapp_delivery import record_outcome
+
+            record_outcome(user_id, chat_id, reason, getattr(exc, "retry_after", None))
         safe_retry = isinstance(exc, (httpx.ConnectError, httpx.ConnectTimeout)) or (
             isinstance(exc, BotPosterError) and exc.status_code == 429
         )
-        delay = max(
-            1, getattr(exc, "retry_after", None) or 3 * (self.request.retries + 1)
+        retries = (self.request.headers or {}).get(
+            "delivery_retries", self.request.retries
         )
+        delay = max(1, getattr(exc, "retry_after", None) or 3 * (2**retries))
         if (
             safe_retry
-            and self.request.retries < self.max_retries
+            and retries < self.max_retries
             and time.time() + delay + 25 < deadline
         ):
-            update_status(identity, "retrying", classify_failure(exc, "posting"))
+            update_status(identity, "retrying", reason)
             raise self.retry(
-                countdown=delay, expires=datetime.fromtimestamp(deadline, timezone.utc)
+                countdown=delay,
+                expires=datetime.fromtimestamp(deadline, timezone.utc),
+                headers={"delivery_retries": retries + 1},
             )
         status = (
             "expired"
             if safe_retry and time.time() + delay + 25 >= deadline
             else "failed"
         )
-        if classify_failure(exc, "posting") == "delivery_uncertain" or isinstance(
+        if reason == "delivery_uncertain" or isinstance(
             exc,
             (
                 httpx.ReadTimeout,
@@ -319,10 +418,18 @@ def post_promotion(
             ),
         ):
             status = "uncertain"
-        update_status(identity, status, classify_failure(exc, "posting"))
+        update_status(identity, status, reason)
         LOGGER.warning("Promotion %s ended with status %s", identity, status)
     except Exception:
         update_status(identity, "uncertain", "unexpected_delivery_error")
+        if is_whatsapp:
+            from backend.worker.whatsapp_delivery import record_outcome
+
+            record_outcome(user_id, chat_id, "unexpected_delivery_error")
         raise
     else:
         update_status(identity, "sent")
+        if is_whatsapp:
+            from backend.worker.whatsapp_delivery import record_outcome
+
+            record_outcome(user_id, chat_id, None)

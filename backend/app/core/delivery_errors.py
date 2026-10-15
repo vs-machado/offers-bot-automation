@@ -3,6 +3,15 @@
 import httpx
 
 REASONS = {
+    "burst_superseded": "Descartada por rajada: foram priorizadas as 5 ofertas mais recentes deste canal.",
+    "policy_deadline": "O prazo terminaria antes do próximo envio permitido. A oferta foi descartada.",
+    "delivery_throttled": "Aguardando janela de publicação, coleta de rajada ou limite de frequência da conta/canal.",
+    "whatsapp_paused": "Envios pausados temporariamente por falhas ou restrição na conta/canal WhatsApp.",
+    "whatsapp_authentication": "O WhatsApp/WAHA recusou a autenticação. Confira a conexão e a configuração do serviço.",
+    "whatsapp_permission": "A conta WhatsApp não tem permissão para publicar no destino.",
+    "whatsapp_destination": "O WhatsApp/WAHA recusou o destino ou a publicação. Confira o canal e a conexão.",
+    "whatsapp_rate_limit": "O WhatsApp/WAHA limitou os envios. A conta foi pausada temporariamente.",
+    "whatsapp_api": "O serviço WhatsApp falhou durante o envio.",
     "bot_token_missing": "O token do bot não foi configurado. A administração precisa configurar o bot.",
     "bot_authentication": "O Telegram recusou o token do bot. Ele pode estar inválido ou ter sido revogado.",
     "bot_permission": "O bot não tem permissão para publicar nesse grupo ou canal, ou foi removido.",
@@ -10,7 +19,7 @@ REASONS = {
     "bot_rate_limit": "O Telegram limitou os envios. A postagem não pôde ser concluída dentro do prazo ou das tentativas disponíveis.",
     "telegram_api": "A API do Telegram falhou durante o envio.",
     "connection_failure": "Não foi possível conectar ao serviço. Confira a conexão e tente novamente mais tarde.",
-    "delivery_uncertain": "A conexão falhou após o início do envio. Não foi possível confirmar se o Telegram recebeu a mensagem; ela não será reenviada automaticamente.",
+    "delivery_uncertain": "A conexão falhou após o início do envio. Não foi possível confirmar a publicação; ela não será reenviada automaticamente.",
     "affiliate_authentication": "A plataforma de afiliados recusou a autenticação. Confira os cookies ou as credenciais cadastradas.",
     "affiliate_api_key": "A plataforma de afiliados recusou a chave de API ou sua assinatura. Confira a chave e o segredo cadastrados.",
     "affiliate_permission": "As credenciais de afiliado não têm permissão para executar essa operação.",
@@ -49,6 +58,14 @@ def classify_failure(exc: Exception, stage: str, platform: str | None = None) ->
             return "delivery_uncertain"
         if isinstance(exc, (httpx.ConnectError, httpx.ConnectTimeout)):
             return "connection_failure"
+        if platform == "whatsapp":
+            return {
+                401: "whatsapp_authentication",
+                403: "whatsapp_permission",
+                400: "whatsapp_destination",
+                404: "whatsapp_destination",
+                429: "whatsapp_rate_limit",
+            }.get(status, "whatsapp_api")
         return {
             401: "bot_authentication",
             404: "bot_authentication",

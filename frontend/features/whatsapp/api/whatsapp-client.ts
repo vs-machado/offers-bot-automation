@@ -1,8 +1,8 @@
 import { getApiErrorMessage } from "@/lib/api-error-message";
-import type { WhatsAppChat, WhatsAppStatus } from "@/features/whatsapp/types";
+import type { WhatsAppChat, WhatsAppStatus, WhatsAppPolicy, WhatsAppPolicyData } from "@/features/whatsapp/types";
 
-async function request<T>(path: string, method = "GET"): Promise<T> {
-  const response = await fetch(`/api/backend/users/me/whatsapp${path}`, { method, cache: "no-store" });
+async function request<T>(path: string, method = "GET", body?: unknown): Promise<T> {
+  const response = await fetch(`/api/backend/users/me/whatsapp${path}`, { method, cache: "no-store", ...(body === undefined ? {} : { headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }) });
   if (response.status === 204) return undefined as T;
   const data = await response.json().catch(() => null);
   if (!response.ok) throw new Error(getApiErrorMessage(data, "Não foi possível conectar ao WhatsApp."));
@@ -15,3 +15,6 @@ export const disconnectWhatsApp = () => request<void>("", "DELETE");
 export const getWhatsAppQr = () => request<{ qr: string }>("/qr");
 export const getWhatsAppGroups = () => request<WhatsAppChat[]>("/groups");
 export const getWhatsAppChannels = () => request<WhatsAppChat[]>("/channels");
+export const getWhatsAppPolicy = () => request<WhatsAppPolicyData>("/policy");
+export const saveWhatsAppPolicy = (settings: WhatsAppPolicy) => request<WhatsAppPolicy>("/policy", "PUT", settings);
+export const resumeWhatsAppDeliveries = () => request<void>("/policy/resume", "POST");
