@@ -40,11 +40,9 @@ export const affiliateProviders: Provider[] = [
   {
     type: "amazon",
     name: "Amazon",
-    description: "Informe sua tag de afiliado e os cookies da sua sessão na Amazon.",
+    description: "Informe sua tag de afiliado Amazon.",
     fields: [
       { key: "amazon_affiliate_tag", label: "Tag de afiliado", placeholder: "suatag-20", required: true },
-      { key: "amazon_cookie_header", label: "Cookies da sessão", placeholder: "session-id=...; at-acbbr=...", required: true },
-      { key: "amazon_marketplace_id", label: "ID do marketplace", placeholder: "526970" },
     ],
   },
   {

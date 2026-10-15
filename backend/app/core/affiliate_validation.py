@@ -1,4 +1,4 @@
-"""Bounded operational probes against fixed affiliate endpoints; no Telegram send."""
+"""Local Amazon tag validation and bounded probes for other affiliate providers."""
 
 import asyncio
 from datetime import datetime, timezone
@@ -7,7 +7,7 @@ import hmac
 import json
 import re
 import time
-from urllib.parse import urlencode, urlparse
+from urllib.parse import urlparse
 
 import httpx
 
@@ -17,12 +17,14 @@ from backend.app.schemas.affiliate_validation import (
 )
 
 REQUIRED = {
-    "amazon": ("amazon_affiliate_tag", "amazon_cookie_header"),
+    "amazon": ("amazon_affiliate_tag",),
     "mercado_livre": ("ml_affiliate_tag", "ml_cookie_header", "ml_csrf_token"),
     "shopee": ("shopee_app_id", "shopee_app_secret"),
     "aliexpress": ("aliexpress_app_key", "aliexpress_app_secret"),
 }
 MESSAGES = {
+    "locally_valid": "Configuração Amazon válida localmente: o formato da tag está correto. Esta verificação não autentica sua conta nem confirma a existência ou titularidade da tag. Salve a configuração para usar no bot.",
+    "invalid_amazon_tag": "Informe somente a tag de associado Amazon, com letras, números ou hífens e sufixo de dois dígitos, como minhaloja-20 (máximo de 100 caracteres). Não informe um link completo.",
     "validated": "A loja aceitou a geração de um link com os dados informados. O acesso foi validado neste momento. Salve as credenciais para usar essa configuração no bot.",
     "missing_fields": "Preencha todos os campos obrigatórios da loja antes de validar.",
     "invalid_format": "Há um campo com formato inválido ou muito longo. Confira os dados e copie novamente as credenciais.",
@@ -84,8 +86,6 @@ def check_response(response: httpx.Response, provider: str) -> dict:
             if response.status_code == 403 or "captcha" in response.text.lower()
             else "api_unavailable"
         ) from None
-    if isinstance(data, str) and provider == "amazon":
-        data = {"shortUrl": data}
     if not isinstance(data, dict):
         raise ProbeFailure("api_unavailable")
     # Inspect only error fields internally; raw response text is never returned.
@@ -167,23 +167,17 @@ def require_link(value, domains: tuple[str, ...]) -> None:
         raise ProbeFailure("link_not_generated")
 
 
-def find_amazon_link(data) -> str | None:
-    if isinstance(data, dict):
-        for key in ("shortUrl", "shortURL", "amznShortUrl", "short_url"):
-            value = data.get(key)
-            if isinstance(value, str):
-                return value
-        for value in data.values():
-            if isinstance(value, (dict, list)):
-                found = find_amazon_link(value)
-                if found:
-                    return found
-    elif isinstance(data, list):
-        for value in data:
-            found = find_amazon_link(value)
-            if found:
-                return found
-    return None
+def amazon_tag_reason(value: object) -> str:
+    """Check tag syntax locally, without verifying existence or account ownership."""
+    if value is None or isinstance(value, str) and not value.strip():
+        return "missing_fields"
+    if (
+        not isinstance(value, str)
+        or len(value.strip()) > 100
+        or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9-]*-[0-9]{2}", value.strip())
+    ):
+        return "invalid_amazon_tag"
+    return "locally_valid"
 
 
 async def probe(
@@ -193,25 +187,7 @@ async def probe(
     product_url: str | None,
 ) -> None:
     """Generate one verification link without visiting user URLs or fetching images."""
-    if provider == "amazon":
-        url = "https://www.amazon.com.br/?" + urlencode(
-            {"linkCode": "sl2", "tag": values["amazon_affiliate_tag"]}
-        )
-        response = await client.get(
-            "https://www.amazon.com.br/associates/sitestripe/getShortUrl",
-            headers={
-                "cookie": values["amazon_cookie_header"],
-                "referer": "https://www.amazon.com.br/",
-                "x-requested-with": "XMLHttpRequest",
-            },
-            params={
-                "longUrl": url,
-                "marketplaceId": values.get("amazon_marketplace_id") or "526970",
-            },
-        )
-        data = check_response(response, provider)
-        require_link(find_amazon_link(data), ("amzn.to",))
-    elif provider == "mercado_livre":
+    if provider == "mercado_livre":
         parsed = urlparse(product_url or "")
         if (
             parsed.scheme != "https"
@@ -348,8 +324,14 @@ async def probe(
 async def validate_credentials(
     request: CredentialValidationRequest, user_id: int
 ) -> CredentialValidationResult:
-    """Validate draft credentials without saving them, logging secrets, or posting offers."""
+    """Check Amazon syntax locally or probe other stores; never save or post drafts."""
     provider = request.provider
+    if provider == "amazon":
+        tag = request.config_data.get("amazon_affiliate_tag")
+        reason = amazon_tag_reason(tag.get_secret_value() if tag is not None else None)
+        return outcome(
+            provider, reason, "valid" if reason == "locally_valid" else "invalid"
+        )
     values = {
         key: value.get_secret_value().strip()
         for key, value in request.config_data.items()
@@ -362,12 +344,11 @@ async def validate_credentials(
     ):
         return outcome(provider, "invalid_format", "invalid")
     header_keys = (
-        "amazon_cookie_header",
         "ml_cookie_header",
         "ml_csrf_token",
         "shopee_app_id",
     )
-    if any(not values.get(key, "").isascii() for key in header_keys):
+    if any(not values[key].isascii() for key in header_keys if key in values):
         return outcome(provider, "invalid_format", "invalid")
     if user_id in _active_users or _slots.locked():
         return outcome(provider, "busy")

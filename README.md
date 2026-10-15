@@ -125,7 +125,11 @@ Save affiliate tag, authenticated cookie header, and CSRF token in dashboard. Co
 
 ### Amazon
 
-Save Associates tag, authenticated cookie header, and optional marketplace ID. Default marketplace ID is `526970`.
+Save only your Amazon Associates tag (for example, `yourtag-20`) in setup or settings. Product links use expanded Amazon URLs with your tag, not SiteStripe short links. Cookies, marketplace ID, and SiteStripe access are not required. Validation checks only the tag format; it does not authenticate with Amazon or confirm account ownership, eligibility, or commissions.
+
+Amazon affiliate link generation through an API is planned but not yet implemented. The current flow expands short links, removes previous affiliate tracking, and adds the user's tag to the destination URL.
+
+Amazon does not use Playwright or fetch product images. Posts reuse source-message media when available; otherwise they are published without an image.
 
 ### Shopee
 
@@ -137,39 +141,44 @@ Save Affiliate API app key, app secret, and optional tracking ID.
 
 ## Local quality checks
 
-### Pre-commit automático
+### CI nos PRs para master
 
-Instale as ferramentas de desenvolvimento e ative o hook uma vez por clone:
+Não há hook de pre-commit. Commits locais não executam verificações globais nem
+a suíte de testes. O workflow `.github/workflows/pr-quality.yml` executa
+Ruff, ESLint (sem warnings), TypeScript e `python -m unittest discover tests`
+quando um pull request para `master` é aberto, atualizado ou reaberto. Novos
+pushes no PR cancelam execuções antigas. Pushes sem PR não disparam esse workflow.
+As verificações não alteram arquivos; o checkout padrão testa o resultado de
+merge do PR com a branch de destino.
+
+A proteção da `master` deve exigir pull request e o status check `quality`
+aprovado, com a branch atualizada antes do merge, inclusive para administradores.
+Não é exigida aprovação adicional de outro revisor. Deploy continua após merge;
+o workflow não faz merge nem deploy automaticamente. Em outros repositórios,
+configure essas regras no GitHub: o arquivo de workflow sozinho não bloqueia merge.
+
+Em clones que ainda têm o hook antigo instalado, remova-o uma vez:
 
 ```powershell
-.\venv\Scripts\python.exe -m pip install -r requirements-dev.txt
-npm --prefix frontend ci
-.\venv\Scripts\python.exe -m pre_commit install --install-hooks
+.\venv\Scripts\python.exe -m pre_commit uninstall
 ```
 
-Antes de cada commit, Ruff corrige e formata o Python; ESLint verifica todo o frontend com correções automáticas e `--max-warnings 0`. Todos os hooks rodam mesmo se o commit não alterar arquivos Python ou JavaScript. Se houver correções, o commit é interrompido: revise o diff, adicione os arquivos corrigidos e tente novamente. Erros e warnings restantes bloqueiam o commit. O hook não adiciona arquivos ao índice automaticamente.
+Durante desenvolvimento, use verificações direcionadas aos arquivos alterados
+quando necessário; não execute a suíte completa como requisito para commit.
+Instale ferramentas com `python -m pip install -r requirements-dev.txt` e
+`npm --prefix frontend ci`. Exemplos manuais:
+
+```powershell
+.\venv\Scripts\ruff.exe format caminho/do/arquivo.py
+.\venv\Scripts\ruff.exe check --fix --ignore-noqa caminho/do/arquivo.py
+npm --prefix frontend run lint
+```
 
 ESLint também verifica classes canônicas do Tailwind 4 usando
 `better-tailwindcss/enforce-canonical-classes`, com o tema de `app/globals.css`.
-Sugestões como `md:w-[440px]` → `md:w-110` passam a ser erros corrigíveis pelo
-mesmo hook. O diagnóstico do Tailwind IntelliSense permanece habilitado no editor.
-
-Para executar a mesma verificação manualmente:
-
-```powershell
-.\venv\Scripts\python.exe -m pre_commit run --all-files
-npm --prefix frontend run lint:fix
-```
-
-Ruff remove `noqa` desnecessário com `RUF100` e o hook usa `--ignore-noqa`, para que essas anotações não escondam erros. ESLint não aceita comentários para desativar regras. Corrija a causa do diagnóstico; não esconda o problema com supressões ou desativando regras. Os testes continuam sendo executados antes de cada commit, conforme `AGENTS.md`.
-
-Use project virtual environment:
-
-```powershell
-.\venv\Scripts\ruff.exe format .
-.\venv\Scripts\ruff.exe check --fix .
-.\venv\Scripts\python.exe -m unittest discover tests
-```
+Ruff verifica supressões com `RUF100`; CI usa `--ignore-noqa`. ESLint não aceita
+comentários para desativar regras. Corrija a causa dos diagnósticos, sem esconder
+problemas com supressões.
 
 ## Troubleshooting
 
@@ -343,6 +352,13 @@ o consumidor Celery; para desenvolvimento sem Docker, o modo `--pool=solo` evita
 o pool de processos, mas Celery não oferece suporte oficial a Windows.
 
 ### Administrator access and source catalog
+
+Public registration is temporarily disabled by default. The server-only flag
+`DISABLE_PUBLIC_REGISTRATION=true` blocks new email/password and Google accounts,
+but existing accounts can still sign in and recover passwords. Set it to `false`
+and restart/redeploy the frontend to reopen registration. This flag does not grant
+admin roles or block existing non-admin accounts from signing in. New administrator
+accounts must be registered while signup is open, then promoted using the CLI below.
 
 The `/admin/source-groups` screen and every `/admin/source-groups` API operation require the `admin` role. The API checks the current database role on every request; changing or revoking a role applies even to existing tokens. Public registration always creates a `user` account.
 

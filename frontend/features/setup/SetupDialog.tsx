@@ -291,7 +291,7 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
       const savedConfig = await saveUserConfig({
         configData,
         configType: provider.type,
-        errorMessage: `Não foi possível salvar as credenciais de ${provider.name}. Tente novamente.`,
+        errorMessage: `Não foi possível salvar a configuração de ${provider.name}. Tente novamente.`,
         id: existingConfig?.id,
       });
 
@@ -309,7 +309,7 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
     } catch (error) {
       setStatus("error");
       setMessage(
-        getRequestErrorMessage(error, `Não foi possível salvar as credenciais de ${provider.name}. Tente novamente.`)
+        getRequestErrorMessage(error, `Não foi possível salvar a configuração de ${provider.name}. Tente novamente.`)
       );
     }
   }

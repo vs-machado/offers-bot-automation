@@ -18,8 +18,6 @@ def main() -> None:
     if is_amazon_url(args.url):
         client = AmazonClient(
             tag=settings.amazon_affiliate_tag,
-            cookie_header=settings.amazon_cookie_header,
-            marketplace_id=settings.amazon_marketplace_id,
         )
     elif is_shopee_url(args.url):
         client = ShopeeClient(

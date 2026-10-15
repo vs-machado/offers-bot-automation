@@ -73,7 +73,7 @@ function Field({
   );
 }
 
-export function Login({ errorCode, initialMode }: { errorCode?: string; initialMode?: AuthMode }) {
+export function Login({ errorCode, initialMode, registrationDisabled }: { errorCode?: string; initialMode?: AuthMode; registrationDisabled: boolean }) {
   const {
     authMode,
     formState,
@@ -112,7 +112,7 @@ export function Login({ errorCode, initialMode }: { errorCode?: string; initialM
           </h1>
 
           <p className="mt-6 max-w-107.5 text-base/7 text-slate-300">
-            Crie sua conta, escolha onde publicar e deixe o bot compartilhar as ofertas no Telegram.
+            {registrationDisabled ? "Entre na sua conta, escolha onde publicar e deixe o bot compartilhar as ofertas no Telegram." : "Crie sua conta, escolha onde publicar e deixe o bot compartilhar as ofertas no Telegram."}
           </p>
 
           <div className="mt-8 space-y-3">
@@ -269,7 +269,7 @@ export function Login({ errorCode, initialMode }: { errorCode?: string; initialM
             Continuar com o Google
           </Button>
 
-          <p className="mt-7 text-center text-sm text-slate-400">
+          {registrationDisabled ? <p className="mt-7 text-center text-sm text-slate-300">Cadastros temporariamente indisponíveis. Acesso apenas para contas existentes.</p> : <p className="mt-7 text-center text-sm text-slate-400">
             {authMode === "register" ? "Já tem uma conta?" : "Ainda não tem conta?"}{" "}
             <Button
               className="h-auto rounded-none p-0 font-bold text-emerald-400 hover:bg-transparent hover:text-emerald-300 hover:no-underline"
@@ -279,7 +279,7 @@ export function Login({ errorCode, initialMode }: { errorCode?: string; initialM
             >
               {authMode === "register" ? "Entrar" : "Criar conta"}
             </Button>
-          </p>
+          </p>}
           </div>
         </div>
       </section>

@@ -44,12 +44,13 @@ export function useSettings(initialData: SettingsData) {
   }
 
   function saveProvider(type: ProviderType, data: Record<string, string>) {
-    return run(type, "Credenciais salvas. As próximas ofertas usarão essa configuração.", async () => {
+    return run(type, "Configuração salva. As próximas ofertas usarão essa configuração.", async () => {
       const matches = configs.filter((config) => config.config_type === type);
       // Older setups may contain more than one record for the same store.
       if (!matches.length) replaceConfig(await api.saveConfig(type, data));
       for (const existing of matches) {
-        replaceConfig(await api.saveConfig(type, { ...existing.config_data, ...data }, existing.id));
+        // Amazon uses only the tag; do not resend legacy session fields.
+        replaceConfig(await api.saveConfig(type, type === "amazon" ? data : { ...existing.config_data, ...data }, existing.id));
       }
     });
   }
