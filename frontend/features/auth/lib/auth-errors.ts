@@ -1,5 +1,9 @@
 export function getAuthError(error: { code?: string; message?: string } | null | undefined, fallback: string): string {
   const messages: Record<string, string> = {
+    EMAIL_PASSWORD_SIGN_UP_DISABLED: "Cadastros temporariamente indisponíveis. Entre com uma conta existente.",
+    REGISTRATION_DISABLED: "Cadastros temporariamente indisponíveis. Entre com uma conta existente.",
+    "signup disabled": "Cadastros temporariamente indisponíveis. Entre com uma conta existente.",
+    signup_disabled: "Cadastros temporariamente indisponíveis. Entre com uma conta existente.",
     INVALID_EMAIL_OR_PASSWORD: "E-mail ou senha incorretos.",
     USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL: "Este e-mail já está cadastrado. Entre na sua conta.",
     USER_ALREADY_EXISTS: "Este e-mail já está cadastrado. Entre na sua conta.",

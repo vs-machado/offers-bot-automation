@@ -97,6 +97,7 @@ services:
       - API_BASE_URL=${API_BASE_URL:-http://backend:8000}
       - BETTER_AUTH_URL=${BETTER_AUTH_URL:?Set the public HTTPS frontend URL}
       - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET:?Set a random secret with at least 32 characters}
+      - DISABLE_PUBLIC_REGISTRATION=${DISABLE_PUBLIC_REGISTRATION:-true}
       - AUTH_DATABASE_URL=${AUTH_DATABASE_URL:?Set AUTH_DATABASE_URL for the same PostgreSQL}
       - SMTP_HOST=${SMTP_HOST:-}
       - SMTP_PORT=${SMTP_PORT:-587}

@@ -353,6 +353,13 @@ o pool de processos, mas Celery não oferece suporte oficial a Windows.
 
 ### Administrator access and source catalog
 
+Public registration is temporarily disabled by default. The server-only flag
+`DISABLE_PUBLIC_REGISTRATION=true` blocks new email/password and Google accounts,
+but existing accounts can still sign in and recover passwords. Set it to `false`
+and restart/redeploy the frontend to reopen registration. This flag does not grant
+admin roles or block existing non-admin accounts from signing in. New administrator
+accounts must be registered while signup is open, then promoted using the CLI below.
+
 The `/admin/source-groups` screen and every `/admin/source-groups` API operation require the `admin` role. The API checks the current database role on every request; changing or revoking a role applies even to existing tokens. Public registration always creates a `user` account.
 
 Apply migration `0004_admin_source_catalog` (automatically on backend startup). It gives existing users the `user` role and seeds the seven original Telegram sources once. Register your administrator account, then promote it through trusted operator access:
