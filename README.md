@@ -21,46 +21,56 @@ flowchart LR
 - Real Telegram post IDs plus PostgreSQL records provide per-user deduplication.
 - Destination posting uses one platform bot. Users do not create their own bots or Telegram sessions.
 
-## Coolify com PostgreSQL separado
+## Coolify with a separate PostgreSQL resource
 
-Use apenas `docker-compose.coolify.yml` como Docker Compose Location no Coolify.
-Esse arquivo não cria PostgreSQL nem publica portas diretamente no host.
-`docker-compose.yml` e seu override continuam destinados ao ambiente local.
+Use only `docker-compose.coolify.yml` as the Docker Compose Location in Coolify.
+This file does not create PostgreSQL or publish ports directly on the host.
+`docker-compose.yml` and its override remain intended for local development.
 
-1. Crie e inicie um recurso PostgreSQL no mesmo servidor. Configure usuário,
-   senha, banco e backups no recurso do banco.
-2. Identifique a rede Docker à qual o PostgreSQL está conectado e defina
-   `DATABASE_NETWORK` com esse nome. A rede deve existir antes do deploy.
-   Os serviços da aplicação ingressam nela e mantêm uma rede interna própria
-   para Redis e comunicação entre frontend e backend.
-3. Copie o host interno, usuário, senha e banco da conexão fornecida pelo Coolify:
+1. Create and start a PostgreSQL resource on the same server. Configure its user,
+   password, database, and backups in the database resource.
+2. Identify the Docker network that PostgreSQL is connected to and set
+   `DATABASE_NETWORK` to that name. The network must exist before deployment.
+   Application services join it while retaining their own internal network
+   for Redis and frontend-to-backend communication.
+3. Copy the internal host, user, password, and database from the connection provided by Coolify:
 
 ```dotenv
-DATABASE_NETWORK=nome_da_rede_do_postgres
-DATABASE_URL=postgresql+asyncpg://usuario:senha@host-interno:5432/offers_db
-AUTH_DATABASE_URL=postgresql://usuario:senha@host-interno:5432/offers_db
-BETTER_AUTH_URL=https://app.seudominio.com.br
-BETTER_AUTH_SECRET=segredo_aleatorio_de_pelo_menos_32_caracteres
+DATABASE_NETWORK=postgres_network_name
+DATABASE_URL=postgresql+asyncpg://user:password@internal-host:5432/offers_db
+AUTH_DATABASE_URL=postgresql://user:password@internal-host:5432/offers_db
+BETTER_AUTH_URL=https://app.example.com
+BETTER_AUTH_SECRET=random_secret_with_at_least_32_characters
 ```
 
-As duas URLs precisam apontar para o mesmo banco. Codifique caracteres especiais
-do usuário e da senha para uso em URL. Não use `localhost` como host do banco.
-`POSTGRES_USER`, `POSTGRES_PASSWORD` e `POSTGRES_DB` não configuram o recurso
-separado; suas credenciais são administradas pelo Coolify.
+Both URLs must point to the same database. URL-encode special characters in the
+username and password. Do not use `localhost` as the database host.
+`POSTGRES_USER`, `POSTGRES_PASSWORD`, and `POSTGRES_DB` do not configure the
+separate resource; its credentials are managed by Coolify.
 
-4. Associe o domínio HTTPS ao frontend, porta interna 3000. Se usar QR para a
-   conta operadora do Telegram, disponibilize acesso restrito ao worker na porta
-   8081 durante essa configuração. Backend e posting não precisam de domínio.
-5. Faça deploy e confira os logs do backend: as migrações executam antes de ele
-   ficar saudável, e os demais serviços aguardam essa inicialização.
+4. Assign the HTTPS domain to the frontend on internal port 3000. If using QR
+   pairing for the Telegram operator account, provide restricted access to the
+   worker on port 8081 during setup. Backend and posting do not need domains.
+5. Deploy and check the backend logs: migrations run before it becomes healthy,
+   and the other services wait for that initialization.
 
-SMTP é opcional para cadastro e login; necessário para recuperar senha.
-Se o banco anterior contém dados, importe um backup antes de trocar as conexões.
-Trocar as URLs não transfere dados entre bancos.
+SMTP is optional for registration and login but required for password recovery.
+If the previous database contains data, import a backup before switching connections.
+Changing the URLs does not transfer data between databases.
 
 ## Parsing
 
 Qwen 3.7 Flash (`qwen/qwen3.7-flash`) through OpenRouter is the primary structured parser. DeepSeek V4 Flash and Gemini 2.5 Flash Lite use direct provider APIs as fallbacks. Regex parser runs when AI credentials are absent or AI parsing fails.
+
+The existing LLM parsing call identifies unrelated source advertising by meaning
+and returns exact original substrings in `source_advertising_spans`. Code removes
+only verbatim, unambiguous matches; no phrase or bot-username detection rules are
+used. The same cleanup applies when Shopee redemption offers or multi-link
+AliExpress offers reuse source formatting. The model is instructed to preserve
+product/coupon links, prices, store coin discounts and advertising disclosures.
+Without LLM results, source text is preserved rather than guessing what to remove.
+Cleanup lives in `offers_bot/source_cleanup.py` and applies only to incoming
+content; future platform-owned alert-bot promotions should be appended afterward.
 
 URL routing and affiliate conversion support:
 
@@ -100,60 +110,60 @@ Run migrations manually from repository root with project virtual environment:
 .\venv\Scripts\alembic.exe -c backend\alembic.ini upgrade head
 ```
 
-## Criptografia das credenciais
+## Credential encryption
 
-Configurações de usuários (`user_configs.config_data`) são criptografadas por
-inteiro com Fernet (`cryptography`): AES-128-CBC + HMAC-SHA256, com IV aleatório.
-O conteúdo autenticado também identifica usuário e tipo da configuração, impedindo
-reutilizar um registro criptografado para outro usuário ou provedor.
+User configurations (`user_configs.config_data`) are fully encrypted with
+Fernet (`cryptography`): AES-128-CBC + HMAC-SHA256, with a random IV.
+The authenticated payload also identifies the user and configuration type,
+preventing an encrypted record from being reused for another user or provider.
 
-Antes do primeiro deploy desta versão, gere uma chave **uma única vez**:
+Before the first deployment of this version, generate a key **once**:
 
 ```bash
 python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 ```
 
-Cadastre o resultado como `CREDENTIALS_ENCRYPTION_KEY` nos secrets/variáveis de
-ambiente do Coolify, ou no `.env` local. Compose entrega essa chave somente ao
-backend e worker. A chave é obrigatória, inclusive em desenvolvimento; não há
-chave padrão nem geração automática ao iniciar. Guarde backup seguro da chave
-separado dos backups do banco. Perdê-la torna as credenciais irrecuperáveis.
+Save the result as `CREDENTIALS_ENCRYPTION_KEY` in Coolify secrets/environment
+variables or in the local `.env`. Compose passes this key only to the backend
+and worker. The key is required, including in development; there is no default
+key or automatic generation at startup. Keep a secure backup of the key
+separate from database backups. Losing it makes credentials unrecoverable.
 
-A migração `0011_encrypt_user_configs` criptografa registros existentes em uma
-transação, antes de o backend ficar saudável. Faça backup do banco e interrompa
-instâncias antigas durante a atualização: versões antigas não leem ciphertext.
-Rollback da migração preserva os dados criptografados. Backups antigos e versões
-de linhas retidas pelo PostgreSQL podem ainda conter plaintext; a migração não
-reescreve backups nem garante apagamento físico desses dados.
+Migration `0011_encrypt_user_configs` encrypts existing records in a single
+transaction before the backend becomes healthy. Back up the database and stop
+old instances during the upgrade: older versions cannot read ciphertext.
+Rolling back the migration preserves encrypted data. Old backups and row
+versions retained by PostgreSQL may still contain plaintext; the migration
+does not rewrite backups or guarantee physical erasure of that data.
 
-API devolve `********` no lugar de cookies, tokens, chaves e segredos. Ao atualizar
-ou testar uma integração, esse marcador reutiliza o valor salvo exclusivamente
-para o usuário/provedor autenticado. Para trocar uma credencial, envie o novo
-valor. O frontend nunca recebe a chave de criptografia ou o segredo salvo.
-Tráfego deve continuar protegido por HTTPS.
+The API returns `********` instead of cookies, tokens, keys, and secrets. When
+updating or testing an integration, this marker reuses the saved value only for
+the authenticated user/provider. To replace a credential, submit its new value.
+The frontend never receives the encryption key or stored secret.
+Traffic must remain protected by HTTPS.
 
-### Rotação de chave
+### Key rotation
 
-1. Gere nova chave. Defina-a em `CREDENTIALS_ENCRYPTION_KEY` e mantenha a antiga
-   em `CREDENTIALS_ENCRYPTION_PREVIOUS_KEYS` (lista separada por vírgulas).
-2. Recrie backend e worker com as mesmas chaves. Aguarde todas as instâncias
-   antigas pararem; novas gravações passam a usar a chave nova.
-3. Recriptografe registros existentes com o comando abaixo. Operação transacional:
-   qualquer registro inválido ou chave incorreta aborta sem gravações parciais.
+1. Generate a new key. Set it in `CREDENTIALS_ENCRYPTION_KEY` and retain the old
+   key in `CREDENTIALS_ENCRYPTION_PREVIOUS_KEYS` (a comma-separated list).
+2. Recreate the backend and worker with the same keys. Wait for all old instances
+   to stop; new writes will use the new key.
+3. Re-encrypt existing records with the command below. This is transactional:
+   any invalid record or incorrect key aborts the operation without partial writes.
 
    ```bash
    docker compose exec backend python -m backend.app.core.db.credential_rotation
    ```
 
-   No Coolify, execute `python -m backend.app.core.db.credential_rotation` no
-   terminal do serviço backend.
+   In Coolify, run `python -m backend.app.core.db.credential_rotation` in the
+   backend service terminal.
 
-4. Após sucesso, remova `CREDENTIALS_ENCRYPTION_PREVIOUS_KEYS` e recrie os dois
-   serviços. Preserve chaves antigas em backup separado enquanto existirem
-   backups do banco que dependam delas.
+4. After success, remove `CREDENTIALS_ENCRYPTION_PREVIOUS_KEYS` and recreate both
+   services. Keep old keys in a separate backup for as long as database backups
+   depend on them.
 
-Secrets de infraestrutura (WAHA, Telegram, IA, banco e autenticação) continuam
-administrados pelo ambiente/gerenciador de segredos, fora do banco de configurações.
+Infrastructure secrets (WAHA, Telegram, AI, database, and authentication) remain
+managed through the environment/secret manager, outside the configuration database.
 
 ## Configuration boundaries
 
@@ -196,44 +206,45 @@ Save Affiliate API app key, app secret, and optional tracking ID.
 
 ## Local quality checks
 
-### CI nos PRs para master
+### CI for pull requests targeting master
 
-Não há hook de pre-commit. Commits locais não executam verificações globais nem
-a suíte de testes. O workflow `.github/workflows/pr-quality.yml` executa
-Ruff, ESLint (sem warnings), TypeScript e `python -m unittest discover tests`
-quando um pull request para `master` é aberto, atualizado ou reaberto. Novos
-pushes no PR cancelam execuções antigas. Pushes sem PR não disparam esse workflow.
-As verificações não alteram arquivos; o checkout padrão testa o resultado de
-merge do PR com a branch de destino.
+There is no pre-commit hook. Local commits do not run repository-wide checks or
+the test suite. The `.github/workflows/pr-quality.yml` workflow runs Ruff,
+ESLint (with no warnings), TypeScript, and `python -m unittest discover tests`
+when a pull request targeting `master` is opened, updated, or reopened. New
+pushes to the PR cancel outdated runs. Pushes without a PR do not trigger this
+workflow. Checks do not modify files; the default checkout tests the result of
+merging the PR into its target branch.
 
-A proteção da `master` deve exigir pull request e o status check `quality`
-aprovado, com a branch atualizada antes do merge, inclusive para administradores.
-Não é exigida aprovação adicional de outro revisor. Deploy continua após merge;
-o workflow não faz merge nem deploy automaticamente. Em outros repositórios,
-configure essas regras no GitHub: o arquivo de workflow sozinho não bloqueia merge.
+Branch protection for `master` must require a pull request and a passing
+`quality` status check, with the branch up to date before merging, including
+for administrators. Additional approval from another reviewer is not required.
+Deployment remains a post-merge step; the workflow does not merge or deploy
+automatically. In other repositories, configure these rules in GitHub: the
+workflow file alone does not block merging.
 
-Em clones que ainda têm o hook antigo instalado, remova-o uma vez:
+In clones that still have the old hook installed, remove it once:
 
 ```powershell
 .\venv\Scripts\python.exe -m pre_commit uninstall
 ```
 
-Durante desenvolvimento, use verificações direcionadas aos arquivos alterados
-quando necessário; não execute a suíte completa como requisito para commit.
-Instale ferramentas com `python -m pip install -r requirements-dev.txt` e
-`npm --prefix frontend ci`. Exemplos manuais:
+During development, run targeted checks on changed files when needed; do not
+run the full suite as a commit prerequisite. Install tools with
+`python -m pip install -r requirements-dev.txt` and `npm --prefix frontend ci`.
+Manual examples:
 
 ```powershell
-.\venv\Scripts\ruff.exe format caminho/do/arquivo.py
-.\venv\Scripts\ruff.exe check --fix --ignore-noqa caminho/do/arquivo.py
+.\venv\Scripts\ruff.exe format path/to/file.py
+.\venv\Scripts\ruff.exe check --fix --ignore-noqa path/to/file.py
 npm --prefix frontend run lint
 ```
 
-ESLint também verifica classes canônicas do Tailwind 4 usando
-`better-tailwindcss/enforce-canonical-classes`, com o tema de `app/globals.css`.
-Ruff verifica supressões com `RUF100`; CI usa `--ignore-noqa`. ESLint não aceita
-comentários para desativar regras. Corrija a causa dos diagnósticos, sem esconder
-problemas com supressões.
+ESLint also checks canonical Tailwind 4 classes using
+`better-tailwindcss/enforce-canonical-classes`, with the theme from `app/globals.css`.
+Ruff checks suppressions with `RUF100`; CI uses `--ignore-noqa`. ESLint does not
+allow rule-disable comments. Fix the cause of diagnostics rather than hiding
+problems with suppressions.
 
 ## Troubleshooting
 
@@ -247,14 +258,14 @@ problemas com supressões.
 
 Set `TELEGRAM_API_ID` and `TELEGRAM_API_HASH` for the operator account. Supply `TELEGRAM_SESSION_STRING` or set `TELEGRAM_PHONE` and scan the QR served on port 8081. Operator sessions, LLM accounting, catalog sources, user destinations and affiliate credentials are persisted in PostgreSQL. Docker mounts `data` for temporary media and legacy import files. Set `OPENROUTER_API_KEY` to enable the primary Qwen parser.
 
-### Migração da persistência da plataforma
+### Platform persistence migration
 
-Configure `DATABASE_URL` conforme `.env.example`. A porta local padrão é 5434;
-dentro do Docker, os serviços usam `db:5432`. Instale as dependências atualizadas.
-O backend aplica a migração `0005_platform_persistence` ao iniciar.
+Set `DATABASE_URL` according to `.env.example`. The default local port is 5434;
+inside Docker, services use `db:5432`. Install the updated dependencies.
+The backend applies migration `0005_platform_persistence` at startup.
 
-Para importar sessão do operador e histórico de tokens de uma instalação anterior,
-pare o worker e execute, com o banco e o backend disponíveis:
+To import the operator session and token usage history from a previous installation,
+stop the worker and run the following with the database and backend available:
 
 ```powershell
 docker compose up -d db backend
@@ -262,149 +273,152 @@ docker compose up -d db backend
 docker compose up -d worker
 ```
 
-A importação é transacional e pode ser repetida usando o mesmo arquivo. Não altera
-o SQLite nem sobrescreve sessões já existentes no PostgreSQL. Os IDs de origem
-identificam um único banco legado; não use esse comando para combinar arquivos
-SQLite independentes. Ofertas do bot antigo não são importadas: sua deduplicação
-global não identifica o usuário exigido pelo modelo da plataforma.
+The import is transactional and can be repeated using the same file. It does not
+modify SQLite or overwrite existing sessions in PostgreSQL. Source IDs identify
+a single legacy database; do not use this command to combine independent SQLite
+files. Offers from the old bot are not imported: their global deduplication does
+not identify the user required by the platform model.
 
-O bot legado executado separadamente continua compatível com SQLite. A plataforma
-usa PostgreSQL; `DATABASE_PATH` serve apenas ao modo legado e à importação.
+The standalone legacy bot remains compatible with SQLite. The platform uses
+PostgreSQL; `DATABASE_PATH` is used only for legacy mode and imports.
 
-### Autenticação com Better Auth
+### Authentication with Better Auth
 
-Cadastro, acesso por senha, Google e sessões são gerenciados pelo Better Auth no
-Next.js (`/api/auth/*`). As rotas antigas `/auth/register`, `/auth/login` e
-`/auth/session/exchange` do FastAPI foram removidas. O proxy valida o cookie com
-Better Auth e encaminha a sessão opaca ao FastAPI, que consulta sua validade no
-PostgreSQL a cada requisição. Papéis de administrador continuam em `users.role`,
-sem depender de variáveis enviadas pelo navegador.
+Registration, password login, Google sign-in, and sessions are managed by Better
+Auth in Next.js (`/api/auth/*`). The old FastAPI routes `/auth/register`,
+`/auth/login`, and `/auth/session/exchange` have been removed. The proxy validates
+the cookie with Better Auth and forwards the opaque session to FastAPI, which
+checks its validity in PostgreSQL on every request. Administrator roles remain
+in `users.role`, without relying on variables sent by the browser.
 
-A migração `0008_better_auth` cria as tabelas de autenticação e associa contas
-existentes sem alterar seus IDs, configurações ou permissões. Senhas bcrypt
-existentes continuam funcionando; novas senhas usam o hash padrão do Better Auth.
-Sessões do NextAuth deixam de funcionar, exigindo novo login. A migração é
-administrada pelo Alembic; não execute o CLI de migração do Better Auth sobre
-essas mesmas tabelas. E-mails legados que colidam após conversão para minúsculas
-precisam ser corrigidos antes da migração.
+Migration `0008_better_auth` creates the authentication tables and links existing
+accounts without changing their IDs, settings, or permissions. Existing bcrypt
+passwords continue to work; new passwords use Better Auth's default hash.
+NextAuth sessions stop working, requiring users to sign in again. The migration
+is managed by Alembic; do not run Better Auth's migration CLI against the same
+tables. Legacy email addresses that collide after conversion to lowercase must
+be corrected before migration.
 
-Configure `BETTER_AUTH_SECRET` (pelo menos 32 caracteres aleatórios),
-`BETTER_AUTH_URL` (URL pública confiável) e `AUTH_DATABASE_URL` (PostgreSQL).
-No Docker, a URL interna do banco é configurada pelo Compose. Para executar
-Next.js localmente, coloque essas variáveis em `frontend/.env.local`.
-Cadastre no Google o callback `${BETTER_AUTH_URL}/api/auth/callback/google`.
-O vínculo automático de contas com o mesmo e-mail está desabilitado.
+Set `BETTER_AUTH_SECRET` (at least 32 random characters), `BETTER_AUTH_URL`
+(a trusted public URL), and `AUTH_DATABASE_URL` (PostgreSQL). In Docker, Compose
+configures the internal database URL. To run Next.js locally, put these variables
+in `frontend/.env.local`. Register the callback
+`${BETTER_AUTH_URL}/api/auth/callback/google` with Google.
+Automatic linking of accounts with the same email address is disabled.
 
-### Recuperação de senha
+### Password recovery
 
-O link **Esqueci minha senha** abre `/forgot-password`. Better Auth gera um token
-temporário, com identificador armazenado como hash e validade de 15 minutos.
-O e-mail aponta para `/reset-password`, com token no fragmento da URL para evitar
-que ele seja enviado em logs de acesso. O usuário confirma a senha duas vezes;
-após a troca, todas as sessões antigas são revogadas e é necessário entrar de novo.
-A resposta ao pedido é a mesma para e-mails conhecidos e desconhecidos.
+The **Forgot password** link opens `/forgot-password`. Better Auth generates a
+temporary token whose identifier is stored as a hash and which expires after
+15 minutes. The email points to `/reset-password`, with the token in the URL
+fragment to keep it out of access logs. The user enters the new password twice;
+after the change, all old sessions are revoked and the user must sign in again.
+The request response is the same for known and unknown email addresses.
 
-Configure no servidor Next.js: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`,
-`SMTP_PASSWORD` e `SMTP_FROM`. Para SSL direto, use `SMTP_SECURE=true` (geralmente
-porta 465); para STARTTLS, `SMTP_SECURE=false` e `SMTP_REQUIRE_TLS=true` (geralmente
-porta 587). Sem SMTP configurado, a tela informa que a recuperação está indisponível.
-O servidor também envia um aviso após a alteração da senha. Dados de SMTP e links
-de recuperação não são registrados nos logs da aplicação.
+Configure `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, and `SMTP_FROM`
+on the Next.js server. For implicit TLS, use `SMTP_SECURE=true` (usually port
+465); for STARTTLS, use `SMTP_SECURE=false` and `SMTP_REQUIRE_TLS=true` (usually
+port 587). Without SMTP configured, the screen reports that recovery is
+unavailable. The server also sends a notification after a password change.
+SMTP data and recovery links are not recorded in application logs.
 
-Os limites de tentativas ficam no PostgreSQL e são compartilhados entre instâncias
-do frontend. Solicitações de recuperação permitem até três tentativas por minuto
-por IP; login, cadastro e redefinição permitem cinco. O banco de autenticação
-precisa estar disponível antes de iniciar o frontend. Execute a migração pelo
-backend; em Docker, o frontend aguarda o healthcheck do backend.
+Rate limits are stored in PostgreSQL and shared across frontend instances.
+Recovery requests allow up to three attempts per minute per IP; login,
+registration, and password reset allow five. The authentication database must be
+available before the frontend starts. Run the migration through the backend;
+in Docker, the frontend waits for the backend health check.
 
-### Configurações após o tutorial
+### Settings after the setup tutorial
 
-A rota autenticada `/settings` permanece disponível pelos menus Configurações,
-Grupos e Afiliados, no desktop e no celular. Permite cadastrar, editar, desativar
-e remover destinos, selecionar grupos do catálogo da administração e atualizar
-ou remover as integrações com Amazon, Mercado Livre, Shopee e AliExpress.
-Cada alteração usa as APIs protegidas do próprio usuário. Habilitar um destino
-verifica as permissões do bot. As credenciais cadastradas ficam mascaradas no
-formulário; salvar não equivale a validar a autenticação na loja.
+The authenticated `/settings` route remains available through the Settings,
+Groups, and Affiliates menus on desktop and mobile. Users can add, edit, disable,
+and remove destinations, select groups from the administrator-managed catalog,
+and update or remove Amazon, Mercado Livre, Shopee, and AliExpress integrations.
+Each change uses the user's own protected APIs. Enabling a destination checks the
+bot's permissions. Saved credentials are masked in the form; saving does not
+validate authentication with the store.
 
-### Validação das credenciais de afiliado
+### Affiliate credential validation
 
-O botão **Validar credenciais** está disponível nas quatro lojas, no tutorial
-e em `/settings`. Consulta a rota autenticada
-`POST /users/me/affiliate-credentials/validate` com os dados preenchidos no
-formulário, mesmo antes de salvá-los. A verificação gera um link de referência
-na loja, sem publicar no Telegram e sem persistir credenciais ou links de teste.
+The **Validate credentials** button is available for all four stores in the
+tutorial and in `/settings`. It calls the authenticated route
+`POST /users/me/affiliate-credentials/validate` with the data entered in the form,
+even before saving it. The check generates a reference link for the store
+without posting to Telegram or persisting credentials or test links.
 
-Resultados: aprovada, credenciais recusadas ou inconclusiva. Timeout, captcha,
-limite de requisições e falhas da API não são confundidos com credenciais inválidas.
-O Mercado Livre exige o link completo de um produto elegível, com ID MLB;
-o endereço é enviado apenas à API fixa de afiliados e não é visitado pelo backend.
-As demais lojas usam suas páginas iniciais como referência.
+Results are passed, credentials rejected, or inconclusive. Timeouts, captchas,
+rate limits, and API failures are not treated as invalid credentials.
+Mercado Livre requires the full link to an eligible product with an MLB ID;
+the address is sent only to the fixed affiliate API and is not visited by the
+backend. The other stores use their home pages as references.
 
-Modificar os dados oculta o resultado anterior. A validação comprova a geração
-de um link naquele momento; não comprova titularidade da tag, comissão futura
-ou elegibilidade de todas as ofertas. Salvar continua sendo uma ação separada.
-As respostas contêm somente resultado, motivo e horário; nunca os segredos ou
-a resposta bruta da loja. Requisições externas têm timeout de 20 segundos no
-total, limite de oito validações simultâneas por processo e uma por usuário.
+Changing the data hides the previous result. Validation confirms that a link can
+be generated at that moment; it does not prove tag ownership, future commissions,
+or eligibility of every offer. Saving remains a separate action. Responses
+contain only the result, reason, and timestamp, never secrets or the store's raw
+response. External requests have a total timeout of 20 seconds, with a limit of
+eight concurrent validations per process and one per user.
 
-### Histórico de publicações
+### Delivery history
 
-O dashboard consulta `GET /users/me/deliveries`, autenticado e limitado aos
-registros do próprio usuário. Inclui paginação, filtro por resultado e atualização
-a cada 30 segundos. Os totais exibidos vêm do banco; não são dados demonstrativos.
-O histórico aparece também enquanto a configuração está incompleta.
+The dashboard calls `GET /users/me/deliveries`, which requires authentication and
+is limited to the user's own records. It includes pagination, filtering by
+result, and refreshes every 30 seconds. Displayed totals come from the database,
+not sample data. History is also shown while setup is incomplete.
 
-A migração `0007_delivery_details` adiciona título, loja e etapa aos novos
-registros. Motivos são classificados e apresentados em português: autenticação,
-chave de API, permissões do bot, limites de envio, conectividade, falha da API,
-fila indisponível e prazo vencido. Respostas brutas, cookies, tokens e chaves
-não são enviados ao navegador. Quando a resposta não identifica a causa,
-o histórico mostra uma falha genérica, sem presumir que a chave está inválida.
+Migration `0007_delivery_details` adds a title, store, and stage to new records.
+Reasons are classified and displayed in Portuguese: authentication, API key,
+bot permissions, sending limits, connectivity, API failure, unavailable queue,
+and expiration. Raw responses, cookies, tokens, and keys are not sent to the
+browser. When the response does not identify the cause, history shows a generic
+failure without assuming that the key is invalid.
 
-Falhas na conversão de links são registradas antes da fila, por destino.
-Uma falha do LLM recuperada por fallback não é tratada como postagem fracassada.
-Uma desconexão do leitor impede receber novas promoções e, portanto, não produz
-registros por promoção; seu diagnóstico depende dos logs operacionais.
+Link conversion failures are recorded per destination before queueing.
+An LLM failure recovered through fallback is not treated as a failed post.
+A reader disconnection prevents new offers from being received and therefore
+does not produce per-offer records; diagnosis depends on operational logs.
 
-### Fila de postagem de promoções
+### Offer posting queue
 
-O listener prepara os links e publica uma tarefa por destino no Redis. O serviço
-`posting` executa essas tarefas com Celery. O prazo padrão e máximo é de 600 segundos desde
-a data original da mensagem do Telegram, incluindo processamento; ajuste
-`PROMOTION_TTL_SECONDS` (1–600) no ambiente do listener e da API. Promoções vencidas são descartadas.
-Não há Celery Beat: o envio é acionado por mensagens, sem agendamento periódico.
+The listener prepares links and publishes one task per destination to Redis.
+The `posting` service executes these tasks with Celery. The default and maximum
+lifetime is 600 seconds from the original Telegram message timestamp, including
+processing; set `PROMOTION_TTL_SECONDS` (1–600) in the listener and API environment.
+Expired offers are discarded. There is no Celery Beat: sending is triggered by
+messages, without periodic scheduling.
 
 ```powershell
 docker compose up -d --build db redis backend worker posting
 ```
 
-O Redis não grava snapshots nem AOF. Reiniciar o Redis perde tarefas pendentes;
-elas não são reconstruídas a partir do banco. A memória é limitada a 256 MB, com
-`noeviction`: atingir o limite faz a publicação falhar, sem expulsar silenciosamente
-mensagens. `POSTING_CONCURRENCY` controla os processos de envio (padrão: 2).
+Redis does not write snapshots or AOF. Restarting Redis loses pending tasks;
+they are not rebuilt from the database. Memory is limited to 256 MB with
+`noeviction`: reaching the limit causes task publication to fail rather than
+silently evicting messages. `POSTING_CONCURRENCY` controls sending processes
+(default: 2).
 
-`promotion_deliveries` registra estado por usuário e destino. Antes do envio,
-o consumidor confirma que o destino continua cadastrado e habilitado. Uma tarefa
-duplicada não repete um envio já iniciado. Existem até duas novas tentativas para
-falhas de conexão anteriores ao envio e respostas 429, respeitando `retry_after`
-e o prazo restante. Falhas ambíguas são marcadas como `uncertain`, sem repetição
-automática. Telegram não fornece uma chave de idempotência para esse envio;
-o sistema prioriza evitar duplicação, podendo perder uma postagem após uma queda.
+`promotion_deliveries` records state per user and destination. Before sending,
+the consumer confirms that the destination is still registered and enabled.
+A duplicate task does not repeat a send that has already started. Up to two
+retries are allowed for connection failures before sending and 429 responses,
+respecting `retry_after` and the remaining lifetime. Ambiguous failures are marked
+as `uncertain`, without automatic retries. Telegram does not provide an
+idempotency key for this send; the system prioritizes avoiding duplicates and
+may lose a post after a crash.
 
-Imagens locais são copiadas para a mensagem da fila antes da limpeza pelo listener,
-com limite de 8 MB; imagens maiores são omitidas. URLs de imagens são enviadas ao
-Telegram. Uma rejeição explícita da foto (400) permite tentar apenas o texto.
+Local images are copied into the queue message before the listener cleans them
+up, with an 8 MB limit; larger images are omitted. Image URLs are sent to Telegram.
+An explicit photo rejection (400) allows a text-only attempt.
 
-O histórico não contém o conteúdo das promoções nem funciona como uma fila
-persistente. Após perda do Redis, registros `queued` ou `retrying` podem permanecer
-no banco; quando `expires_at` passa, devem ser interpretados como expirados.
-`sending` sem conclusão indica resultado incerto. Não reenvie esses registros
-automaticamente.
+History does not contain offer content or act as a persistent queue. After Redis
+data loss, `queued` or `retrying` records may remain in the database; once
+`expires_at` passes, they should be interpreted as expired. A `sending` record
+without completion indicates an uncertain outcome. Do not automatically resend
+these records.
 
-Execução local exige Redis acessível em `REDIS_URL`. Em Windows, use Docker para
-o consumidor Celery; para desenvolvimento sem Docker, o modo `--pool=solo` evita
-o pool de processos, mas Celery não oferece suporte oficial a Windows.
+Local execution requires Redis to be reachable at `REDIS_URL`. On Windows, use
+Docker for the Celery consumer; for development without Docker, `--pool=solo`
+avoids the process pool, but Celery does not officially support Windows.
 
 ### Administrator access and source catalog
 
@@ -434,7 +448,7 @@ Administrators can add, edit, enable, disable, and remove public Telegram groups
 Implementation requirements and channel delivery recommendations:
 [`WAHA_IMPLEMENTATION.md`](WAHA_IMPLEMENTATION.md).
 
-Users can connect their own WhatsApp account in **Settings → Publicar no WhatsApp**,
+Users can connect their own WhatsApp account in **Settings → Publish to WhatsApp**,
 scan the QR from **WhatsApp → Linked devices**, and select a group or channel from their account.
 The same QR and destination picker is available in the setup tutorial. Telegram
 group/channel configuration remains available alongside WhatsApp in both screens.

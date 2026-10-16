@@ -43,6 +43,11 @@ python -m unittest discover tests
 ```
 
 ## 3. Git Commits
+All Git and GitHub collaboration text must be written in English, including
+commit subjects and bodies, pull request titles and descriptions, and PR comments.
+This applies regardless of the language used in the conversation. When sharing
+a PR link, preserve its actual English title instead of translating it.
+
 When committing, use `git add -A` to stage all changes. Use conventional commits format:
 ```
 <type>: <short description>

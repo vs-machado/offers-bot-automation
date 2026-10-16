@@ -109,6 +109,16 @@ class DealParseResult(BaseModel):
     products: List[ProductSection] = Field(default_factory=list)
     coupon: Optional[CouponSection] = None
     category: Optional[Literal["tech", "home", "clothes", "other"]] = None
+    source_advertising_spans: List[str] = Field(
+        default_factory=list,
+        description=(
+            "Exact, verbatim substrings of the incoming message containing unrelated "
+            "source advertising, including its call to action and destination. "
+            "Preserve all characters, Markdown, emojis and line breaks exactly. "
+            "Exclude legitimate offer details and shopping/redemption links. "
+            "Return an empty list when no source advertising is present."
+        ),
+    )
 
 
 SYSTEM_PROMPT = """You are an expert assistant that parses shopping deals and coupons from Telegram messages.
@@ -136,9 +146,11 @@ SOURCE ADVERTISING REMOVAL RULES (apply to products AND coupon bulletins):
 - Identify each link's purpose from its surrounding text and its relationship to the deal. Remove unrelated promotion of the source group: alert bots, price-monitoring bots, coin/reward bots, referral invitations, channels, groups, social profiles and calls to follow or subscribe.
 - Use semantic context, not an exact phrase, a fixed username, a URL domain or a "bot" suffix. Advertising may use different wording, abbreviations, emojis, capitalization, line breaks, Markdown links, bare usernames or URL parameters such as start/referral codes.
 - Examples of noise to discard entirely: "BOT DE ALERTAS: https://t.me/alertadaspromobot", "Receba avisos quando baixar: @qualquernome", "Junte moedas pelo nosso robozinho [clique aqui](https://t.me/exemplo?start=convite)", and "Entre no nosso canal para mais ofertas". These examples are illustrative, not an exhaustive match list.
-- Exclude both the advertising destination and its label/call to action from EVERY output field, including product title, urls, coupon details, shipping_info, installment_info and resgate_anuncio_note. Never turn an advertising line into a product or coupon.
+- Exclude both the advertising destination and its label/call to action from all deal output fields, including product title, urls, coupon details, shipping_info, installment_info and resgate_anuncio_note. Advertising belongs only in source_advertising_spans. Never turn an advertising line into a product or coupon.
 - Keep legitimate product, store, checkout, coupon activation and redemption links and the actual conditions needed to obtain the advertised price. Store coin discounts (e.g. "R$ 50 com moedas no AliExpress") remain valid deal conditions; an invitation to a third-party coin bot is advertising and must be discarded.
 - A shopping URL is not advertising merely because it has affiliate/tracking parameters. Preserve legitimate shopping URLs exactly. Do not invent or rewrite destinations, and do not discard the actual offer along with an unrelated advertising footer.
+- In source_advertising_spans, return the exact original substrings to remove from the incoming message. Copy characters verbatim, including emojis, Markdown, spacing and line breaks; never paraphrase or reconstruct these substrings. Include both the call to action and its destination, even across multiple lines. If legitimate offer content separates them, return separate substrings instead of including that content in a removal span.
+- Each span must identify one unambiguous occurrence. Include enough advertising context to distinguish it from legitimate repeated text. Never mark a product name, price, discount condition, coupon code, shopping/redemption link or the required advertising disclosure (e.g. "- Anúncio") for removal. Return [] if none is present. These spans describe incoming source content only; platform-owned promotions may be added afterward.
 
 CRITICAL TITLE EXTRACTION RULE: You must extract a clean product title for each product. Do not leave it null or empty if there is a product name. Clean the title by removing all emojis, pricing details, discount percentages, coupon codes, and URLs.
 

@@ -26,6 +26,7 @@ from .parser import (
 from .shopee import ShopeeClient
 from .store import OfferStore
 from .session_store import SessionStore
+from .source_cleanup import clean_source_advertising
 from .telegram_bot import TelegramOfferBot
 
 
@@ -532,7 +533,10 @@ async def format_outgoing_offer(
         replacements = await _build_url_replacements(
             offer, affiliate_url, affiliate_client
         )
-        new_text = offer.original_text
+        new_text = clean_source_advertising(
+            offer.original_text,
+            (offer.llm_result or {}).get("source_advertising_spans", []),
+        )
         for orig, aff in replacements.items():
             new_text = new_text.replace(orig, aff)
         new_text = _wrap_coupons_in_text(new_text)
@@ -552,7 +556,10 @@ async def format_outgoing_offer(
         )
         if url_replacements:
             replacements.update(url_replacements)
-        new_text = offer.original_text
+        new_text = clean_source_advertising(
+            offer.original_text,
+            (offer.llm_result or {}).get("source_advertising_spans", []),
+        )
         for orig, aff in replacements.items():
             new_text = new_text.replace(orig, aff)
         new_text = _wrap_coupons_in_text(new_text)
