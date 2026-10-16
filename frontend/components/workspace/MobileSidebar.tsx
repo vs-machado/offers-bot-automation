@@ -6,9 +6,9 @@ import Link from "next/link";
 import { useState } from "react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { LogoutButton } from "@/features/dashboard/components/LogoutButton";
-import { dashboardNavigation } from "@/features/dashboard/lib/navigation";
-import { cn } from "@/lib/utils";
+import { LogoutButton } from "@/components/workspace/LogoutButton";
+import { WorkspaceNavigation } from "@/components/workspace/WorkspaceNavigation";
+import { usePathname } from "next/navigation";
 
 type MobileSidebarProps = {
   userEmail: string;
@@ -24,6 +24,7 @@ export function MobileSidebar({
   isAdmin,
 }: MobileSidebarProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const pathname = usePathname();
 
   return (
     <Dialog.Root open={isOpen} onOpenChange={setIsOpen}>
@@ -63,38 +64,22 @@ export function MobileSidebar({
           <Dialog.Description className="sr-only">
             Navegue entre o painel, destinos, afiliados e configurações.
           </Dialog.Description>
-          <nav
-            aria-label="Seções do painel"
-            className="flex-1 space-y-1 overflow-y-auto p-3"
-          >
-            {dashboardNavigation.map(({ icon: Icon, ...item }) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={() => setIsOpen(false)}
-                aria-current={item.active ? "page" : undefined}
-                className={cn(
-                  "flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm focus-visible:outline-2 focus-visible:outline-ring",
-                  item.active
-                    ? "bg-sidebar-accent font-semibold text-sidebar-accent-foreground"
-                    : "text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-                )}
-              >
-                <Icon aria-hidden="true" className="size-4" />
-                {item.label}
-              </Link>
-            ))}
+          <div className="flex-1 space-y-1 overflow-y-auto p-3">
+            <WorkspaceNavigation onNavigate={() => setIsOpen(false)} />
             {isAdmin ? (
               <Link
                 href="/admin/source-groups"
+                aria-current={
+                  pathname.startsWith("/admin") ? "page" : undefined
+                }
                 onClick={() => setIsOpen(false)}
-                className="flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:outline-2 focus-visible:outline-ring"
+                className="flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:outline-2 focus-visible:outline-ring aria-[current=page]:bg-sidebar-accent aria-[current=page]:font-semibold aria-[current=page]:text-sidebar-accent-foreground"
               >
                 <ShieldCheck aria-hidden="true" className="size-4" />
                 Administração
               </Link>
             ) : null}
-          </nav>
+          </div>
           <div className="border-t border-sidebar-border p-4">
             <div className="mb-3 flex items-center gap-3">
               <Avatar className="size-9">
