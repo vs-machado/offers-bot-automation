@@ -4,12 +4,10 @@ import { redirect } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { getSession } from "@/lib/auth-session";
 import {
-  getDashboardUser,
   getDeliveryHistory,
   getDestinations,
   getUserConfigs,
 } from "@/features/dashboard/api/dashboard-server";
-import { DashboardShell } from "@/features/dashboard/components/DashboardShell";
 import { PublicationHistory } from "@/features/dashboard/components/PublicationHistory";
 import { SetupDialog } from "@/features/setup/SetupDialog";
 
@@ -17,8 +15,7 @@ export async function Dashboard() {
   const session = await getSession();
   if (!session) redirect("/");
 
-  const [dbUser, destinations, configs] = await Promise.all([
-    getDashboardUser(session.sessionToken),
+  const [destinations, configs] = await Promise.all([
     getDestinations(session.sessionToken),
     getUserConfigs(session.sessionToken),
   ]);
@@ -64,16 +61,10 @@ export async function Dashboard() {
   const deliveryHistory = isConfigured
     ? await getDeliveryHistory(session.sessionToken)
     : null;
-  const userEmail = dbUser?.email || session.user?.email || "Conta conectada";
-  const userName = dbUser?.full_name?.trim() || session.user?.name || userEmail;
 
   return (
-    <DashboardShell
-      userName={userName}
-      userEmail={userEmail}
-      isAdmin={dbUser?.role === "admin"}
-    >
-      <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
+    <>
+      <div className="mb-6 flex shrink-0 flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
             {isConfigured ? "Visão geral" : "Configure sua automação"}
@@ -106,7 +97,7 @@ export async function Dashboard() {
       {isConfigured ? (
         <PublicationHistory initialData={deliveryHistory} />
       ) : (
-        <Card className="max-w-3xl gap-0 py-0 shadow-none ring-1 ring-border">
+        <Card className="max-w-3xl gap-0 overflow-y-auto py-0 shadow-none ring-1 ring-border">
           <CardContent className="p-5 sm:p-6">
             <div className="flex items-center gap-3">
               <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-muted">
@@ -168,6 +159,6 @@ export async function Dashboard() {
           </CardContent>
         </Card>
       )}
-    </DashboardShell>
+    </>
   );
 }

@@ -29,7 +29,7 @@ Based on the [make-it-look-good design guidance](https://github.com/jdeworks/mak
 
 - Sidebar: 240px, visible from 1024px. Main content: maximum 1440px.
 - Spacing: 4px base; 16px mobile page padding and 24–32px on larger screens.
-- Typography: 24–30px page heading; 14px dense data; 12px metadata. Native select
+- Typography: 24–30px page heading; 14px dense data; 12px metadata. Base UI Select
   uses 16px text on mobile to avoid input zoom.
 - Rows: 56px on desktop, 64px on mobile. Below 768px, title and store/date use
   two compact lines. Destination and other metadata remain in expanded details.
@@ -70,3 +70,57 @@ fixtures, with history requests intercepted rather than sent to production.
   control sizes, pagination, disclosure, and explicitly chosen behaviors.
 - `heuristics/llm-design-gotchas.md`: contrast, motion, placeholder, and hierarchy
   self-audit.
+
+## Shared workspace redesign
+
+### Audit
+
+- Settings and administration previously rendered standalone page wrappers,
+  making navigation disappear outside the dashboard.
+- Navigation marked the dashboard active regardless of location.
+- Twenty offer rows scrolled the entire document; native selects bypassed the
+  component system.
+
+### Decisions
+
+- Put authenticated pages under the `(workspace)` route group without changing
+  URLs. A shared Next.js layout preserves sidebar state between pages.
+- Promote shell, navigation, mobile dialog, and logout presentation to
+  `components/workspace`; features own their content and data access.
+- Keep the 240px desktop sidebar and 64px header stationary in a `100dvh` frame.
+  Settings/admin scroll inside `main`. The dashboard scrolls only its publication
+  list, with filters, summary metrics and pagination remaining visible.
+- At short phone sizes, metrics use one compact four-column row to preserve
+  usable list height. An incomplete setup scrolls inside its own card.
+- Use a shared themed Base UI Select for history status and Telegram destination
+  type, including keyboard selection, focus return, and portaled menus.
+- Use route-aware navigation and hash-aware section links. Administration stays
+  role-gated; its API continues checking the current role on each request.
+- Settings use anchored sections, 16–24px card padding, 44px controls, one-column
+  form fields, and a separate destination list/form at wide sizes. Source choices
+  are selectable rows; affiliate forms share the same heading/body structure.
+- Admin uses a responsive list and a 360px editing panel on wide screens; at
+  smaller sizes these stack vertically. All content uses existing theme tokens.
+- Resolve missing destination names through Telegram `getChat`, persisting
+  successful lookups to avoid repeat calls during history polling. Preserve custom
+  aliases, tenant ownership, and ID fallback when the API is unavailable.
+
+### Validation
+
+Actual shell, settings editor, admin catalog and publication history rendered
+with temporary fixtures; backend browser requests were intercepted.
+
+- All three pages checked at 1440×900, 1024×768, 768×1024, 375×812 and 320×568.
+- Light/dark checked at 1440px and 375px; no horizontal/document-height overflow.
+- Confirmed sidebar DOM survives client-side navigation, route/section active
+  states update, and anchors scroll the content area.
+- Confirmed dashboard list has its own usable scroll area even at 320×568;
+  header stays fixed during list and settings/admin scrolling.
+- Confirmed mobile drawer Escape/focus restoration, library select interaction,
+  history filter/reset requests, and no browser runtime errors.
+- Targeted backend tests cover Telegram name lookup, API/JSON/timeout fallbacks,
+  cached aliases, platform/tenant isolation, and missing-token behavior.
+
+Additional references: `docs/presets/project/clean.html` (persistent multi-page
+shell and grouped forms), `components/forms.md` (labels, widths and field rhythm),
+and `components/navigation.md` (consistent location and current-page indication).

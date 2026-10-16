@@ -108,6 +108,25 @@ class BotPoster:
             )
         return data["result"]
 
+    async def get_chat_title(self, chat_id: str) -> str | None:
+        """Resolve a chat name without blocking configuration on Telegram failures."""
+        try:
+            async with httpx.AsyncClient(timeout=5) as client:
+                response = await client.post(
+                    self._url("getChat"), json={"chat_id": chat_id}
+                )
+            data = response.json()
+            if response.status_code >= 400 or not data.get("ok"):
+                return None
+            title = data.get("result", {}).get("title")
+            return (
+                title.strip()[:255]
+                if isinstance(title, str) and title.strip()
+                else None
+            )
+        except (httpx.HTTPError, ValueError, BotPosterError):
+            return None
+
     async def can_post(self, chat_id: str) -> bool:
         """Return whether configured bot is administrator or creator in chat."""
         async with httpx.AsyncClient(timeout=20) as client:

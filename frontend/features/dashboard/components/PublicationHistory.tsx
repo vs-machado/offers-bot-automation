@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { SelectField } from "@/components/ui/select";
 import { DeliveryRow } from "@/features/dashboard/components/DeliveryRow";
 import { useDeliveryHistory } from "@/features/dashboard/hooks/use-delivery-history";
 import { deliveryStatusLabels } from "@/features/dashboard/lib/delivery-presentation";
@@ -52,22 +53,25 @@ export function PublicationHistory({
   const lastRecord = Math.min(history.page * 20, total);
 
   return (
-    <section className="space-y-6" aria-labelledby="publication-history-title">
-      <Card className="gap-0 py-0 shadow-none ring-1 ring-border">
-        <dl className="grid grid-cols-2 sm:grid-cols-4">
+    <section
+      className="flex min-h-0 flex-1 flex-col gap-4"
+      aria-labelledby="publication-history-title"
+    >
+      <Card className="shrink-0 gap-0 py-0 shadow-none ring-1 ring-border">
+        <dl className="grid grid-cols-4">
           {metrics.map(({ icon: Icon, ...metric }, index) => (
             <div
               key={metric.label}
-              className={`min-w-0 p-4 sm:p-5 ${index % 2 === 1 ? "border-l" : ""} ${index > 1 ? "border-t sm:border-t-0 sm:border-l" : ""}`}
+              className={`min-w-0 p-2 sm:p-5 ${index > 0 ? "border-l" : ""}`}
             >
-              <dt className="flex items-center justify-between gap-2 text-xs font-medium text-muted-foreground sm:text-sm">
+              <dt className="flex min-h-8 items-center justify-between gap-2 text-xs font-medium text-muted-foreground sm:min-h-0 sm:text-sm">
                 {metric.label}
                 <Icon
                   aria-hidden="true"
                   className="hidden size-4 shrink-0 sm:block"
                 />
               </dt>
-              <dd className="mt-3 text-2xl font-semibold tracking-tight tabular-nums sm:text-3xl">
+              <dd className="mt-1 text-xl font-semibold tracking-tight tabular-nums sm:mt-2 sm:text-3xl">
                 {counts ? countFormatter.format(metric.value) : "—"}
               </dd>
             </div>
@@ -75,8 +79,8 @@ export function PublicationHistory({
         </dl>
       </Card>
 
-      <Card className="gap-0 py-0 shadow-none ring-1 ring-border">
-        <div className="flex flex-wrap items-center justify-between gap-4 border-b p-4 sm:px-5">
+      <Card className="flex min-h-0 flex-1 flex-col gap-0 overflow-hidden py-0 shadow-none ring-1 ring-border">
+        <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b p-4 sm:px-5">
           <div>
             <h2
               id="publication-history-title"
@@ -84,7 +88,7 @@ export function PublicationHistory({
             >
               Publicações
             </h2>
-            <p className="mt-1 text-xs text-muted-foreground">
+            <p className="mt-1 hidden text-xs text-muted-foreground sm:block">
               Abra uma oferta para ver os detalhes do envio.
             </p>
           </div>
@@ -92,25 +96,21 @@ export function PublicationHistory({
             <label htmlFor="delivery-status" className="sr-only">
               Filtrar por resultado
             </label>
-            <select
+            <SelectField
               id="delivery-status"
-              className="h-11 min-w-0 flex-1 rounded-xl border border-input bg-background px-3 text-base text-foreground outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50 disabled:opacity-50 sm:w-48 sm:flex-none sm:text-sm"
+              className="flex-1 sm:w-48 sm:flex-none"
               value={history.status}
               disabled={history.isLoading}
-              onChange={(event) =>
-                void history.loadHistory(
-                  1,
-                  event.target.value as DeliveryStatus | "",
-                )
+              options={[
+                { value: "", label: "Todos os resultados" },
+                ...Object.entries(deliveryStatusLabels).map(
+                  ([value, label]) => ({ value, label }),
+                ),
+              ]}
+              onValueChange={(value) =>
+                void history.loadHistory(1, value as DeliveryStatus | "")
               }
-            >
-              <option value="">Todos os resultados</option>
-              {Object.entries(deliveryStatusLabels).map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
+            />
             <Button
               variant="outline"
               className="min-h-11 min-w-11 motion-reduce:transition-none"
@@ -145,12 +145,18 @@ export function PublicationHistory({
             <p>{history.error}</p>
           </div>
         ) : null}
-        <div aria-busy={history.isLoading}>
+        <div
+          aria-busy={history.isLoading}
+          tabIndex={0}
+          role="region"
+          aria-label="Lista de publicações"
+          className="min-h-0 flex-1 overflow-y-auto overscroll-contain outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+        >
           {history.data?.items.length ? (
             <>
               <div
                 aria-hidden="true"
-                className="hidden grid-cols-[minmax(0,1fr)_140px_132px_104px_16px] gap-4 border-b bg-muted/30 px-5 py-3 text-xs font-medium text-muted-foreground md:grid xl:grid-cols-[minmax(0,1fr)_104px_160px_132px_104px_16px]"
+                className="sticky top-0 z-10 hidden grid-cols-[minmax(0,1fr)_140px_132px_104px_16px] gap-4 border-b bg-card px-5 py-3 text-xs font-medium text-muted-foreground md:grid xl:grid-cols-[minmax(0,1fr)_104px_160px_132px_104px_16px]"
               >
                 <span>Oferta</span>
                 <span className="hidden xl:block">Loja</span>
@@ -202,14 +208,15 @@ export function PublicationHistory({
         </div>
 
         {history.data ? (
-          <footer className="flex flex-wrap items-center justify-between gap-3 border-t px-4 py-3 sm:px-5">
+          <footer className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-t px-4 py-3 sm:px-5">
             <p
               role="status"
               className="text-xs text-muted-foreground tabular-nums"
             >
               {countFormatter.format(firstRecord)}–
               {countFormatter.format(lastRecord)} de{" "}
-              {countFormatter.format(total)} publicações
+              {countFormatter.format(total)}
+              <span className="hidden sm:inline"> publicações</span>
             </p>
             <div className="flex items-center gap-2">
               <Button
@@ -241,7 +248,7 @@ export function PublicationHistory({
           </footer>
         ) : null}
       </Card>
-      <p className="text-xs text-muted-foreground">
+      <p className="hidden shrink-0 text-xs text-muted-foreground sm:block">
         Atualização automática a cada 30 segundos · Horários de Brasília ·
         Totais de todo o histórico
       </p>

@@ -16,13 +16,18 @@ export function LogoutButton({ compact = false }: LogoutButtonProps) {
   const [error, setError] = useState("");
   const [isBusy, setIsBusy] = useState(false);
   async function logout() {
-    setIsBusy(true); setError("");
+    setIsBusy(true);
+    setError("");
     try {
       const result = await authClient.signOut();
       if (result.error) throw new Error();
-      router.replace("/?mode=signin"); router.refresh();
-    } catch { setError("Não foi possível sair. Tente novamente."); }
-    finally { setIsBusy(false); }
+      router.replace("/?mode=signin");
+      router.refresh();
+    } catch {
+      setError("Não foi possível sair. Tente novamente.");
+    } finally {
+      setIsBusy(false);
+    }
   }
   return (
     <Button

@@ -24,6 +24,7 @@ from backend.app.schemas.user import (
 from backend.app.schemas.offer import OfferCreate, OfferRead
 from backend.app.schemas.delivery import DeliveryHistory
 from backend.app.core.delivery_history import get_delivery_history
+from backend.app.core.destination_titles import populate_destination_titles
 from backend.app.core.affiliate_validation import (
     MESSAGES,
     REQUIRED as REQUIRED_CONFIG_KEYS,
@@ -92,7 +93,8 @@ async def list_deliveries(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Return only the authenticated user's paginated delivery outcomes."""
+    """Return owned delivery outcomes, caching missing Telegram destination names."""
+    await populate_destination_titles(db, current_user.id)
     return await get_delivery_history(db, current_user.id, page, limit, delivery_status)
 
 
@@ -398,12 +400,14 @@ async def list_destinations(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Return destination chats belonging to authenticated user."""
+    """Return owned destinations and cache missing Telegram names when available."""
     statement = select(DestinationChannel).where(
         DestinationChannel.user_id == current_user.id
     )
     result = await db.execute(statement)
-    return result.scalars().all()
+    destinations = list(result.scalars().all())
+    await populate_destination_titles(db, current_user.id, destinations)
+    return destinations
 
 
 @router.post(
@@ -427,7 +431,12 @@ async def create_destination(
     new_destination = DestinationChannel(
         user_id=current_user.id,
         chat_id=destination_data.chat_id,
-        title=destination_data.title,
+        title=destination_data.title
+        or (
+            await BotPoster().get_chat_title(destination_data.chat_id)
+            if destination_data.platform == "telegram"
+            else None
+        ),
         chat_type=destination_data.chat_type,
         enabled=destination_data.enabled,
         platform=destination_data.platform,
@@ -467,7 +476,11 @@ async def update_destination(
     )
 
     destination.chat_id = destination_data.chat_id
-    destination.title = destination_data.title
+    destination.title = destination_data.title or (
+        await BotPoster().get_chat_title(destination_data.chat_id)
+        if destination_data.platform == "telegram"
+        else None
+    )
     destination.chat_type = destination_data.chat_type
     destination.enabled = destination_data.enabled
     destination.platform = destination_data.platform
