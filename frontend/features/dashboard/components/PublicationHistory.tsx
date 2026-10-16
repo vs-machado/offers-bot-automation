@@ -1,76 +1,250 @@
 "use client";
 
-import { CircleAlert, Clock3, History, Hourglass, Inbox, RefreshCw, Send } from "lucide-react";
+import {
+  CheckCheck,
+  ChevronLeft,
+  ChevronRight,
+  CircleAlert,
+  Clock3,
+  Hourglass,
+  Inbox,
+  RefreshCw,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
+import { DeliveryRow } from "@/features/dashboard/components/DeliveryRow";
 import { useDeliveryHistory } from "@/features/dashboard/hooks/use-delivery-history";
-import type { DeliveryHistoryData, DeliveryStatus } from "@/features/dashboard/types";
+import { deliveryStatusLabels } from "@/features/dashboard/lib/delivery-presentation";
+import type {
+  DeliveryHistoryData,
+  DeliveryStatus,
+} from "@/features/dashboard/types";
 
-const statusLabels: Record<DeliveryStatus, string> = {
-  queued: "Na fila", retrying: "Nova tentativa", sending: "Enviando", sent: "Enviada",
-  failed: "Falhou", expired: "Expirada", cancelled: "Cancelada", uncertain: "Sem confirmação",
-};
+const countFormatter = new Intl.NumberFormat("pt-BR");
 
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: "America/Sao_Paulo" }).format(new Date(value));
-}
-
-export function PublicationHistory({ initialData }: { initialData: DeliveryHistoryData | null }) {
+export function PublicationHistory({
+  initialData,
+}: {
+  initialData: DeliveryHistoryData | null;
+}) {
   const history = useDeliveryHistory(initialData);
   const counts = history.data?.counts;
   const metrics = [
-    { label: "Enviadas", value: counts?.sent ?? 0, icon: Send },
-    { label: "Falhas ou sem confirmação", value: (counts?.failed ?? 0) + (counts?.uncertain ?? 0), icon: CircleAlert },
+    { label: "Enviadas", value: counts?.sent ?? 0, icon: CheckCheck },
+    {
+      label: "Aguardando",
+      value:
+        (counts?.queued ?? 0) +
+        (counts?.retrying ?? 0) +
+        (counts?.sending ?? 0),
+      icon: Clock3,
+    },
+    {
+      label: "Falhas / incertas",
+      value: (counts?.failed ?? 0) + (counts?.uncertain ?? 0),
+      icon: CircleAlert,
+    },
     { label: "Expiradas", value: counts?.expired ?? 0, icon: Hourglass },
-    { label: "Aguardando envio", value: (counts?.queued ?? 0) + (counts?.retrying ?? 0) + (counts?.sending ?? 0), icon: Clock3 },
   ];
+  const total = history.data?.total ?? 0;
+  const pageCount = Math.max(1, Math.ceil(total / 20));
+  const firstRecord = total > 0 ? (history.page - 1) * 20 + 1 : 0;
+  const lastRecord = Math.min(history.page * 20, total);
 
   return (
-    <section className="mt-6 w-full space-y-6" aria-labelledby="publication-history-title" aria-busy={history.isLoading}>
-      {counts ? <div className="grid gap-4 sm:grid-cols-2 2xl:grid-cols-4">
-        {metrics.map((metric) => {
-          const Icon = metric.icon;
-
-          return (
-            <Card key={metric.label} className="py-0">
-              <CardContent className="flex min-h-44 items-start justify-between gap-4 p-6 sm:p-7">
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-muted-foreground sm:text-base">{metric.label}</p>
-                  <p className="mt-5 text-4xl font-bold tracking-tight tabular-nums sm:text-5xl">{metric.value}</p>
-                </div>
-                <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-                  <Icon aria-hidden="true" className="size-6" />
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div> : null}
-      <Card className="min-h-112 sm:[--card-spacing:--spacing(8)]">
-        <CardHeader className="gap-6">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="min-w-0"><CardTitle id="publication-history-title" className="flex items-center gap-3 text-xl font-semibold sm:text-2xl"><History aria-hidden="true" className="size-6 shrink-0 text-primary" />Histórico de publicações</CardTitle><p className="mt-2 text-sm text-muted-foreground sm:text-base">Uma linha por destino. Horários de Brasília. Atualização a cada 30 segundos.</p></div>
-            <Button variant="outline" disabled={history.isLoading} onClick={() => void history.loadHistory(history.page, history.status)}><RefreshCw className="size-4" />{history.isLoading ? "Atualizando…" : "Atualizar"}</Button>
-          </div>
-          <label className="flex items-center gap-3 text-sm">Resultado
-            <select className="rounded-lg border border-border bg-background p-2 text-foreground" value={history.status} disabled={history.isLoading} onChange={(event) => void history.loadHistory(1, event.target.value as DeliveryStatus | "")}>
-              <option value="">Todos</option>{Object.entries(statusLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-            </select>
-          </label>
-        </CardHeader>
-        <CardContent>
-          {history.error ? <p role="alert" className="mb-4 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">{history.error}</p> : null}
-          {history.data ? <>
-            {history.data.items.length ? <ul className="divide-y divide-border">{history.data.items.map((delivery) => <li key={delivery.id} className="space-y-3 py-6">
-              <div className="flex flex-wrap items-start justify-between gap-2"><h3 className="min-w-0 wrap-break-word font-semibold">{delivery.title ?? "Promoção registrada antes da atualização do histórico"}</h3><span className={`rounded-full px-3 py-1 text-xs font-semibold ${delivery.status === "sent" ? "bg-primary/10 text-primary" : ["failed", "uncertain"].includes(delivery.status) ? "bg-destructive/10 text-destructive" : "bg-muted text-muted-foreground"}`}>{statusLabels[delivery.status]}</span></div>
-              <p className="text-sm text-muted-foreground">{delivery.platform ? `${delivery.platform} · ` : ""}{delivery.destination_title ?? delivery.chat_id} · {formatDate(delivery.created_at)}</p>
-              {delivery.reason_message ? <p className="rounded-lg bg-muted p-3 text-sm">{delivery.reason_message}</p> : null}
-               <p className="text-xs text-muted-foreground">{delivery.stage === "affiliate" ? "Conversão do link" : delivery.stage === "processing" ? "Preparação da promoção" : delivery.chat_id.endsWith("@newsletter") || delivery.chat_id.endsWith("@g.us") ? "Publicação no WhatsApp" : "Publicação no Telegram"} · {delivery.attempts === 0 ? "Envio não iniciado" : `${delivery.attempts} ${delivery.attempts === 1 ? "tentativa" : "tentativas"}`} · Última atualização: {formatDate(delivery.updated_at)}</p>
-            </li>)}</ul> : <div className="flex min-h-60 flex-col items-center justify-center gap-4 py-10 text-center text-muted-foreground"><Inbox aria-hidden="true" className="size-10 text-primary" /><p className="max-w-md text-base">{history.status ? "Nenhuma publicação com esse resultado." : "Nenhuma publicação registrada ainda. As próximas tentativas aparecerão aqui."}</p></div>}
-            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4"><p className="text-sm text-muted-foreground">{history.data.total} {history.data.total === 1 ? "registro" : "registros"} · Página {history.page}</p><div className="flex gap-2"><Button variant="outline" disabled={history.isLoading || history.page === 1} onClick={() => void history.loadHistory(history.page - 1, history.status)}>Anterior</Button><Button variant="outline" disabled={history.isLoading || history.page * 20 >= history.data.total} onClick={() => void history.loadHistory(history.page + 1, history.status)}>Próxima</Button></div></div>
-          </> : null}
-        </CardContent>
+    <section className="space-y-6" aria-labelledby="publication-history-title">
+      <Card className="gap-0 py-0 shadow-none ring-1 ring-border">
+        <dl className="grid grid-cols-2 sm:grid-cols-4">
+          {metrics.map(({ icon: Icon, ...metric }, index) => (
+            <div
+              key={metric.label}
+              className={`min-w-0 p-4 sm:p-5 ${index % 2 === 1 ? "border-l" : ""} ${index > 1 ? "border-t sm:border-t-0 sm:border-l" : ""}`}
+            >
+              <dt className="flex items-center justify-between gap-2 text-xs font-medium text-muted-foreground sm:text-sm">
+                {metric.label}
+                <Icon
+                  aria-hidden="true"
+                  className="hidden size-4 shrink-0 sm:block"
+                />
+              </dt>
+              <dd className="mt-3 text-2xl font-semibold tracking-tight tabular-nums sm:text-3xl">
+                {counts ? countFormatter.format(metric.value) : "—"}
+              </dd>
+            </div>
+          ))}
+        </dl>
       </Card>
+
+      <Card className="gap-0 py-0 shadow-none ring-1 ring-border">
+        <div className="flex flex-wrap items-center justify-between gap-4 border-b p-4 sm:px-5">
+          <div>
+            <h2
+              id="publication-history-title"
+              className="text-base font-semibold"
+            >
+              Publicações
+            </h2>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Abra uma oferta para ver os detalhes do envio.
+            </p>
+          </div>
+          <div className="flex w-full items-center gap-2 sm:w-auto">
+            <label htmlFor="delivery-status" className="sr-only">
+              Filtrar por resultado
+            </label>
+            <select
+              id="delivery-status"
+              className="h-11 min-w-0 flex-1 rounded-xl border border-input bg-background px-3 text-base text-foreground outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50 disabled:opacity-50 sm:w-48 sm:flex-none sm:text-sm"
+              value={history.status}
+              disabled={history.isLoading}
+              onChange={(event) =>
+                void history.loadHistory(
+                  1,
+                  event.target.value as DeliveryStatus | "",
+                )
+              }
+            >
+              <option value="">Todos os resultados</option>
+              {Object.entries(deliveryStatusLabels).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+            <Button
+              variant="outline"
+              className="min-h-11 min-w-11 motion-reduce:transition-none"
+              disabled={history.isLoading}
+              aria-label={
+                history.isLoading
+                  ? "Atualizando publicações"
+                  : "Atualizar publicações"
+              }
+              onClick={() =>
+                void history.loadHistory(history.page, history.status)
+              }
+            >
+              <RefreshCw
+                aria-hidden="true"
+                className={`size-4 ${history.isLoading ? "animate-spin motion-reduce:animate-none" : ""}`}
+              />
+              <span className="hidden sm:inline">Atualizar</span>
+            </Button>
+          </div>
+        </div>
+
+        {history.error ? (
+          <div
+            role="alert"
+            className="m-4 flex items-start gap-2 rounded-xl border border-destructive/20 bg-background p-3 text-sm text-destructive"
+          >
+            <CircleAlert
+              aria-hidden="true"
+              className="mt-0.5 size-4 shrink-0"
+            />
+            <p>{history.error}</p>
+          </div>
+        ) : null}
+        <div aria-busy={history.isLoading}>
+          {history.data?.items.length ? (
+            <>
+              <div
+                aria-hidden="true"
+                className="hidden grid-cols-[minmax(0,1fr)_140px_132px_104px_16px] gap-4 border-b bg-muted/30 px-5 py-3 text-xs font-medium text-muted-foreground md:grid xl:grid-cols-[minmax(0,1fr)_104px_160px_132px_104px_16px]"
+              >
+                <span>Oferta</span>
+                <span className="hidden xl:block">Loja</span>
+                <span>Destino</span>
+                <span>Resultado</span>
+                <span>Data · Brasília</span>
+                <span className="sr-only">Detalhes</span>
+              </div>
+              <ul className="divide-y" aria-label="Histórico de publicações">
+                {history.data.items.map((delivery) => (
+                  <DeliveryRow key={delivery.id} delivery={delivery} />
+                ))}
+              </ul>
+            </>
+          ) : (
+            <div className="flex min-h-64 flex-col items-center justify-center px-6 py-12 text-center">
+              <span className="mb-4 flex size-12 items-center justify-center rounded-2xl border bg-muted/50">
+                <Inbox
+                  aria-hidden="true"
+                  className="size-5 text-muted-foreground"
+                />
+              </span>
+              <h3 className="text-sm font-medium">
+                {!history.data
+                  ? "Histórico indisponível"
+                  : history.status
+                    ? "Nenhuma publicação com esse resultado"
+                    : "Suas próximas ofertas aparecem aqui"}
+              </h3>
+              <p className="mt-2 max-w-sm text-sm/relaxed text-muted-foreground">
+                {!history.data
+                  ? "Use Atualizar para tentar carregar seus envios novamente."
+                  : history.status
+                    ? "Escolha outro resultado ou volte para todas as publicações."
+                    : "Quando uma oferta for processada, você poderá acompanhar cada destino e resultado por aqui."}
+              </p>
+              {history.status ? (
+                <Button
+                  variant="outline"
+                  className="mt-4 min-h-11 motion-reduce:transition-none"
+                  disabled={history.isLoading}
+                  onClick={() => void history.loadHistory(1, "")}
+                >
+                  Ver todas as publicações
+                </Button>
+              ) : null}
+            </div>
+          )}
+        </div>
+
+        {history.data ? (
+          <footer className="flex flex-wrap items-center justify-between gap-3 border-t px-4 py-3 sm:px-5">
+            <p
+              role="status"
+              className="text-xs text-muted-foreground tabular-nums"
+            >
+              {countFormatter.format(firstRecord)}–
+              {countFormatter.format(lastRecord)} de{" "}
+              {countFormatter.format(total)} publicações
+            </p>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                className="min-h-11 min-w-11 motion-reduce:transition-none"
+                disabled={history.isLoading || history.page === 1}
+                onClick={() =>
+                  void history.loadHistory(history.page - 1, history.status)
+                }
+                aria-label="Página anterior"
+              >
+                <ChevronLeft aria-hidden="true" className="size-4" />
+              </Button>
+              <span className="text-xs text-muted-foreground tabular-nums">
+                {history.page} / {pageCount}
+              </span>
+              <Button
+                variant="ghost"
+                className="min-h-11 min-w-11 motion-reduce:transition-none"
+                disabled={history.isLoading || history.page >= pageCount}
+                onClick={() =>
+                  void history.loadHistory(history.page + 1, history.status)
+                }
+                aria-label="Próxima página"
+              >
+                <ChevronRight aria-hidden="true" className="size-4" />
+              </Button>
+            </div>
+          </footer>
+        ) : null}
+      </Card>
+      <p className="text-xs text-muted-foreground">
+        Atualização automática a cada 30 segundos · Horários de Brasília ·
+        Totais de todo o histórico
+      </p>
     </section>
   );
 }

@@ -1,173 +1,118 @@
 "use client";
 
-import {
-  CalendarClock,
-  FileText,
-  Home,
-  Link2,
-  Menu,
-  MessageSquareText,
-  Send,
-  Settings,
-  UsersRound,
-  X,
-} from "lucide-react";
-import type { LucideIcon } from "lucide-react";
+import { Dialog } from "@base-ui/react/dialog";
+import { Menu, Send, ShieldCheck, X } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
-
+import { useState } from "react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
 import { LogoutButton } from "@/features/dashboard/components/LogoutButton";
-
-const mobileSidebarItems: Array<{
-  icon: LucideIcon;
-  label: string;
-  active?: boolean;
-  href?: string;
-}> = [
-  { icon: Home, label: "Início", active: true, href: "/dashboard" },
-  { icon: MessageSquareText, label: "Mensagens" },
-  { icon: CalendarClock, label: "Agendamentos" },
-  { icon: UsersRound, label: "Grupos", href: "/settings#destinations" },
-  { icon: Link2, label: "Afiliados", href: "/settings#affiliates" },
-  { icon: FileText, label: "Modelos de mensagem" },
-  { icon: Settings, label: "Configurações", href: "/settings" },
-];
+import { dashboardNavigation } from "@/features/dashboard/lib/navigation";
+import { cn } from "@/lib/utils";
 
 type MobileSidebarProps = {
   userEmail: string;
   userInitial: string;
   userName: string;
+  isAdmin: boolean;
 };
 
 export function MobileSidebar({
   userEmail,
   userInitial,
   userName,
+  isAdmin,
 }: MobileSidebarProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const closeButtonRef = useRef<HTMLButtonElement>(null);
-  const triggerRef = useRef<HTMLButtonElement>(null);
-
-  useEffect(() => {
-    if (!isOpen) return;
-
-    const previousOverflow = document.body.style.overflow;
-    const trigger = triggerRef.current;
-    document.body.style.overflow = "hidden";
-    closeButtonRef.current?.focus();
-
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setIsOpen(false);
-    };
-
-    document.addEventListener("keydown", closeOnEscape);
-
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      document.removeEventListener("keydown", closeOnEscape);
-      trigger?.focus();
-    };
-  }, [isOpen]);
 
   return (
-    <>
-      <Button
-        aria-expanded={isOpen}
-        aria-haspopup="dialog"
-        aria-label="Abrir menu"
-        className="size-9 border-transparent bg-transparent p-0 text-foreground shadow-none hover:bg-accent"
-        onClick={() => setIsOpen(true)}
-        ref={triggerRef}
-        type="button"
-        variant="outline"
+    <Dialog.Root open={isOpen} onOpenChange={setIsOpen}>
+      <Dialog.Trigger
+        render={
+          <Button
+            variant="ghost"
+            className="size-11 motion-reduce:transition-none"
+            aria-label="Abrir menu"
+          />
+        }
       >
-        <Menu className="size-5" />
-      </Button>
-
-      {isOpen
-        ? createPortal(
-            <div className="fixed inset-0 z-50 lg:hidden">
-              <button
-                aria-label="Fechar menu"
-                className="animate-in fade-in absolute inset-0 bg-slate-950/55 backdrop-blur-[2px] duration-200 motion-reduce:animate-none"
+        <Menu aria-hidden="true" className="size-5" />
+      </Dialog.Trigger>
+      <Dialog.Portal>
+        <Dialog.Backdrop className="fixed inset-0 z-40 bg-foreground/40" />
+        <Dialog.Popup className="fixed inset-y-0 left-0 z-50 flex w-72 max-w-[calc(100vw-2rem)] flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground outline-none">
+          <div className="flex h-16 shrink-0 items-center justify-between gap-3 border-b border-sidebar-border px-4">
+            <Dialog.Title className="flex items-center gap-3 font-semibold tracking-tight">
+              <span className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+                <Send aria-hidden="true" className="size-4" />
+              </span>
+              TG Offers Bot
+            </Dialog.Title>
+            <Dialog.Close
+              render={
+                <Button
+                  variant="ghost"
+                  className="size-11 motion-reduce:transition-none"
+                  aria-label="Fechar menu"
+                />
+              }
+            >
+              <X aria-hidden="true" className="size-5" />
+            </Dialog.Close>
+          </div>
+          <Dialog.Description className="sr-only">
+            Navegue entre o painel, destinos, afiliados e configurações.
+          </Dialog.Description>
+          <nav
+            aria-label="Seções do painel"
+            className="flex-1 space-y-1 overflow-y-auto p-3"
+          >
+            {dashboardNavigation.map(({ icon: Icon, ...item }) => (
+              <Link
+                key={item.href}
+                href={item.href}
                 onClick={() => setIsOpen(false)}
-                type="button"
-              />
-              <aside
-                aria-label="Menu de navegação"
-                aria-modal="true"
-                className="animate-in slide-in-from-left relative flex h-full w-[min(84vw,320px)] flex-col border-r border-sidebar-border bg-sidebar p-4 text-sidebar-foreground shadow-2xl duration-300 ease-out motion-reduce:animate-none"
-                role="dialog"
+                aria-current={item.active ? "page" : undefined}
+                className={cn(
+                  "flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm focus-visible:outline-2 focus-visible:outline-ring",
+                  item.active
+                    ? "bg-sidebar-accent font-semibold text-sidebar-accent-foreground"
+                    : "text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                )}
               >
-                <div className="flex h-10 items-center justify-between gap-3 px-1">
-                  <div className="flex items-center gap-2.5 text-sm font-bold tracking-tight">
-                    <Send className="size-5 fill-sidebar-primary text-sidebar-primary" />
-                    <span>TG OFFERS BOT</span>
-                  </div>
-                  <Button
-                    aria-label="Fechar menu"
-                    className="size-9 border-transparent bg-transparent p-0 shadow-none hover:bg-sidebar-accent"
-                    onClick={() => setIsOpen(false)}
-                    ref={closeButtonRef}
-                    type="button"
-                    variant="outline"
-                  >
-                    <X className="size-5" />
-                  </Button>
-                </div>
-
-                <nav aria-label="Seções do painel" className="mt-5 space-y-1">
-                  {mobileSidebarItems.map((item) => {
-                    const Icon = item.icon;
-
-                    if (item.href) {
-                      return <Link key={item.label} href={item.href} onClick={() => setIsOpen(false)} aria-current={item.active ? "page" : undefined} className={`flex h-11 w-full items-center gap-3 rounded-4xl border border-transparent px-3 text-sm ${item.active ? "bg-sidebar-primary/10 font-semibold text-sidebar-primary hover:bg-sidebar-primary/15" : "font-medium text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"}`}><Icon className="size-5" strokeWidth={1.9} /><span>{item.label}</span></Link>;
-                    }
-
-                    return (
-                      <Button
-                        className={
-                          item.active
-                            ? "h-11 w-full justify-start gap-3 bg-sidebar-primary/10 text-sm font-semibold text-sidebar-primary shadow-none hover:bg-sidebar-primary/15"
-                            : "h-11 w-full justify-start gap-3 border-transparent bg-transparent text-sm font-medium text-muted-foreground shadow-none hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                        }
-                        key={item.label}
-                        onClick={() => setIsOpen(false)}
-                        type="button"
-                        variant={item.active ? "default" : "outline"}
-                      >
-                        <Icon className="size-5" strokeWidth={1.9} />
-                        <span>{item.label}</span>
-                      </Button>
-                    );
-                  })}
-                </nav>
-
-                <div className="mt-auto">
-                  <Separator className="my-4" />
-                  <div className="flex items-center gap-3 px-1">
-                    <Avatar className="size-10 bg-sidebar-primary/15">
-                      <AvatarFallback className="bg-sidebar-primary/15 font-semibold text-sidebar-primary">
-                        {userInitial}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-semibold">{userName}</p>
-                      <p className="truncate text-xs text-muted-foreground">{userEmail}</p>
-                    </div>
-                  </div>
-                  <Separator className="my-4" />
-                  <LogoutButton />
-                </div>
-              </aside>
-            </div>,
-            document.body
-          )
-        : null}
-    </>
+                <Icon aria-hidden="true" className="size-4" />
+                {item.label}
+              </Link>
+            ))}
+            {isAdmin ? (
+              <Link
+                href="/admin/source-groups"
+                onClick={() => setIsOpen(false)}
+                className="flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:outline-2 focus-visible:outline-ring"
+              >
+                <ShieldCheck aria-hidden="true" className="size-4" />
+                Administração
+              </Link>
+            ) : null}
+          </nav>
+          <div className="border-t border-sidebar-border p-4">
+            <div className="mb-3 flex items-center gap-3">
+              <Avatar className="size-9">
+                <AvatarFallback className="bg-muted font-medium">
+                  {userInitial}
+                </AvatarFallback>
+              </Avatar>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium">{userName}</p>
+                <p className="truncate text-xs text-muted-foreground">
+                  {userEmail}
+                </p>
+              </div>
+            </div>
+            <LogoutButton />
+          </div>
+        </Dialog.Popup>
+      </Dialog.Portal>
+    </Dialog.Root>
   );
 }
