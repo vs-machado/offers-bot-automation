@@ -1,20 +1,25 @@
 import asyncio
 import logging
 import time
+from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.app.core.db.session import AsyncSessionLocal
 from backend.app.core.credentials import credential_cipher
 from backend.app.core.source_groups import enabled_source_groups
 from backend.app.models.user import UserConfig
+from backend.app.models.worker import PromotionDelivery
 from backend.worker.manager import UserBotInstance
 from backend.worker.telegram_reader import TelegramSourceReader
 from offers_bot.message_context import source_timestamp, promotion_context
 
 LOGGER = logging.getLogger(__name__)
 POLL_INTERVAL_SECONDS = 30
+DELIVERY_RETENTION_DAYS = 60
+DELIVERY_CLEANUP_INTERVAL_SECONDS = 24 * 60 * 60
+DELIVERY_CLEANUP_BATCH_SIZE = 1000
 
 
 class WorkerService:
@@ -33,11 +38,48 @@ class WorkerService:
         reader = TelegramSourceReader(self._source_catalog)
         self._reader = reader
         sync_task = asyncio.create_task(self._sync_loop())
+        cleanup_task = asyncio.create_task(self._retention_loop())
         try:
             await reader.listen(self._receive_message)
         finally:
             sync_task.cancel()
-            await asyncio.gather(sync_task, return_exceptions=True)
+            cleanup_task.cancel()
+            await asyncio.gather(sync_task, cleanup_task, return_exceptions=True)
+
+    async def _retention_loop(self) -> None:
+        """Clean history on startup and daily; retry failures without stopping ingestion."""
+        while True:
+            try:
+                deleted = await self._cleanup_delivery_history()
+                LOGGER.info("Delivery history cleanup removed %s records", deleted)
+            except Exception:
+                LOGGER.exception("Error during delivery history cleanup")
+                await asyncio.sleep(POLL_INTERVAL_SECONDS)
+                continue
+            await asyncio.sleep(DELIVERY_CLEANUP_INTERVAL_SECONDS)
+
+    async def _cleanup_delivery_history(self) -> int:
+        """Commit bounded deletions older than 60 days; preserve deduplication records."""
+        cutoff = datetime.now(timezone.utc) - timedelta(days=DELIVERY_RETENTION_DAYS)
+        expired_ids = (
+            select(PromotionDelivery.id)
+            .where(PromotionDelivery.created_at < cutoff)
+            .order_by(PromotionDelivery.created_at)
+            .limit(DELIVERY_CLEANUP_BATCH_SIZE)
+        )
+        statement = delete(PromotionDelivery).where(
+            PromotionDelivery.id.in_(expired_ids)
+        )
+        deleted = 0
+        while True:
+            async with AsyncSessionLocal() as db:
+                result = await db.execute(
+                    statement, execution_options={"synchronize_session": False}
+                )
+                await db.commit()
+                deleted += result.rowcount
+            if result.rowcount < DELIVERY_CLEANUP_BATCH_SIZE:
+                return deleted
 
     async def _sync_loop(self) -> None:
         while True:
