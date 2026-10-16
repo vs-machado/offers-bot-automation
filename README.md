@@ -366,6 +366,14 @@ is limited to the user's own records. It includes pagination, filtering by
 result, and refreshes every 30 seconds. Displayed totals come from the database,
 not sample data. History is also shown while setup is incomplete.
 
+The worker automatically deletes `promotion_deliveries` records older than
+60 days on startup and every 24 hours afterward. Cleanup commits batches of 1,000
+records and leaves `processed_offers` and deduplication rules unchanged. Failures
+are logged and retried after 30 seconds without interrupting offer ingestion.
+The `worker` service must be running; records can remain until the next daily
+cleanup. Migration `0012_delivery_retention` adds a creation-time index for this
+routine.
+
 Migration `0007_delivery_details` adds a title, store, and stage to new records.
 Reasons are classified and displayed in Portuguese: authentication, API key,
 bot permissions, sending limits, connectivity, API failure, unavailable queue,
