@@ -1,31 +1,20 @@
 "use client";
 
 import { ArrowLeft, ArrowRight, Check, Copy, KeyRound, Loader2, Send, X } from "lucide-react";
-import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { SelectField } from "@/components/ui/select";
 import { getRequestErrorMessage } from "@/lib/api-error-message";
 import { saveDestination, saveUserConfig } from "@/features/setup/api/setup-client";
-import { LinkedText } from "@/features/setup/components/LinkedText";
-import {
-  MessagePreviewSkeleton,
-  SourceGroupsSkeleton,
-} from "@/features/setup/components/SourcePreviewSkeletons";
-import { TelegramPostEmbed } from "@/features/setup/components/TelegramPostEmbed";
-import { useSourceGroupPreviews } from "@/features/setup/hooks/use-source-group-previews";
+import { SourceGroups } from "@/features/source-groups/SourceGroups";
 import {
   getExistingConfig,
   getProviderData,
   affiliateProviders as providers,
   type ProviderType,
 } from "@/lib/affiliate-providers";
-import {
-  getHiddenMessageLinks,
-  getSourceDisplayLabel,
-} from "@/features/setup/lib/source-messages";
-import { getTelegramPostId } from "@/features/setup/lib/telegram";
 import type { ConfigSummary, DestinationSummary, DestinationInput } from "@/shared/contracts/user-config";
 import { WhatsAppConnection } from "@/features/whatsapp/WhatsAppConnection";
 import { WhatsAppDeliveryControls } from "@/features/whatsapp/WhatsAppDeliveryControls";
@@ -81,23 +70,18 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
         providers.some((provider) => provider.type === configType)
       )
   );
-  const {
-    activeSourceGroup,
-    markTelegramPostReady,
-    mountedSourceGroupIds,
-    readyTelegramPostIds,
-    selectSourceGroup,
-    selectedSourceChats,
-    sourceGroups,
-    sourceGroupsLoading,
-    toggleSourceChat,
-  } = useSourceGroupPreviews({ configs, open, screen });
+  const [selectedSourceChats, setSelectedSourceChats] = useState<string[]>(() => {
+    const saved = configs.find((config) => config.config_type === "source_chats")?.config_data?.source_chats;
+    return Array.isArray(saved) ? saved.filter((chat): chat is string => typeof chat === "string") : [];
+  });
+  const [hasLoadedSourceGroups, setHasLoadedSourceGroups] = useState(false);
+  const [hasEnteredSourceGroups, setHasEnteredSourceGroups] = useState(false);
 
   const hasStartedSetup = hasEnabledDestination || connectedProviderTypes.length > 0;
   const provider = providers.find((item) => item.type === selectedProvider) ?? providers[0];
   const canFinish = connectedProviderTypes.length > 0;
   const canGoToProviders = Boolean(savedDestination?.enabled);
-  const canSaveSources = selectedSourceChats.length > 0;
+  const canSaveSources = hasLoadedSourceGroups && selectedSourceChats.length > 0;
   const headerLabel =
     screen === "destination"
       ? "Telegram e WhatsApp"
@@ -119,6 +103,8 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
 
   function openDialog() {
     setScreen(hasEnabledDestination ? "providers" : "destination");
+    setHasEnteredSourceGroups(false);
+    setHasLoadedSourceGroups(false);
     setStatus("idle");
     setMessage("");
     setOpen(true);
@@ -180,6 +166,7 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
       return;
     }
 
+    setHasEnteredSourceGroups(true);
     setScreen("sources");
     setStatus("idle");
     setMessage("");
@@ -415,7 +402,7 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
               </Button>
             </div>
 
-            <div className={screen === "sources" ? "flex-1 overflow-hidden p-5 pt-0" : "flex-1 overflow-y-auto p-5 pt-0"}>
+            <div className="min-h-0 flex-1 overflow-y-auto p-5 pt-0">
             {screen === "destination" ? (
               <>
                 <div className="mt-6 flex gap-3" role="group" aria-label="Plataforma de publicação">
@@ -465,7 +452,21 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
                 </div>
 
                 <form className="setup-screen-slide mt-5 rounded-3xl border border-primary/20 bg-primary/5 p-4" onSubmit={handleDestinationSubmit}>
-                  <label className="mb-4 block space-y-2 text-sm font-bold">Tipo de destino Telegram<select className="h-12 w-full rounded-2xl border border-border bg-background px-4" value={telegramChatType} onChange={(event) => setTelegramChatType(event.target.value)}><option value="group">Grupo</option><option value="channel">Canal</option></select></label>
+                  <div className="mb-4 space-y-2">
+                    <label className="block text-sm font-bold" htmlFor="setup-telegram-chat-type">
+                      Tipo de destino Telegram
+                    </label>
+                    <SelectField
+                      id="setup-telegram-chat-type"
+                      className="h-12 rounded-2xl px-4"
+                      value={telegramChatType}
+                      options={[
+                        { value: "group", label: "Grupo" },
+                        { value: "channel", label: "Canal" },
+                      ]}
+                      onValueChange={setTelegramChatType}
+                    />
+                  </div>
                   <label className="block space-y-2">
                     <span className="text-sm font-bold text-card-foreground">
                       ID do grupo ou canal de publicação
@@ -647,221 +648,23 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
                   </div>
                 </div>
               </div>
-            ) : (
-              <div className="setup-screen-slide mt-6 grid h-[calc(100%-1.5rem)] min-h-0 gap-4 lg:grid-cols-[300px_minmax(0,1fr)]" key="sources-screen">
-                <div className="flex min-h-0 flex-col overflow-hidden rounded-3xl border border-border bg-muted/25 dark:border-white/10 dark:bg-white/3">
-                  <div className="border-b border-border p-4 dark:border-white/10">
-                    <div className="flex items-center justify-between gap-3">
-                      <p className="text-sm font-bold">Grupos de origem</p>
-                      <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-bold text-primary">
-                        {selectedSourceChats.length} {selectedSourceChats.length === 1 ? "selecionado" : "selecionados"}
-                      </span>
-                    </div>
-                    <p className="mt-1 text-xs/5 text-muted-foreground">
-                      Confira as mensagens recentes de cada grupo e marque os que quer acompanhar.
-                    </p>
-                  </div>
-
-                  <div className="min-h-0 flex-1 overflow-y-auto p-2">
-                    {sourceGroupsLoading ? (
-                      <SourceGroupsSkeleton />
-                    ) : sourceGroups.length > 0 ? (
-                      <div className="space-y-1">
-                        {sourceGroups.map((group) => {
-                          const selected = selectedSourceChats.includes(group.id);
-                          const active = activeSourceGroup?.id === group.id;
-                          const displayLabel = getSourceDisplayLabel(group);
-
-                          return (
-                            <div
-                              className={
-                                active
-                                  ? "flex items-center gap-2 rounded-2xl border border-primary/30 bg-primary/10 p-2 transition"
-                                  : "flex items-center gap-2 rounded-2xl border border-transparent p-2 transition hover:border-border hover:bg-background/70 dark:hover:border-white/10 dark:hover:bg-white/4"
-                              }
-                              key={group.id}
-                            >
-                              <button
-                                aria-selected={active}
-                                className="flex min-w-0 flex-1 items-center gap-3 text-left text-sm"
-                                onClick={() => selectSourceGroup(group.id)}
-                                role="tab"
-                                type="button"
-                              >
-                                <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-sky-100 text-xs font-black text-sky-700 dark:bg-sky-400/10 dark:text-sky-200">
-                                  {group.label.match(/\d+$/)?.[0] ?? "C"}
-                                </span>
-                                <span className="min-w-0 flex-1">
-                                  <span className="block truncate font-bold text-card-foreground">
-                                    {displayLabel}
-                                  </span>
-                                </span>
-                              </button>
-                              <button
-                                aria-label={selected ? `Remover ${displayLabel}` : `Selecionar ${displayLabel}`}
-                                className={
-                                  selected
-                                    ? "flex size-8 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground"
-                                    : "flex size-8 shrink-0 items-center justify-center rounded-full border border-border bg-background text-muted-foreground transition hover:border-primary/40 hover:text-primary dark:border-white/10 dark:bg-white/4"
-                                }
-                                onClick={() => toggleSourceChat(group.id)}
-                                type="button"
-                              >
-                                {selected ? <Check className="size-4" /> : null}
-                              </button>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <p className="rounded-2xl border border-dashed border-border p-4 text-sm/6 text-muted-foreground">
-                        Não foi possível carregar os grupos de origem. Tente novamente mais tarde.
-                      </p>
-                    )}
-                  </div>
-
-
-                </div>
-
-                <div className="flex min-h-0 flex-col overflow-hidden rounded-3xl border border-border bg-muted/25 dark:border-white/10 dark:bg-white/3">
-                  <div className="relative min-h-0 flex-1 overflow-hidden">
-                    {sourceGroupsLoading ? (
-                      <div className="h-full overflow-y-auto p-5">
-                        <MessagePreviewSkeleton />
-                      </div>
-                    ) : null}
-                    {sourceGroupsLoading ? null : sourceGroups.length > 0 ? (
-                      sourceGroups
-                        .filter((group) => mountedSourceGroupIds.includes(group.id))
-                        .map((group) => {
-                        const groupMessages = group.messages ?? [];
-                        const groupTelegramPostIds = groupMessages
-                          .map((sourceMessage) => getTelegramPostId(sourceMessage.post_url))
-                          .filter((postId): postId is string => Boolean(postId));
-                        const groupWaitingForTelegramPosts =
-                          groupTelegramPostIds.length > 0 &&
-                          !groupTelegramPostIds.every((postId) =>
-                            readyTelegramPostIds.includes(postId)
-                          );
-                        const active = activeSourceGroup?.id === group.id;
-
-                        return (
-                          <div
-                            aria-hidden={!active}
-                            className={
-                              active
-                                ? "absolute inset-0 overflow-y-auto p-5 opacity-100 transition-opacity duration-200"
-                                : "pointer-events-none absolute inset-0 overflow-y-auto p-5 opacity-0"
-                            }
-                            key={`preview-${group.id}`}
-                          >
-                            {groupMessages.length > 0 ? (
-                              <div className="relative min-h-full">
-                                {active && groupWaitingForTelegramPosts ? (
-                                  <MessagePreviewSkeleton count={groupMessages.length} />
-                                ) : null}
-                                <div
-                                  aria-busy={active ? groupWaitingForTelegramPosts : undefined}
-                                  className={
-                                    active && groupWaitingForTelegramPosts
-                                      ? "pointer-events-none absolute inset-x-0 top-0 space-y-3 opacity-0"
-                                      : "space-y-3 opacity-100 transition-opacity duration-200"
-                                  }
-                                >
-                                  {groupMessages.map((previewMessage) => {
-                                    const telegramPostId = getTelegramPostId(previewMessage.post_url);
-
-                                    if (telegramPostId) {
-                                      return (
-                                        <div className="max-w-190" key={previewMessage.id}>
-                                          <TelegramPostEmbed
-                                            onReady={markTelegramPostReady}
-                                            postId={telegramPostId}
-                                          />
-                                        </div>
-                                      );
-                                    }
-
-                                    const hiddenMessageLinks = getHiddenMessageLinks(previewMessage);
-
-                                    return (
-                                      <div
-                                        className="relative max-w-190 overflow-hidden rounded-[1.25rem] rounded-tl-md bg-white text-sm/6 text-slate-800 shadow-sm ring-1 ring-sky-900/5 before:absolute before:-left-1.5 before:top-0 before:size-3 before:rounded-br-xl before:bg-white dark:bg-slate-900 dark:text-slate-100 dark:ring-white/10 dark:before:bg-slate-900"
-                                        key={previewMessage.id}
-                                      >
-                                        {previewMessage.image_url ? (
-                                          <a
-                                            href={previewMessage.post_url ?? previewMessage.image_url}
-                                            rel="noreferrer"
-                                            target="_blank"
-                                          >
-                                            <Image
-                                              alt=""
-                                              className="max-h-90 w-full object-cover"
-                                              height={520}
-                                              sizes="(min-width: 1024px) 760px, 100vw"
-                                              src={previewMessage.image_url}
-                                              unoptimized
-                                              width={760}
-                                            />
-                                          </a>
-                                        ) : null}
-                                        <div className="px-4 py-3">
-                                          {previewMessage.text ? (
-                                            <p className="whitespace-pre-wrap wrap-break-word">
-                                              <LinkedText text={previewMessage.text} />
-                                            </p>
-                                          ) : null}
-                                          {hiddenMessageLinks.length > 0 ? (
-                                            <div className="mt-3 flex flex-wrap gap-2">
-                                              {hiddenMessageLinks.map((link) => (
-                                                <a
-                                                  className="rounded-full bg-sky-50 px-3 py-1 text-xs font-semibold text-sky-700 ring-1 ring-sky-100 hover:bg-sky-100 dark:bg-sky-400/10 dark:text-sky-200 dark:ring-sky-400/20"
-                                                  href={link.url}
-                                                  key={link.url}
-                                                  rel="noreferrer"
-                                                  target="_blank"
-                                                >
-                                                  {link.text ?? link.url}
-                                                </a>
-                                              ))}
-                                            </div>
-                                          ) : null}
-                                          {previewMessage.post_url ? (
-                                            <a
-                                              className="mt-3 inline-flex text-xs font-semibold text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100"
-                                              href={previewMessage.post_url}
-                                              rel="noreferrer"
-                                              target="_blank"
-                                            >
-                                              Ver mensagem no Telegram
-                                            </a>
-                                          ) : null}
-                                        </div>
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                              </div>
-                            ) : (
-                              <div className="flex h-full items-center justify-center">
-                                <div className="max-w-sm rounded-[1.25rem] bg-white/90 p-4 text-center text-sm/6 text-slate-700 shadow-sm ring-1 ring-sky-900/5 dark:bg-slate-900 dark:text-slate-200 dark:ring-white/10">
-                                  As mensagens recentes não estão disponíveis, mas você ainda pode selecionar este grupo.
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })
-                    ) : (
-                      <div className="flex h-full items-center justify-center p-5">
-                        <div className="max-w-sm rounded-[1.25rem] bg-white/90 p-4 text-center text-sm/6 text-slate-700 shadow-sm ring-1 ring-sky-900/5 dark:bg-slate-900 dark:text-slate-200 dark:ring-white/10">
-                          As mensagens recentes não estão disponíveis, mas você ainda pode selecionar este grupo.
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
+            ) : null}
+            {hasEnteredSourceGroups ? (
+              <div
+                className="setup-screen-slide mt-6 space-y-4"
+                hidden={screen !== "sources"}
+                inert={screen !== "sources"}
+                key="sources-screen"
+              >
+                  <SourceGroups
+                    selectedSources={selectedSourceChats}
+                    onSelectionChange={setSelectedSourceChats}
+                    onCatalogLoad={(sourceIds) => {
+                      setSelectedSourceChats((current) => current.filter((id) => sourceIds.includes(id)));
+                      setHasLoadedSourceGroups(true);
+                    }}
+                    disabled={status === "saving" || isCompleting}
+                  />
                   <div className="flex flex-col gap-3 border-t border-border bg-transparent p-4 dark:border-white/10 sm:flex-row sm:items-center sm:justify-between">
                     {message ? (
                       <p
@@ -880,17 +683,16 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
                     )}
                     <Button
                       className="h-12 shrink-0 gap-2 bg-primary px-6 font-bold text-primary-foreground hover:bg-primary/90"
-                      disabled={status === "saving"}
+                      disabled={status === "saving" || !canSaveSources || isCompleting}
                       onClick={saveSourceGroups}
                       type="button"
                     >
                       {status === "saving" ? <Loader2 className="size-4 animate-spin" /> : null}
-                      Salvar grupos de origem
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            )}
+                       Salvar grupos de origem
+                     </Button>
+                   </div>
+               </div>
+            ) : null}
             </div>
             {isCompleting ? (
               <div className="absolute inset-0 z-10 flex items-center justify-center bg-card/95 p-6 text-center backdrop-blur-sm dark:bg-[#0c1414]/95">

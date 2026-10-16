@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useId, useState, type FormEvent } from "react";
 import { Popover } from "@base-ui/react/popover";
 import { CircleHelp } from "lucide-react";
 import Image from "next/image";
@@ -17,6 +17,7 @@ export function ProviderSettings({
   provider: Provider;
   settings: SettingsState;
 }) {
+  const formId = useId();
   const [fields, setFields] = useState(() =>
     getProviderData(provider, settings.configs),
   );
@@ -42,9 +43,9 @@ export function ProviderSettings({
     }
   }
   return (
-    <Card className="gap-0 overflow-hidden py-0">
+    <Card className="min-w-0 gap-0 overflow-hidden py-0">
       <CardHeader className="border-b p-5 sm:p-6">
-        <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex min-h-11 flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-1">
             <CardTitle>{provider.name}</CardTitle>
             {provider.type === "shopee" ? (
@@ -100,69 +101,67 @@ export function ProviderSettings({
             {isConfigured ? "Cadastrada" : "Não cadastrada"}
           </span>
         </div>
-        <p className="text-sm/6 text-muted-foreground">
+        <p className="max-w-2xl text-sm/6 text-muted-foreground">
           {provider.description}
         </p>
       </CardHeader>
       <CardContent className="p-5 sm:p-6">
-        <form onSubmit={submit} className="space-y-4">
-          {provider.fields.map((field) => (
-            <label
-              key={field.key}
-              className="block space-y-2 text-sm font-medium"
-            >
-              <span>
-                {field.label}
-                {field.required ? " *" : ""}
-              </span>
-              <input
-                className="h-11 w-full rounded-lg border border-input bg-background px-3 text-base text-foreground outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50"
-                type={
-                  /secret|cookie|token|app_key/.test(field.key)
-                    ? "password"
-                    : "text"
-                }
-                autoComplete="off"
-                required={field.required}
-                disabled={Boolean(settings.busy)}
-                placeholder={field.placeholder}
-                value={fields[field.key] ?? ""}
-                onChange={(event) =>
-                  setFields((current) => ({
-                    ...current,
-                    [field.key]: event.target.value,
-                  }))
-                }
-              />
-            </label>
-          ))}
-          <div className="flex flex-wrap gap-2">
-            <Button type="submit" disabled={Boolean(settings.busy)}>
-              {settings.busy === provider.type
-                ? "Salvando…"
-                : provider.type === "amazon"
-                  ? "Salvar tag"
-                  : "Salvar credenciais"}
-            </Button>
-            {isConfigured ? (
-              <Button
-                type="button"
-                variant="outline"
-                disabled={Boolean(settings.busy)}
-                onClick={() => setConfirmRemoval(true)}
+        <form id={formId} onSubmit={submit}>
+          <div className="w-full max-w-2xl space-y-4">
+            {provider.fields.map((field) => (
+              <label
+                key={field.key}
+                className="block space-y-2 text-sm font-medium"
               >
-                Remover integração
-              </Button>
-            ) : null}
+                <span>
+                  {field.label}
+                  {field.required ? " *" : ""}
+                </span>
+                <input
+                  className="h-11 w-full rounded-lg border border-input bg-background px-3 text-base text-foreground outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50"
+                  type={
+                    /secret|cookie|token|app_key/.test(field.key)
+                      ? "password"
+                      : "text"
+                  }
+                  autoComplete="off"
+                  required={field.required}
+                  disabled={Boolean(settings.busy)}
+                  placeholder={field.placeholder}
+                  value={fields[field.key] ?? ""}
+                  onChange={(event) =>
+                    setFields((current) => ({
+                      ...current,
+                      [field.key]: event.target.value,
+                    }))
+                  }
+                />
+              </label>
+            ))}
           </div>
         </form>
-        <div className="mt-4">
+        <div className="mt-5">
           <CredentialValidation
             provider={provider.type}
             credentials={fields}
             disabled={Boolean(settings.busy)}
-          />
+          >
+            <Button type="submit" form={formId} disabled={Boolean(settings.busy)}>
+              {settings.busy === provider.type ? "Salvando…" : "Salvar"}
+            </Button>
+          </CredentialValidation>
         </div>
+        {isConfigured ? (
+          <Button
+            className="mt-4 text-muted-foreground hover:text-destructive"
+            type="button"
+            variant="ghost"
+            disabled={Boolean(settings.busy)}
+            onClick={() => setConfirmRemoval(true)}
+          >
+            Remover integração
+          </Button>
+        ) : null}
         {confirmRemoval ? (
           <div className="mt-4 rounded-lg border border-border bg-muted p-3 text-sm">
             <p>

@@ -2,15 +2,15 @@
 
 import type { ReactNode } from "react";
 import { usePathname } from "next/navigation";
-import { ArrowUpRight, Send, ShieldCheck } from "lucide-react";
+import { Send, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { buttonVariants } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { LogoutButton } from "@/components/workspace/LogoutButton";
 import { MobileSidebar } from "@/components/workspace/MobileSidebar";
 import { WorkspaceNavigation } from "@/components/workspace/WorkspaceNavigation";
 import { cn } from "@/lib/utils";
+import { workspaceNavigation } from "@/lib/workspace-navigation";
 
 type WorkspaceShellProps = {
   userName: string;
@@ -33,7 +33,8 @@ export function WorkspaceShell({
     ? "Visão geral"
     : isAdminPage
       ? "Administração"
-      : "Configurações";
+      : workspaceNavigation.find((item) => item.href === pathname)?.label ??
+        "Configurações";
 
   return (
     <div className="relative h-dvh overflow-hidden bg-background text-foreground">
@@ -111,18 +112,6 @@ export function WorkspaceShell({
             </span>
           </div>
           <div className="flex shrink-0 items-center gap-2 [&_button]:min-h-11 [&_button]:min-w-11">
-            {isDashboard ? (
-              <Link
-                href="/settings"
-                className={cn(
-                  buttonVariants({ variant: "ghost" }),
-                  "hidden min-h-11 gap-2 motion-reduce:transition-none sm:inline-flex",
-                )}
-              >
-                Gerenciar automação{" "}
-                <ArrowUpRight aria-hidden="true" className="size-4" />
-              </Link>
-            ) : null}
             <ThemeToggle />
           </div>
         </header>

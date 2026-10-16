@@ -1,4 +1,3 @@
-import type { SourceGroup } from "@/features/setup/types";
 import { getApiErrorMessage } from "@/lib/api-error-message";
 import type { ConfigSummary, DestinationSummary } from "@/shared/contracts/user-config";
 
@@ -26,30 +25,6 @@ async function requestJson<T>(url: string, init: RequestInit, errorMessage: stri
   }
 
   return data as T;
-}
-
-export async function getSourceGroups() {
-  const data = await requestJson<{ groups?: SourceGroup[] }>(
-    "/api/backend/users/me/source-groups/messages",
-    {},
-    "Não foi possível carregar os grupos de origem."
-  );
-  return data.groups ?? [];
-}
-
-export async function previewSourceGroup(chat: string) {
-  const data = await requestJson<{ groups?: SourceGroup[] }>(
-    "/api/backend/users/me/source-groups/preview",
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ chat }),
-    },
-    "Não foi possível carregar as mensagens deste grupo."
-  );
-  return data.groups?.[0] ?? null;
 }
 
 export function saveUserConfig({

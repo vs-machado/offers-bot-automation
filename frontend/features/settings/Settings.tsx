@@ -1,20 +1,38 @@
 import { getSettingsData } from "@/features/settings/api/settings-server";
 import { SettingsEditor } from "@/features/settings/components/SettingsEditor";
+import type { SettingsSection } from "@/features/settings/types";
 
-export async function Settings() {
-  const data = await getSettingsData();
+const sections = {
+  destinations: {
+    title: "Destinos",
+    description:
+      "Configure Telegram e WhatsApp e escolha onde publicar suas ofertas.",
+  },
+  sources: {
+    title: "Origens de ofertas",
+    description: "Escolha os grupos do Telegram de onde o bot vai copiar ofertas.",
+  },
+  affiliates: {
+    title: "Afiliados",
+    description:
+      "Cadastre suas lojas e valide as credenciais usadas para gerar seus links de afiliado.",
+  },
+};
+
+export async function Settings({ section }: { section: SettingsSection }) {
+  const data = await getSettingsData(section);
+  const { title, description } = sections[section];
   return (
     <>
       <header>
         <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-          Configurações
+          {title}
         </h1>
         <p className="mt-2 max-w-prose text-sm/relaxed text-muted-foreground sm:text-base">
-          Gerencie seus destinos, grupos de origem e programas de afiliados.
-          Alterações entram em vigor em até 30 segundos.
+          {description} Alterações entram em vigor em até 30 segundos.
         </p>
       </header>
-      <SettingsEditor initialData={data} />
+      <SettingsEditor key={section} initialData={data} section={section} />
     </>
   );
 }

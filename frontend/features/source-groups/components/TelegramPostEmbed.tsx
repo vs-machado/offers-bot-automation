@@ -1,6 +1,6 @@
 "use client";
 
-import { useTelegramPostEmbed } from "@/features/setup/hooks/use-telegram-post-embed";
+import { useTelegramPostEmbed } from "@/features/source-groups/hooks/use-telegram-post-embed";
 
 const telegramEmbedScale = 0.86;
 
