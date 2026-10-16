@@ -1,6 +1,7 @@
 "use client";
 
 import { Select } from "@base-ui/react/select";
+import { useRef, useState } from "react";
 import { Check, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -24,6 +25,9 @@ export function SelectField({
   className,
   "aria-label": ariaLabel,
 }: SelectFieldProps) {
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const [portalContainer, setPortalContainer] = useState<HTMLElement>();
+
   return (
     <Select.Root
       items={options}
@@ -32,8 +36,17 @@ export function SelectField({
         if (next !== null) onValueChange(next);
       }}
       disabled={disabled}
+      onOpenChange={(open) => {
+        // Keep options inside the accessibility boundary of custom dialogs.
+        if (open) {
+          setPortalContainer(
+            triggerRef.current?.closest<HTMLElement>('[role="dialog"]') ?? undefined,
+          );
+        }
+      }}
     >
       <Select.Trigger
+        ref={triggerRef}
         id={id}
         aria-label={ariaLabel}
         data-slot="select-trigger"
@@ -50,7 +63,7 @@ export function SelectField({
           />
         </Select.Icon>
       </Select.Trigger>
-      <Select.Portal>
+      <Select.Portal container={portalContainer}>
         <Select.Positioner
           sideOffset={8}
           align="start"

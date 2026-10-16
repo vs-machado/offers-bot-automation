@@ -78,7 +78,7 @@ export async function Dashboard() {
         {isConfigured ? (
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted-foreground">
             <Link
-              href="/settings#destinations"
+              href="/settings/destinations"
               className="inline-flex min-h-11 items-center gap-2 underline-offset-4 hover:text-foreground hover:underline focus-visible:outline-2 focus-visible:outline-ring"
             >
               <UsersRound aria-hidden="true" className="size-4" />

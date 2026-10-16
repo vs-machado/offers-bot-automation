@@ -1,5 +1,5 @@
-import { Settings } from "@/features/settings/Settings";
+import { SettingsRedirect } from "@/features/settings/SettingsRedirect";
 
 export default function Page() {
-  return <Settings />;
+  return <SettingsRedirect />;
 }

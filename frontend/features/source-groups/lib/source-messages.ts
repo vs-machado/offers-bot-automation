@@ -1,4 +1,4 @@
-import type { SourceGroup, SourceMessage } from "@/features/setup/types";
+import type { SourceGroup, SourceMessage } from "@/features/source-groups/types";
 
 export function getSourceDisplayLabel(group: SourceGroup) {
   const sourceOption = group.label.match(/^Source option (\d+)$/);

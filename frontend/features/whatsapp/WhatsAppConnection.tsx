@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
+import { SelectField } from "@/components/ui/select";
 import { useWhatsApp } from "@/features/whatsapp/hooks/use-whatsapp";
 import type { DestinationInput, DestinationSummary } from "@/shared/contracts/user-config";
 
@@ -53,9 +54,40 @@ export function WhatsAppConnection({ destinations, saveDestination, busy = false
     {whatsapp.qr ? <div className="space-y-3"><p className="text-sm">No celular: WhatsApp → Aparelhos conectados → Conectar aparelho. QR atualizado automaticamente.</p><Image src={whatsapp.qr} unoptimized width={256} height={256} alt="QR para conectar sua conta WhatsApp" className="rounded-lg bg-white p-2" /></div> : null}
     {connected ? <div className="space-y-3">
       <div className="flex flex-wrap gap-2"><Button variant="outline" disabled={disabled} onClick={() => void whatsapp.loadGroups()}>Atualizar destinos</Button><Button variant="outline" disabled={disabled} onClick={() => setConfirmDisconnect(true)}>Desconectar conta</Button></div>
-      <label className="block space-y-2 text-sm font-medium">Tipo de destino<select className="h-11 w-full rounded-lg border border-border bg-background px-3" value={chatType} disabled={disabled} onChange={(event) => { setChatType(event.target.value as "group" | "channel"); setChatId(""); }}><option value="group">Grupo</option><option value="channel">Canal</option></select></label>
+      <div className="space-y-2">
+        <label className="block text-sm font-medium" htmlFor="whatsapp-chat-type">
+          Tipo de destino
+        </label>
+        <SelectField
+          id="whatsapp-chat-type"
+          value={chatType}
+          disabled={disabled}
+          options={[
+            { value: "group", label: "Grupo" },
+            { value: "channel", label: "Canal" },
+          ]}
+          onValueChange={(value) => {
+            setChatType(value as "group" | "channel");
+            setChatId("");
+          }}
+        />
+      </div>
       {chatsError ? <p role="alert" className="text-sm text-destructive">{chatsError}</p> : null}
-      <label className="block space-y-2 text-sm font-medium">{chatType === "group" ? "Grupo de destino" : "Canal de destino"}<select className="h-11 w-full rounded-lg border border-border bg-background px-3" value={chatId} disabled={disabled} onChange={(event) => setChatId(event.target.value)}><option value="">Selecione {chatType === "group" ? "um grupo" : "um canal"}</option>{availableChats.map((chat) => <option key={chat.id} value={chat.id}>{chat.name}</option>)}</select></label>
+      <div className="space-y-2">
+        <label className="block text-sm font-medium" htmlFor="whatsapp-chat-id">
+          {chatType === "group" ? "Grupo de destino" : "Canal de destino"}
+        </label>
+        <SelectField
+          id="whatsapp-chat-id"
+          value={chatId}
+          disabled={disabled}
+          options={[
+            { value: "", label: `Selecione ${chatType === "group" ? "um grupo" : "um canal"}` },
+            ...availableChats.map((chat) => ({ value: chat.id, label: chat.name })),
+          ]}
+          onValueChange={setChatId}
+        />
+      </div>
       {!chatsError && !availableChats.length ? <p className="text-sm text-muted-foreground">Nenhum {chatType === "group" ? "grupo" : "canal administrado"} disponível para adicionar. Confira sua conta e atualize os destinos; destinos já cadastrados não aparecem novamente.</p> : null}
       <Button disabled={disabled || !availableChats.some((chat) => chat.id === chatId)} onClick={() => void addDestination()}>Adicionar {chatType === "group" ? "grupo" : "canal"} WhatsApp</Button>
       <p className="text-sm text-muted-foreground">Grupos: sua conta precisa participar e ter permissão para enviar. Canais: só aparecem aqueles que você administra. Publicações serão feitas em nome da conta conectada.</p>
