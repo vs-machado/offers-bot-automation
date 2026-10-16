@@ -1,648 +1,173 @@
-import {
-  Activity,
-  CalendarClock,
-  Check,
-  Clock,
-  FileText,
-  Home,
-  Link2,
-  MessageSquareText,
-  Rocket,
-  Send,
-  Settings,
-  Sparkles,
-  TrendingUp,
-  UserCircle2,
-  UsersRound,
-} from "lucide-react";
-import type { LucideIcon } from "lucide-react";
-import { getSession } from "@/lib/auth-session";
-import Image from "next/image";
+import { Check, Link2, Radio, Settings2, UsersRound } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
-import { ThemeToggle } from "@/components/theme-toggle";
+import { Card, CardContent } from "@/components/ui/card";
+import { getSession } from "@/lib/auth-session";
 import {
   getDashboardUser,
   getDeliveryHistory,
   getDestinations,
   getUserConfigs,
 } from "@/features/dashboard/api/dashboard-server";
+import { DashboardShell } from "@/features/dashboard/components/DashboardShell";
 import { PublicationHistory } from "@/features/dashboard/components/PublicationHistory";
-import { LogoutButton } from "@/features/dashboard/components/LogoutButton";
-import { MobileSidebar } from "@/features/dashboard/components/MobileSidebar";
 import { SetupDialog } from "@/features/setup/SetupDialog";
-
-type OnboardingStepId =
-  | "connectedTelegram"
-  | "addedFirstGroup"
-  | "configuredAffiliates"
-  | "selectedMessageTemplate"
-  | "addedBotToGroup";
-
-type OnboardingState = Record<OnboardingStepId, boolean>;
-
-type OnboardingStep = {
-  id: OnboardingStepId;
-  title: string;
-  shortTitle: string;
-  description: string;
-  icon: LucideIcon;
-  color: string;
-};
-
-const defaultOnboardingState: OnboardingState = {
-  connectedTelegram: false,
-  addedFirstGroup: false,
-  configuredAffiliates: false,
-  selectedMessageTemplate: false,
-  addedBotToGroup: false,
-};
-
-const onboardingSteps: OnboardingStep[] = [
-  {
-    id: "connectedTelegram",
-    title: "Conecte Telegram ou WhatsApp",
-    shortTitle: "Conectar conta",
-    description: "No Telegram, adicione @tgtestoffersbot. No WhatsApp, conecte sua conta pelo QR no tutorial ou nas configurações.",
-    icon: Send,
-    color: "bg-sky-100 text-sky-600 dark:bg-sky-400/15 dark:text-sky-300",
-  },
-  {
-    id: "addedFirstGroup",
-    title: "Escolha onde publicar",
-    shortTitle: "Escolher destino",
-    description: "Escolha os grupos ou canais do Telegram e do WhatsApp que vão receber as ofertas.",
-    icon: UsersRound,
-    color: "bg-emerald-100 text-emerald-600 dark:bg-emerald-400/15 dark:text-emerald-300",
-  },
-  {
-    id: "selectedMessageTemplate",
-    title: "Confirme o destino de publicação",
-    shortTitle: "Salvar destino",
-    description: "No Telegram, salve o ID com permissão de administrador. No WhatsApp, selecione um grupo ou canal da conta conectada.",
-    icon: MessageSquareText,
-    color: "bg-orange-100 text-orange-600 dark:bg-orange-400/15 dark:text-orange-300",
-  },
-  {
-    id: "configuredAffiliates",
-    title: "Configure seus programas de afiliados",
-    shortTitle: "Configurar afiliados",
-    description: "Cadastre suas credenciais de afiliado para usar seus próprios links.",
-    icon: Link2,
-    color: "bg-violet-100 text-violet-600 dark:bg-violet-400/15 dark:text-violet-300",
-  },
-  {
-    id: "addedBotToGroup",
-    title: "Escolha de quais grupos copiar ofertas",
-    shortTitle: "Escolher grupos",
-    description: "Escolha os grupos de origem das ofertas que o bot vai copiar.",
-    icon: CalendarClock,
-    color: "bg-blue-100 text-blue-600 dark:bg-blue-400/15 dark:text-blue-300",
-  },
-];
-
-const setupBenefits: Array<{
-  icon: LucideIcon;
-  title: string;
-  description: string;
-  color: string;
-}> = [
-  {
-    icon: Clock,
-    title: "Economize tempo",
-    description: "Deixe as tarefas repetitivas com o bot",
-    color: "bg-sky-100 text-sky-600 dark:bg-sky-400/15 dark:text-sky-300",
-  },
-  {
-    icon: TrendingUp,
-    title: "Ganhe com seus links",
-    description: "Compartilhe mais ofertas com seus links de afiliado",
-    color: "bg-emerald-100 text-emerald-600 dark:bg-emerald-400/15 dark:text-emerald-300",
-  },
-  {
-    icon: UsersRound,
-    title: "Amplie seu público",
-    description: "Alcance mais pessoas todos os dias",
-    color: "bg-violet-100 text-violet-600 dark:bg-violet-400/15 dark:text-violet-300",
-  },
-];
-
-const sidebarItems: Array<{
-  icon: LucideIcon;
-  label: string;
-  active?: boolean;
-  href?: string;
-}> = [
-  { icon: Home, label: "Início", active: true, href: "/dashboard" },
-  { icon: MessageSquareText, label: "Mensagens" },
-  { icon: CalendarClock, label: "Agendamentos" },
-  { icon: UsersRound, label: "Grupos", href: "/settings#destinations" },
-  { icon: Link2, label: "Afiliados", href: "/settings#affiliates" },
-  { icon: FileText, label: "Modelos de mensagem" },
-  { icon: Settings, label: "Configurações", href: "/settings" },
-];
-
-const workflowSteps = [
-  {
-    title: "Escolha Telegram ou WhatsApp",
-    description: "Use @tgtestoffersbot no Telegram ou conecte sua conta WhatsApp pelo QR.",
-    icon: UsersRound,
-  },
-  {
-    title: "Selecione seus grupos e canais",
-    description: "No Telegram, dê permissão ao bot. No WhatsApp, escolha grupos onde pode enviar ou canais que administra.",
-    icon: MessageSquareText,
-  },
-  {
-    title: "Configure seus programas de afiliados",
-    description: "Cadastre suas credenciais para converter os links antes de publicar as ofertas.",
-    icon: Sparkles,
-  },
-  {
-    title: "Ative o roteamento das ofertas",
-    description: "Escolha os grupos de origem do Telegram. Cada oferta será enviada a todos os destinos habilitados nas duas plataformas.",
-    icon: Link2,
-  },
-];
-
-/**
- * Small, self-contained styles for motion that doesn't depend on the
- * consumer's Tailwind config (keyframes + reduced-motion guard).
- */
-function DashboardMotionStyles() {
-  return (
-    <style>{`
-      @keyframes dash-float {
-        0%, 100% { transform: translateY(0); }
-        50% { transform: translateY(-8px); }
-      }
-      @keyframes dash-flow {
-        to { background-position: 0 28px; }
-      }
-      @keyframes dash-step-in {
-        from { opacity: 0; transform: translateY(8px) scale(.96); }
-        to { opacity: 1; transform: translateY(0) scale(1); }
-      }
-      @keyframes dash-check-in {
-        0% { opacity: 0; transform: scale(.55) rotate(-8deg); }
-        70% { transform: scale(1.08) rotate(0); }
-        100% { opacity: 1; transform: scale(1) rotate(0); }
-      }
-      @keyframes dash-pulse {
-        0%, 100% { opacity: .45; transform: scale(1); }
-        50% { opacity: 1; transform: scale(1.08); }
-      }
-      .dash-mascot-float { animation: dash-float 6s ease-in-out infinite; }
-      .dash-flow-line {
-        background-image: repeating-linear-gradient(
-          to bottom,
-          currentColor 0,
-          currentColor 6px,
-          transparent 6px,
-          transparent 14px
-        );
-        background-size: 100% 28px;
-        animation: dash-flow 1s linear infinite;
-      }
-      .dash-step-in { animation: dash-step-in .42s ease-out both; }
-      .dash-check-in { animation: dash-check-in .28s ease-out both; }
-      .dash-status-dot { animation: dash-pulse 2.2s ease-in-out infinite; }
-      @media (prefers-reduced-motion: reduce) {
-        .dash-mascot-float, .dash-flow-line, .dash-step-in, .dash-check-in, .dash-status-dot { animation: none; }
-      }
-    `}</style>
-  );
-}
-
-function RobotMascot() {
-  return (
-    <div className="pointer-events-none relative h-36 w-75 md:h-44 md:w-110 xl:w-130">
-      <div className="dash-mascot-float absolute inset-0">
-        <Image
-          alt=""
-          aria-hidden="true"
-          className="relative size-full object-contain object-right dark:opacity-90"
-          height={864}
-          priority
-          src="/bot_image.png"
-          width={1536}
-        />
-      </div>
-    </div>
-  );
-}
 
 export async function Dashboard() {
   const session = await getSession();
+  if (!session) redirect("/");
 
-  if (!session) {
-    redirect("/");
-  }
-
-  const dbUser = await getDashboardUser(session.sessionToken);
-  const destinations = await getDestinations(session.sessionToken);
-  const configs = await getUserConfigs(session.sessionToken);
-  const hasEnabledDestination = destinations.some((destination) => destination.enabled);
-  const hasAffiliateConfig = configs.some((config) =>
-    ["amazon", "shopee", "mercado_livre", "aliexpress"].includes(config.config_type)
+  const [dbUser, destinations, configs] = await Promise.all([
+    getDashboardUser(session.sessionToken),
+    getDestinations(session.sessionToken),
+    getUserConfigs(session.sessionToken),
+  ]);
+  const enabledDestinations = destinations.filter(
+    (destination) => destination.enabled,
   );
-  const hasSourceChatsConfig = configs.some((config) => {
-    const sourceChats = config.config_data?.source_chats;
-    return config.config_type === "source_chats" && Array.isArray(sourceChats) && sourceChats.length > 0;
-  });
-  const onboardingState: OnboardingState = {
-    ...defaultOnboardingState,
-    connectedTelegram: hasEnabledDestination,
-    addedFirstGroup: hasEnabledDestination,
-    selectedMessageTemplate: hasEnabledDestination,
-    configuredAffiliates: hasAffiliateConfig,
-    addedBotToGroup: hasSourceChatsConfig,
-  };
-  const dbFullName = dbUser?.full_name?.trim();
-  const userEmail = dbUser?.email || session.user?.email || "Conta conectada";
-  const userName = dbFullName || session.user?.name || userEmail || "Usuário";
-  const userInitial = (userName || userEmail || "U")
-    .trim()
-    .charAt(0)
-    .toUpperCase();
-  const completedCount = onboardingSteps.filter(
-    (step) => onboardingState[step.id]
-  ).length;
-  const totalSteps = onboardingSteps.length;
-  const allStepsCompleted = completedCount === totalSteps;
-  const progressPercent = Math.round((completedCount / totalSteps) * 100);
-  const deliveryHistory = allStepsCompleted
+  const hasEnabledDestination = enabledDestinations.length > 0;
+  const hasAffiliateConfig = configs.some((config) =>
+    ["amazon", "shopee", "mercado_livre", "aliexpress"].includes(
+      config.config_type,
+    ),
+  );
+  const sourceConfig = configs.find(
+    (config) => config.config_type === "source_chats",
+  );
+  const sourceChats = sourceConfig?.config_data?.source_chats;
+  const sourceCount = Array.isArray(sourceChats) ? sourceChats.length : 0;
+  const setupSteps = [
+    {
+      title: "Escolha onde publicar",
+      description:
+        "Conecte Telegram ou WhatsApp e habilite um grupo ou canal de destino.",
+      complete: hasEnabledDestination,
+      icon: UsersRound,
+    },
+    {
+      title: "Configure seus afiliados",
+      description:
+        "Cadastre suas credenciais para publicar com seus próprios links.",
+      complete: hasAffiliateConfig,
+      icon: Link2,
+    },
+    {
+      title: "Selecione as origens",
+      description:
+        "Escolha os grupos do catálogo de onde as ofertas serão copiadas.",
+      complete: sourceCount > 0,
+      icon: Radio,
+    },
+  ];
+  const completedCount = setupSteps.filter((step) => step.complete).length;
+  const isConfigured = completedCount === setupSteps.length;
+  const deliveryHistory = isConfigured
     ? await getDeliveryHistory(session.sessionToken)
     : null;
+  const userEmail = dbUser?.email || session.user?.email || "Conta conectada";
+  const userName = dbUser?.full_name?.trim() || session.user?.name || userEmail;
 
   return (
-    <main className="relative isolate min-h-dvh overflow-x-clip bg-background text-foreground lg:h-dvh">
-      <DashboardMotionStyles />
-
-      <aside className="hidden border-sidebar-border bg-sidebar p-4 text-sidebar-foreground lg:fixed lg:inset-y-0 lg:left-0 lg:z-20 lg:block lg:w-64 lg:border-r">
-        <div className="flex h-full min-h-[calc(100dvh-2rem)] flex-col lg:min-h-0">
-          <div className="flex items-center justify-between gap-3 p-2 text-sm font-bold tracking-tight">
-            <div className="flex items-center gap-3">
-              <Send className="size-6 fill-sidebar-primary text-sidebar-primary" />
-              <span>TG OFFERS BOT</span>
-            </div>
-            <ThemeToggle />
-          </div>
-
-          <nav aria-label="Seções do painel" className="mt-5 space-y-1.5">
-            {sidebarItems.map((item) => {
-              const Icon = item.icon;
-
-              if (item.href) {
-                return <Link key={item.label} href={item.href} aria-current={item.active ? "page" : undefined} className={`group flex h-12 w-full items-center gap-4 rounded-4xl border border-transparent px-3 text-sm ${item.active ? "bg-sidebar-primary/10 font-semibold text-sidebar-primary hover:bg-sidebar-primary/15" : "font-medium text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"}`}><Icon className="size-5 transition-transform group-hover:scale-110" strokeWidth={1.9} /><span>{item.label}</span></Link>;
-              }
-
-              return (
-                <Button
-                  className={
-                    item.active
-                      ? "group h-12 w-full justify-start gap-4 bg-sidebar-primary/10 text-sm font-semibold text-sidebar-primary shadow-none hover:bg-sidebar-primary/15 dark:bg-sidebar-primary/18 dark:hover:bg-sidebar-primary/24"
-                      : "group h-12 w-full justify-start gap-4 border-transparent bg-transparent text-sm font-medium text-muted-foreground shadow-none hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                  }
-                  key={item.label}
-                  type="button"
-                  variant={item.active ? "default" : "outline"}
-                >
-                  <Icon className="size-5 transition-transform group-hover:scale-110" strokeWidth={1.9} />
-                  <span>{item.label}</span>
-                </Button>
-              );
-            })}
-          </nav>
-
-          {dbUser?.role === "admin" ? (
-            <Link href="/admin/source-groups" className="mt-3 flex h-12 items-center gap-4 rounded-xl px-4 text-sm font-medium text-sidebar-primary hover:bg-sidebar-accent">
-              <Settings className="size-5" />Administrar grupos de origem
+    <DashboardShell
+      userName={userName}
+      userEmail={userEmail}
+      isAdmin={dbUser?.role === "admin"}
+    >
+      <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+            {isConfigured ? "Visão geral" : "Configure sua automação"}
+          </h1>
+          <p className="mt-2 max-w-prose text-sm/relaxed text-muted-foreground sm:text-base">
+            {isConfigured
+              ? "Suas ofertas, destinos e publicações em um só lugar."
+              : "Três passos para começar a publicar ofertas com seus links de afiliado."}
+          </p>
+        </div>
+        {isConfigured ? (
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted-foreground">
+            <Link
+              href="/settings#destinations"
+              className="inline-flex min-h-11 items-center gap-2 underline-offset-4 hover:text-foreground hover:underline focus-visible:outline-2 focus-visible:outline-ring"
+            >
+              <UsersRound aria-hidden="true" className="size-4" />
+              {enabledDestinations.length}{" "}
+              {enabledDestinations.length === 1
+                ? "destino ativo"
+                : "destinos ativos"}
             </Link>
-          ) : null}
-
-          <div className="mt-auto">
-            <Separator className="my-4" />
-
-            <div className="flex items-center gap-3 px-1">
-              <div className="relative">
-                <Avatar className="size-11 bg-sidebar-primary/15">
-                  <AvatarFallback className="bg-sidebar-primary/15 font-semibold text-sidebar-primary">
-                    {userInitial}
-                  </AvatarFallback>
-                </Avatar>
-                <span className="absolute -bottom-0.5 -right-0.5 block size-3 rounded-full border-2 border-sidebar bg-emerald-500" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-semibold text-sidebar-foreground">{userName}</p>
-                <p className="truncate text-xs text-muted-foreground">{userEmail}</p>
-              </div>
-              <UserCircle2 className="size-5 text-muted-foreground" />
-            </div>
-
-            <Separator className="my-4" />
-            <div className="[&_button]:text-muted-foreground">
-              <LogoutButton />
-            </div>
+            <span className="inline-flex items-center gap-2">
+              <Radio aria-hidden="true" className="size-4" />
+              {sourceCount} {sourceCount === 1 ? "origem" : "origens"}
+            </span>
           </div>
-        </div>
-      </aside>
-
-      <section className="relative pb-8 lg:ml-64 lg:h-dvh lg:overflow-y-auto lg:px-7 lg:py-4">
-        <div className="sticky top-0 z-20 flex h-14 items-center justify-between border-b border-border bg-background/95 px-4 backdrop-blur lg:hidden">
-          <div className="flex min-w-0 items-center gap-2">
-            <MobileSidebar
-              userEmail={userEmail}
-              userInitial={userInitial}
-              userName={userName}
-            />
-            <div className="flex min-w-0 items-center gap-2 text-sm font-bold tracking-tight">
-              <Send className="size-5 shrink-0 fill-primary text-primary" />
-              <span className="truncate">TG OFFERS BOT</span>
-            </div>
-          </div>
-          <ThemeToggle />
-        </div>
-
-        {dbUser?.role === "admin" ? (
-          <Link href="/admin/source-groups" className="mx-4 mt-4 flex items-center gap-2 text-sm font-medium text-primary lg:hidden"><Settings className="size-4" />Administrar grupos de origem</Link>
         ) : null}
-
-        <div className="px-4 pt-5 lg:px-0 lg:pt-0">
-        <header className="relative pb-6 pr-0 md:min-h-36 md:pr-75 lg:min-h-40 lg:pr-90 xl:pr-117.5">
-          <div className="relative z-10 pt-1">
-            <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl md:text-[2.1rem]">
-              Olá, {userName}! <span aria-hidden="true">👋</span>
-            </h1>
-            <p className="mt-2 max-w-md text-base text-muted-foreground">
-              {allStepsCompleted
-                ? "Seu bot está configurado para publicar ofertas automaticamente nos seus grupos."
-                : "Conclua a configuração para começar a publicar ofertas automaticamente."}
-            </p>
-            <div className="mt-4 inline-flex items-center gap-2 rounded-full border border-border bg-muted/50 px-3 py-1.5 text-xs font-semibold text-muted-foreground">
-              {allStepsCompleted ? (
-                <>
-                  <Activity className="dash-status-dot size-3.5 text-emerald-600 dark:text-emerald-300" />
-                  <span className="text-card-foreground">Bot configurado</span>
-                </>
-              ) : (
-                <>
-                  {completedCount} de {totalSteps} etapas concluídas
-                </>
-              )}
+      </div>
+      {isConfigured ? (
+        <PublicationHistory initialData={deliveryHistory} />
+      ) : (
+        <Card className="max-w-3xl gap-0 py-0 shadow-none ring-1 ring-border">
+          <CardContent className="p-5 sm:p-6">
+            <div className="flex items-center gap-3">
+              <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-muted">
+                <Settings2 aria-hidden="true" className="size-5" />
+              </span>
+              <div>
+                <h2 className="text-lg font-semibold">
+                  Vamos configurar seu bot
+                </h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {completedCount} de {setupSteps.length} etapas concluídas
+                </p>
+              </div>
             </div>
-          </div>
-          <div className="absolute right-0 top-0 hidden md:block">
-            <RobotMascot />
-          </div>
-        </header>
-
-        {allStepsCompleted ? (
-          <PublicationHistory initialData={deliveryHistory} />
-        ) : (
-          <>
-            <Card className="border border-border bg-card py-0 shadow-sm dark:bg-white/2.5">
-              <CardContent className="grid gap-6 p-5 sm:p-6 xl:grid-cols-[200px_1fr] xl:items-center 2xl:grid-cols-[200px_1fr_auto]">
-                <div>
-                  <CardTitle className="text-2xl font-semibold tracking-tight">
-                    Vamos configurar seu bot
-                  </CardTitle>
-                  <p className="mt-2 text-sm text-muted-foreground">
-                    Siga estas etapas para publicar sua primeira oferta automaticamente.
-                  </p>
-                  <p className="mt-6 text-sm font-semibold text-card-foreground">
-                    Seu progresso
-                  </p>
-                  <div className="mt-2 flex items-baseline gap-2">
-                    <p className="text-3xl font-bold text-foreground">
-                      {completedCount} de {totalSteps}
-                    </p>
-                    <span className="text-sm font-semibold text-primary">
-                      {progressPercent}%
-                    </span>
-                  </div>
-                  <div className="mt-3 h-2 w-full max-w-52 overflow-hidden rounded-full bg-muted">
-                    <div
-                      className="h-full rounded-full bg-primary transition-all duration-700 ease-out dark:bg-primary/75"
-                      style={{ width: `${progressPercent}%` }}
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-5 gap-2 sm:gap-4 xl:gap-5">
-                  {onboardingSteps.map((step, index) => {
-                    const isCompleted = onboardingState[step.id];
-                    const previousCompleted =
-                      index > 0 && onboardingState[onboardingSteps[index - 1].id];
-
-                    return (
-                      <div
-                        className="dash-step-in relative text-center"
-                        key={step.id}
-                        style={{ animationDelay: `${index * 70}ms` }}
-                      >
-                        {index > 0 ? (
-                          <div className="absolute left-[-50%] right-1/2 top-4.5 h-0.5 overflow-hidden bg-muted sm:top-5 sm:h-1">
-                            <span
-                              className={
-                                previousCompleted
-                                  ? "block size-full origin-left scale-x-100 bg-primary transition-transform duration-700 ease-out"
-                                  : "block size-full origin-left scale-x-0 bg-primary transition-transform duration-700 ease-out"
-                              }
-                            />
-                          </div>
-                        ) : null}
-                        <div
-                          className={
-                            isCompleted
-                              ? "relative z-10 mx-auto flex size-9 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground transition duration-300 sm:size-11 sm:text-sm"
-                              : "relative z-10 mx-auto flex size-9 items-center justify-center rounded-full border border-border bg-card text-xs font-bold text-foreground transition duration-300 sm:size-11 sm:text-sm"
-                          }
-                        >
-                          {isCompleted ? <Check className="dash-check-in size-5" /> : index + 1}
-                        </div>
-                        <p className="mt-2 text-[11px]/4 font-semibold text-card-foreground sm:mt-4 sm:text-sm">
-                          {step.shortTitle}
-                        </p>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                <div className="w-full [&>div]:max-w-none [&>div>button]:w-full sm:[&>div>button]:w-43 xl:col-span-2 xl:justify-self-end 2xl:col-span-1">
-                  <SetupDialog
-                    configs={configs}
-                    destinations={destinations}
-                    hasEnabledDestination={hasEnabledDestination}
-                  />
-                </div>
-              </CardContent>
-            </Card>
-
-            <div className="mt-4 grid items-stretch gap-4 xl:grid-cols-2">
-              <Card className="h-full border border-border bg-card py-0 shadow-sm dark:bg-white/2.5 xl:grid xl:grid-cols-[minmax(0,0.95fr)_minmax(340px,1.05fr)] xl:items-stretch">
-                <div className="flex flex-col">
-                  <CardHeader className="p-6 pb-2">
-                    <div className="flex items-center gap-3">
-                      <Sparkles className="size-5 text-primary" />
-                      <CardTitle className="text-2xl font-semibold tracking-tight">
-                        Como o bot funciona
-                      </CardTitle>
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      O bot recebe as ofertas dos grupos escolhidos, prepara as mensagens e publica para você.
-                    </p>
-                  </CardHeader>
-                  <CardContent className="flex flex-1 items-center p-6 pt-4">
-                    <div className="w-full space-y-2">
-                    {workflowSteps.map((step, index) => {
-                      const Icon = step.icon;
-
-                      const iconColor = onboardingSteps[index]?.color ?? onboardingSteps[0].color;
-
-                      return (
-                        <div className="-mx-3 flex min-h-18 items-center gap-4 p-3" key={step.title}>
-                          <div className="relative flex size-12 shrink-0 items-center justify-center">
-                            <div className={`flex size-12 items-center justify-center rounded-2xl ${iconColor}`}>
-                              <Icon className="size-5" strokeWidth={2} />
-                            </div>
-                            {index < workflowSteps.length - 1 ? (
-                              <div className="dash-flow-line absolute top-[calc(100%+0.5rem)] h-6 w-px text-emerald-500/70 dark:text-emerald-300/70" />
-                            ) : null}
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <h3 className="font-semibold text-card-foreground">
-                              {index + 1}. {step.title}
-                            </h3>
-                            <p className="mt-1 text-sm/6 text-muted-foreground">
-                              {step.description}
-                            </p>
-                          </div>
-                        </div>
-                        );
-                      })}
-                    </div>
-                  </CardContent>
-                </div>
-
-                <div className="hidden min-h-125 items-center justify-center p-4 pt-12 md:flex xl:min-h-140 xl:pt-16">
-                  <Image
-                    alt="Como o bot copia ofertas, converte links e publica nos seus grupos"
-                    className="h-auto max-h-full w-full scale-110 object-contain object-center dark:opacity-90"
-                    height={1024}
-                    loading="eager"
-                    src="/how_it_works.png"
-                    width={1536}
-                  />
-                </div>
-              </Card>
-
-              <Card className="scroll-mt-6 h-full border border-border bg-card py-0 shadow-sm dark:bg-white/2.5" id="setup-checklist">
-                <CardHeader className="flex flex-col gap-4 p-6 pb-2 sm:flex-row sm:items-start sm:justify-between">
-                  <div>
-                    <CardTitle className="text-2xl font-semibold tracking-tight">
-                      Etapas da configuração
-                    </CardTitle>
-                    <p className="mt-2 text-sm text-muted-foreground">
-                      Conclua as etapas abaixo para ativar a publicação automática.
-                    </p>
-                  </div>
-                </CardHeader>
-                <CardContent className="flex flex-1 flex-col justify-center p-6 pt-4">
-                  <div className="space-y-2">
-                    {onboardingSteps.map((step) => {
-                      const Icon = step.icon;
-                      const isCompleted = onboardingState[step.id];
-
-                      return (
-                        <div
-                          className="group -mx-3 flex items-start gap-3 rounded-lg p-3 sm:items-center sm:gap-4"
-                          key={step.id}
-                        >
-                          <div
-                            className={`flex size-10 shrink-0 items-center justify-center rounded-lg transition-transform duration-200 group-hover:scale-105 sm:size-12 ${step.color}`}
-                          >
-                            <Icon className="size-5" strokeWidth={2} />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <h3 className="font-semibold text-card-foreground">
-                              {step.title}
-                            </h3>
-                            <p className="mt-1 text-sm text-muted-foreground">
-                              {step.description}
-                            </p>
-                            <span className="mt-2 inline-flex rounded-md bg-muted px-2 py-1 text-[11px] font-semibold text-muted-foreground sm:hidden">
-                              {isCompleted ? "Concluído" : "Pendente"}
-                            </span>
-                          </div>
-                          <span
-                            className={
-                              isCompleted
-                                ? "hidden shrink-0 rounded-md bg-primary/15 px-3 py-1.5 text-xs font-semibold text-primary sm:inline-flex"
-                                : "hidden shrink-0 rounded-md bg-muted px-3 py-1.5 text-xs font-semibold text-muted-foreground sm:inline-flex"
-                            }
-                          >
-                            {isCompleted ? "Concluído" : "Pendente"}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                </CardContent>
-              </Card>
+            <div
+              className="mt-5 flex gap-2"
+              aria-label={`${completedCount} de ${setupSteps.length} etapas concluídas`}
+            >
+              {setupSteps.map((step) => (
+                <span
+                  key={step.title}
+                  className={`h-1.5 flex-1 rounded-full ${step.complete ? "bg-primary" : "bg-muted"}`}
+                />
+              ))}
             </div>
-
-            <Card className="relative mt-4 overflow-hidden border border-border bg-card py-0 shadow-sm dark:bg-white/2.5">
-              <CardContent className="grid gap-6 p-6 md:grid-cols-[auto_1fr] lg:grid-cols-[auto_1fr] xl:grid-cols-[auto_1fr_repeat(3,minmax(0,1fr))] xl:items-center">
-                <div className="relative flex size-20 shrink-0 items-center justify-center justify-self-center lg:justify-self-start">
-                  <span className="absolute size-20 rounded-full border border-primary/15" />
-                  <span
-                    className="dash-status-dot absolute size-14 rounded-full border border-emerald-400/35"
-                    style={{ animationDelay: "0.5s" }}
-                  />
-                  <div className="relative flex size-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-500 dark:bg-emerald-400/20 dark:text-emerald-300">
-                    <Rocket className="size-7" />
+            <ol className="my-6 divide-y">
+              {setupSteps.map(({ icon: Icon, ...step }, index) => (
+                <li key={step.title} className="flex items-start gap-4 py-5">
+                  <span className="flex size-9 shrink-0 items-center justify-center rounded-full border bg-background text-sm font-medium">
+                    {step.complete ? (
+                      <Check aria-hidden="true" className="size-4" />
+                    ) : (
+                      index + 1
+                    )}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="flex items-center gap-2 font-medium">
+                      {step.title}
+                      <Icon
+                        aria-hidden="true"
+                        className="size-4 text-muted-foreground"
+                      />
+                    </h3>
+                    <p className="mt-1 text-sm/relaxed text-muted-foreground">
+                      {step.description}
+                    </p>
+                    <p className="mt-2 text-xs font-medium text-muted-foreground">
+                      {step.complete ? "Concluído" : "Pendente"}
+                    </p>
                   </div>
-                </div>
-                <div>
-                  <h2 className="text-2xl font-semibold tracking-tight text-card-foreground">
-                    Falta pouco para começar!
-                  </h2>
-                  <p className="mt-2 text-base/7 text-muted-foreground">
-                    Conclua a configuração para começar a publicar ofertas automaticamente.
-                  </p>
-                </div>
-                {setupBenefits.map((benefit) => {
-                  const Icon = benefit.icon;
-
-                  return (
-                    <div className="flex items-center gap-4" key={benefit.title}>
-                      <div className={`flex size-12 shrink-0 items-center justify-center rounded-2xl ${benefit.color}`}>
-                        <Icon className="size-5" />
-                      </div>
-                      <div>
-                        <h3 className="font-semibold text-card-foreground">
-                          {benefit.title}
-                        </h3>
-                        <p className="mt-1 text-sm text-muted-foreground">
-                          {benefit.description}
-                        </p>
-                      </div>
-                    </div>
-                  );
-                })}
-              </CardContent>
-            </Card>
-          </>
-        )}
-        </div>
-      </section>
-    </main>
+                </li>
+              ))}
+            </ol>
+            <SetupDialog
+              configs={configs}
+              destinations={destinations}
+              hasEnabledDestination={hasEnabledDestination}
+            />
+          </CardContent>
+        </Card>
+      )}
+    </DashboardShell>
   );
 }
