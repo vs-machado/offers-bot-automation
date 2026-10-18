@@ -10,6 +10,7 @@ import { useSettings } from "@/features/settings/hooks/use-settings";
 import type { SettingsData, SettingsSection } from "@/features/settings/types";
 import { affiliateProviders } from "@/lib/affiliate-providers";
 import { SourceGroups } from "@/features/source-groups/SourceGroups";
+import { DestinationRouting } from "@/features/offer-routing/DestinationRouting";
 
 export function SettingsEditor({
   initialData,
@@ -46,6 +47,7 @@ export function SettingsEditor({
       </div>
       {section === "destinations" ? (
         <div className="space-y-6">
+          <DestinationRouting destinations={settings.destinations} saveDestination={settings.saveDestination} disabled={Boolean(settings.busy)} />
           <DestinationSettings
             settings={{
               ...settings,

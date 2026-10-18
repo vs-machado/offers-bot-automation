@@ -15,7 +15,9 @@ import {
   affiliateProviders as providers,
   type ProviderType,
 } from "@/lib/affiliate-providers";
-import type { ConfigSummary, DestinationSummary, DestinationInput } from "@/shared/contracts/user-config";
+import type { ConfigSummary, DestinationSummary, DestinationInput, OfferCategory } from "@/shared/contracts/user-config";
+import { DestinationRouting } from "@/features/offer-routing/DestinationRouting";
+import { OfferCategorySelector } from "@/features/offer-routing/OfferCategorySelector";
 import { WhatsAppConnection } from "@/features/whatsapp/WhatsAppConnection";
 import { WhatsAppDeliveryControls } from "@/features/whatsapp/WhatsAppDeliveryControls";
 import { CredentialValidation } from "@/features/credential-validation/CredentialValidation";
@@ -53,6 +55,7 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
   const [chatId, setChatId] = useState(telegramDestination?.chat_id ?? "");
   const [destinationPlatform, setDestinationPlatform] = useState<"telegram" | "whatsapp">(enabledDestination?.platform ?? "telegram");
   const [telegramChatType, setTelegramChatType] = useState(telegramDestination?.chat_type ?? "group");
+  const [telegramCategories, setTelegramCategories] = useState<OfferCategory[] | null>(telegramDestination?.categories ?? null);
   const [selectedProvider, setSelectedProvider] = useState<ProviderType>("amazon");
   const [providerData, setProviderData] = useState<Record<string, string>>(
     getProviderData(providers[0], configs)
@@ -220,8 +223,9 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
     try {
       const saved = await saveDestination({
         chatId: trimmedChatId,
-        id: (savedDestination?.platform ?? "telegram") === "telegram" ? savedDestination?.id : telegramDestination?.id,
+        id: savedDestinations.find((destination) => destination.platform !== "whatsapp" && destination.chat_id === trimmedChatId)?.id,
         chatType: telegramChatType,
+        categories: telegramCategories,
       });
 
       setSavedDestination(saved);
@@ -242,7 +246,7 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
     setStatus("saving");
     setMessage("");
     try {
-      const saved = await saveDestination({ chatId: input.chat_id, chatType: input.chat_type, title: input.title, platform: "whatsapp" });
+      const saved = await saveDestination({ chatId: input.chat_id, chatType: input.chat_type, title: input.title, platform: "whatsapp", categories: input.categories });
       setSavedDestination(saved);
       setSavedDestinations((current) => [...current.filter((destination) => destination.id !== saved.id), saved]);
       setStatus("success");
@@ -252,6 +256,25 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
     } catch (error) {
       setStatus("error");
       setMessage(getRequestErrorMessage(error, "Não foi possível salvar destino WhatsApp."));
+      return false;
+    }
+  }
+
+  async function saveDestinationCategories(input: DestinationInput, id: number) {
+    setStatus("saving");
+    setMessage("");
+    try {
+      const saved = await saveDestination({ chatId: input.chat_id, chatType: input.chat_type, title: input.title, platform: input.platform, enabled: input.enabled, categories: input.categories, id });
+      setSavedDestinations((current) => current.map((destination) => destination.id === id ? saved : destination));
+      if (savedDestination?.id === id) setSavedDestination(saved);
+      if (saved.platform !== "whatsapp" && saved.chat_id === chatId.trim()) setTelegramCategories(saved.categories ?? null);
+      setStatus("success");
+      setMessage("Categorias salvas. Alterações entram em vigor em até 30 segundos.");
+      router.refresh();
+      return true;
+    } catch (error) {
+      setStatus("error");
+      setMessage(getRequestErrorMessage(error, "Não foi possível salvar as categorias."));
       return false;
     }
   }
@@ -411,7 +434,7 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
                 </div>
                 {destinationPlatform === "whatsapp" ? <div className="mt-5 space-y-4 rounded-3xl border border-border p-4">
                   <h3 className="font-bold">Conectar WhatsApp e selecionar grupo ou canal</h3>
-                  <ol className="list-decimal space-y-2 pl-5 text-sm/6 text-muted-foreground"><li>Clique em Conectar WhatsApp. No celular, abra Aparelhos conectados → Conectar aparelho e escaneie o QR.</li><li>Escolha um grupo onde pode enviar mensagens ou um canal que administra e adicione o destino. Não precisa copiar IDs.</li><li>Configure seus afiliados e selecione os grupos de origem do Telegram. As ofertas serão enviadas a todos os destinos habilitados no Telegram e no WhatsApp.</li></ol>
+                  <ol className="list-decimal space-y-2 pl-5 text-sm/6 text-muted-foreground"><li>Clique em Conectar WhatsApp. No celular, abra Aparelhos conectados → Conectar aparelho e escaneie o QR.</li><li>Escolha um grupo onde pode enviar mensagens ou um canal que administra e adicione o destino. Não precisa copiar IDs.</li><li>Configure seus afiliados e selecione os grupos de origem do Telegram. As ofertas serão enviadas conforme as categorias escolhidas para cada destino no Telegram e no WhatsApp.</li></ol>
                   <WhatsAppConnection destinations={savedDestinations} saveDestination={saveWhatsAppDestination} busy={status === "saving"} onDisconnect={() => {
                     const remaining = savedDestinations.map((destination) => destination.platform === "whatsapp" ? { ...destination, enabled: false } : destination);
                     setSavedDestinations(remaining);
@@ -480,6 +503,8 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
                     />
                   </label>
 
+                  <div className="mt-4"><OfferCategorySelector value={telegramCategories} onChange={setTelegramCategories} disabled={status === "saving"} /></div>
+
                   {message ? (
                     <p
                       className={
@@ -512,6 +537,7 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
                   </div>
                 </form>
                 </>}
+                <div className="mt-5"><DestinationRouting destinations={savedDestinations} saveDestination={saveDestinationCategories} disabled={status === "saving"} /></div>
               </>
             ) : screen === "providers" ? (
               <div className="setup-screen-slide mt-6 grid gap-5 lg:grid-cols-[260px_1fr]" key="providers-screen">

@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import List, Optional
-from sqlalchemy import ForeignKey, String, DateTime, func
+from sqlalchemy import ForeignKey, String, DateTime, JSON, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from backend.app.core.db.base import Base
 
@@ -102,6 +102,9 @@ class DestinationChannel(Base):
     title: Mapped[Optional[str]] = mapped_column(String(255))
     chat_type: Mapped[str] = mapped_column(String(50), default="channel")
     enabled: Mapped[bool] = mapped_column(default=True)
+    categories: Mapped[list[str] | None] = mapped_column(
+        JSON(none_as_null=True), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     user: Mapped["User"] = relationship(back_populates="destinations")

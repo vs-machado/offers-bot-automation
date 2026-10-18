@@ -1,5 +1,5 @@
 import { getApiErrorMessage } from "@/lib/api-error-message";
-import type { ConfigSummary, DestinationSummary } from "@/shared/contracts/user-config";
+import type { ConfigSummary, DestinationSummary, OfferCategory } from "@/shared/contracts/user-config";
 
 type SaveConfigInput = {
   configData: Record<string, unknown>;
@@ -14,6 +14,8 @@ type SaveDestinationInput = {
   platform?: "telegram" | "whatsapp";
   chatType?: string;
   title?: string | null;
+  categories?: OfferCategory[] | null;
+  enabled?: boolean;
 };
 
 async function requestJson<T>(url: string, init: RequestInit, errorMessage: string): Promise<T> {
@@ -49,7 +51,7 @@ export function saveUserConfig({
   );
 }
 
-export function saveDestination({ chatId, id, platform = "telegram", chatType = "group", title = null }: SaveDestinationInput) {
+export function saveDestination({ chatId, id, platform = "telegram", chatType = "group", title = null, categories = null, enabled = true }: SaveDestinationInput) {
   return requestJson<DestinationSummary>(
     id
       ? `/api/backend/users/me/destinations/${id}`
@@ -64,7 +66,8 @@ export function saveDestination({ chatId, id, platform = "telegram", chatType = 
         title,
         platform,
         chat_type: chatType,
-        enabled: true,
+        enabled,
+        categories,
       }),
     },
     "Não foi possível verificar o acesso do bot. Confira o ID e as permissões no grupo ou canal."

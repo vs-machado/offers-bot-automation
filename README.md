@@ -100,6 +100,26 @@ docker compose up --build
 
 Worker begins processing after next 30-second refresh.
 
+### Categories per destination
+
+Setup and **Settings → Destinations** list registered Telegram and WhatsApp groups
+and channels together under **Categorias por grupo ou canal**. Each destination
+can receive all offers or only selected categories: technology, home, clothes and
+accessories, other products, and generic coupons. Uncheck a category to block it
+only in that destination, then select **Salvar categorias**. Select **Todas as
+ofertas** for an unrestricted destination. An empty selection receives no offers.
+
+Product-specific coupons follow the product category; standalone coupons use the
+separate coupon selection. Products without a recognized category use `other`,
+including regex-only parsing when AI classification is unavailable. Rules apply
+independently across both platforms and are rechecked before queued deliveries.
+Changing rules does not replay previously processed offers.
+
+Migration `0013_destination_categories` must run before starting updated backend
+and workers. Existing destinations keep receiving all offers (`categories = NULL`).
+The destination API accepts `categories: null` for all, a category array for a
+selection, or `[]` for none. Allowed keys: `tech`, `home`, `clothes`, `other`, `coupon`.
+
 ## Database migrations
 
 Backend runs `alembic upgrade head` during startup.

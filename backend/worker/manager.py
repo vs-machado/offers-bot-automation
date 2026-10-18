@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from backend.app.models.user import DestinationChannel, UserConfig
 from backend.app.core.credentials import decrypt_config
+from backend.app.core.offer_categories import accepts_category, offer_category
 from backend.app.core.source_groups import approved_source
 from backend.worker.poster import BotPoster
 from backend.worker.store import PgOfferStore
@@ -54,6 +55,7 @@ class UserBotInstance:
         self._poster = poster or BotPoster()
         self._source_chats: tuple[str, ...] = ()
         self._destination_chat_ids: tuple[str, ...] = ()
+        self._destination_categories: dict[str, list[str] | None] = {}
         self._ml: MercadoLivreClient | None = None
         self._amazon: AmazonClient | None = None
         self._shopee: ShopeeClient | None = None
@@ -94,6 +96,7 @@ class UserBotInstance:
             {
                 "configs": configs,
                 "destinations": destination_chat_ids,
+                "categories": self._destination_categories,
                 "sources": source_chats,
             },
             sort_keys=True,
@@ -199,12 +202,16 @@ class UserBotInstance:
             for offer in offers:
                 if await store.seen(source_chat, message_id, offer.url):
                     continue
+                category = offer_category(offer.llm_result)
+                if not self._matching_destination_ids(category):
+                    continue
 
                 context_token = promotion_context.set(
                     {
                         "title": (offer.title or "Promoção sem título")[:200],
                         "platform": PLATFORM_LABELS.get(offer.platform),
                         "identity": f"{source_chat}:{message_id}:{offer.url}",
+                        "category": category,
                     }
                 )
                 failure_stage = "affiliate"
@@ -289,8 +296,6 @@ class UserBotInstance:
                         is_ali=is_ali,
                         affiliate_client=affiliate_client,
                     )
-                    # TODO: Persist destination categories and route each offer to all
-                    # destinations matching offer.llm_result["category"].
                     failure_stage = "posting"
                     await self._send_offer_with_image(
                         formatted_text,
@@ -339,7 +344,11 @@ class UserBotInstance:
         if isinstance(self._poster, QueuePoster):
             try:
                 await self._poster.record_failure(
-                    self._destination_chat_ids, reason, stage
+                    self._matching_destination_ids(
+                        promotion_context.get().get("category", "other")
+                    ),
+                    reason,
+                    stage,
                 )
             except Exception:
                 LOGGER.exception(
@@ -388,13 +397,16 @@ class UserBotInstance:
     async def _send_offer(self, text: str, image_file: str | None = None) -> None:
         from backend.worker.posting_queue import QueuePoster
 
+        destinations = self._matching_destination_ids(
+            promotion_context.get().get("category", "other")
+        )
         if isinstance(self._poster, QueuePoster):
             results = await asyncio.gather(
                 *(
                     self._poster.send_offer(
                         chat_id, text, image_file=image_file, parse_mode="Markdown"
                     )
-                    for chat_id in self._destination_chat_ids
+                    for chat_id in destinations
                 ),
                 return_exceptions=True,
             )
@@ -402,10 +414,17 @@ class UserBotInstance:
                 if isinstance(result, BaseException):
                     raise result
             return
-        for chat_id in self._destination_chat_ids:
+        for chat_id in destinations:
             await self._poster.send_offer(
                 chat_id, text, image_file=image_file, parse_mode="Markdown"
             )
+
+    def _matching_destination_ids(self, category: str) -> tuple[str, ...]:
+        return tuple(
+            chat_id
+            for chat_id in self._destination_chat_ids
+            if accepts_category(self._destination_categories.get(chat_id), category)
+        )
 
     async def _load_configs(self, db: AsyncSession) -> dict[str, object]:
         stmt = select(UserConfig).where(UserConfig.user_id == self.user_id)
@@ -431,7 +450,12 @@ class UserBotInstance:
             DestinationChannel.enabled.is_(True),
         )
         result = await db.execute(stmt)
-        return [destination.chat_id for destination in result.scalars().all()]
+        destinations = result.scalars().all()
+        self._destination_categories = {
+            destination.chat_id: getattr(destination, "categories", None)
+            for destination in destinations
+        }
+        return [destination.chat_id for destination in destinations]
 
     @staticmethod
     def _parse_chats(raw: object) -> list[str]:

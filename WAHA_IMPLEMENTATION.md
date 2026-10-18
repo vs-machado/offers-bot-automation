@@ -120,6 +120,13 @@ de banimento: WAHA é um cliente não oficial.
 
 ## Estado observado e próximos passos
 
+Destinos Telegram e WhatsApp têm seleção independente de categorias na interface
+de setup e configurações. `categories = NULL` recebe tudo; lista vazia não recebe
+ofertas. As regras são verificadas antes da entrada na fila e novamente antes da
+entrega, inclusive após adiamento por limites. Migração necessária:
+`0013_destination_categories`. Categorias bloqueadas não ocupam vagas em novas
+rajadas quando a regra já está salva.
+
 Base existente: sessões por usuário, QR, canais administrados, destinos e envio
 pela fila Celery, com expiração e tratamento conservador de reenvio. Interface
 e tutorial receberam complementos nesta branch.

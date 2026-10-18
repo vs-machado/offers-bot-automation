@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SelectField } from "@/components/ui/select";
 import type { SettingsState } from "@/features/settings/hooks/use-settings";
-import type { DestinationSummary } from "@/shared/contracts/user-config";
+import type { DestinationSummary, OfferCategory } from "@/shared/contracts/user-config";
+import { OfferCategorySelector } from "@/features/offer-routing/OfferCategorySelector";
 
 export function DestinationSettings({ settings }: { settings: SettingsState }) {
   const [editingId, setEditingId] = useState<number | undefined>();
@@ -14,6 +15,7 @@ export function DestinationSettings({ settings }: { settings: SettingsState }) {
   const [title, setTitle] = useState("");
   const [chatType, setChatType] = useState("group");
   const [enabled, setEnabled] = useState(true);
+  const [categories, setCategories] = useState<OfferCategory[] | null>(null);
   const [removingId, setRemovingId] = useState<number | null>(null);
   const disabled = Boolean(settings.busy);
   function reset() {
@@ -22,6 +24,7 @@ export function DestinationSettings({ settings }: { settings: SettingsState }) {
     setTitle("");
     setChatType("group");
     setEnabled(true);
+    setCategories(null);
   }
   function edit(destination: DestinationSummary) {
     setEditingId(destination.id);
@@ -29,6 +32,7 @@ export function DestinationSettings({ settings }: { settings: SettingsState }) {
     setTitle(destination.title ?? "");
     setChatType(destination.chat_type ?? "group");
     setEnabled(destination.enabled);
+    setCategories(destination.categories ?? null);
     document
       .getElementById("destination-form")
       ?.scrollIntoView({ block: "start" });
@@ -45,6 +49,7 @@ export function DestinationSettings({ settings }: { settings: SettingsState }) {
           title: title.trim() || null,
           chat_type: chatType,
           enabled,
+          categories,
         },
         editingId,
       )
@@ -164,6 +169,7 @@ export function DestinationSettings({ settings }: { settings: SettingsState }) {
             {editingId ? "Editar destino" : "Adicionar destino"}
           </h3>
           <fieldset disabled={disabled} className="space-y-4">
+            <OfferCategorySelector value={categories} onChange={setCategories} disabled={disabled} />
             <label
               className="block space-y-2 text-sm font-medium"
               htmlFor="destination-chat-id"

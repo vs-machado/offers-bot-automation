@@ -440,6 +440,7 @@ async def create_destination(
         chat_type=destination_data.chat_type,
         enabled=destination_data.enabled,
         platform=destination_data.platform,
+        categories=destination_data.categories,
     )
     db.add(new_destination)
     await db.commit()
@@ -484,6 +485,7 @@ async def update_destination(
     destination.chat_type = destination_data.chat_type
     destination.enabled = destination_data.enabled
     destination.platform = destination_data.platform
+    destination.categories = destination_data.categories
     await db.commit()
     await db.refresh(destination)
     return destination

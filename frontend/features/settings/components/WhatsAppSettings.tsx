@@ -33,8 +33,8 @@ export function WhatsAppSettings({ settings }: { settings: SettingsState }) {
         <WhatsAppDeliveryControls />
         <p className="text-sm/6 text-muted-foreground">
           As ofertas dos grupos de origem selecionados são preparadas com seus
-          links de afiliado e enviadas a todos os destinos habilitados no
-          Telegram e no WhatsApp pela mesma fila. Desative um destino para
+          links de afiliado e enviadas aos destinos habilitados no
+          Telegram e no WhatsApp conforme as categorias escolhidas. Desative um destino para
           interromper os envios somente nele.
         </p>
         {!destinations.length ? (
