@@ -466,6 +466,15 @@ The connected account must participate in the group and have permission to send;
 only WhatsApp channels with the `OWNER` or `ADMIN` role are selectable. If the WAHA
 engine cannot list channels, the interface reports this while keeping groups available.
 Messages are sent in that account's name, with the same prepared affiliate text/photo.
+WhatsApp delivery adapts shared offer Markdown automatically: `**bold**` becomes
+`*bold*`, `__italic__` becomes `_italic_`, and `~~old price~~` becomes `~old price~`.
+Labeled Markdown links become a label followed by the visible URL, preserving
+affiliate parameters. Conversion applies to both text messages and image captions.
+Coupon codes retain their individual triple-backtick monospace spans. This is
+formatting, not a copy button: long-press selection/copy behavior depends on the
+recipient's WhatsApp client and must be checked on the devices in use.
+See [WhatsApp text formatting](https://www.twilio.com/docs/whatsapp/message-features#formatting-in-whatsapp-messages)
+and [WAHA text/image payloads](https://waha.devlike.pro/docs/how-to/send-messages/).
 Source selection remains the platform's Telegram catalog: each user's selected sources
 feed all their enabled Telegram and WhatsApp destinations through the same queue.
 Manage each destination independently in Settings; disabling one leaves the others active.
