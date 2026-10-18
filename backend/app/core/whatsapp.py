@@ -8,6 +8,7 @@ from urllib.parse import quote, urlparse
 
 import httpx
 
+from backend.app.core.whatsapp_formatting import format_whatsapp_offer
 from backend.worker.poster import BotPosterError
 
 GROUP_ID = re.compile(r"^\d+(?:-\d+)?@g\.us$")
@@ -187,6 +188,7 @@ class WahaClient:
         """Send prepared text/photo through the tenant's linked WhatsApp account."""
         if not (GROUP_ID.fullmatch(chat_id) or CHANNEL_ID.fullmatch(chat_id)):
             raise BotPosterError("Destino WhatsApp inválido.")
+        text = format_whatsapp_offer(text)
         body = {"session": self.session, "chatId": chat_id}
         if image_file:
             mimetype = "image/jpeg"
