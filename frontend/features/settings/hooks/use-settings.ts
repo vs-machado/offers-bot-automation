@@ -86,7 +86,7 @@ export function useSettings(initialData: SettingsData) {
   }
 
   function toggleDestination(destination: DestinationSummary) {
-    return saveDestination({ chat_id: destination.chat_id, title: destination.title ?? null, chat_type: destination.chat_type ?? "group", enabled: !destination.enabled, platform: destination.platform ?? "telegram" }, destination.id);
+    return saveDestination({ chat_id: destination.chat_id, title: destination.title ?? null, chat_type: destination.chat_type ?? "group", enabled: !destination.enabled, platform: destination.platform ?? "telegram", categories: destination.categories ?? null }, destination.id);
   }
 
   function removeDestination(id: number) {

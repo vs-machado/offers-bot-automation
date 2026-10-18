@@ -5,7 +5,8 @@ import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { SelectField } from "@/components/ui/select";
 import { useWhatsApp } from "@/features/whatsapp/hooks/use-whatsapp";
-import type { DestinationInput, DestinationSummary } from "@/shared/contracts/user-config";
+import type { DestinationInput, DestinationSummary, OfferCategory } from "@/shared/contracts/user-config";
+import { OfferCategorySelector } from "@/features/offer-routing/OfferCategorySelector";
 
 const statusLabels: Record<string, string> = {
   LOADING: "Consultando conexão…", UNCONFIGURED: "Integração ainda não configurada pelo administrador",
@@ -25,6 +26,7 @@ type Props = {
 export function WhatsAppConnection({ destinations, saveDestination, busy = false, onDisconnect }: Props) {
   const whatsapp = useWhatsApp();
   const [chatId, setChatId] = useState("");
+  const [categories, setCategories] = useState<OfferCategory[] | null>(null);
   const [chatType, setChatType] = useState<"group" | "channel">("channel");
   const [confirmDisconnect, setConfirmDisconnect] = useState(false);
   const disabled = whatsapp.busy || busy;
@@ -43,7 +45,10 @@ export function WhatsAppConnection({ destinations, saveDestination, busy = false
 
   async function addDestination() {
     const chat = chats.find((item) => item.id === chatId);
-    if (chat && await saveDestination({ chat_id: chat.id, title: chat.name, chat_type: chatType, enabled: true, platform: "whatsapp" })) setChatId("");
+    if (chat && await saveDestination({ chat_id: chat.id, title: chat.name, chat_type: chatType, enabled: true, platform: "whatsapp", categories })) {
+      setChatId("");
+      setCategories(null);
+    }
   }
 
   return <div className="space-y-4">
@@ -89,6 +94,7 @@ export function WhatsAppConnection({ destinations, saveDestination, busy = false
         />
       </div>
       {!chatsError && !availableChats.length ? <p className="text-sm text-muted-foreground">Nenhum {chatType === "group" ? "grupo" : "canal administrado"} disponível para adicionar. Confira sua conta e atualize os destinos; destinos já cadastrados não aparecem novamente.</p> : null}
+      <OfferCategorySelector value={categories} onChange={setCategories} disabled={disabled} />
       <Button disabled={disabled || !availableChats.some((chat) => chat.id === chatId)} onClick={() => void addDestination()}>Adicionar {chatType === "group" ? "grupo" : "canal"} WhatsApp</Button>
       <p className="text-sm text-muted-foreground">Grupos: sua conta precisa participar e ter permissão para enviar. Canais: só aparecem aqueles que você administra. Publicações serão feitas em nome da conta conectada.</p>
     </div> : null}

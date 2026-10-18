@@ -16,6 +16,7 @@ from celery.signals import task_revoked
 from backend.worker.celery_app import app
 from backend.worker.poster import BotPoster, BotPosterError
 from backend.app.core.delivery_errors import classify_failure
+from backend.app.core.offer_categories import accepts_category
 from backend.app.schemas.whatsapp_policy import promotion_ttl
 from offers_bot.message_context import source_timestamp, promotion_context
 from offers_bot.postgres_store import connect
@@ -148,9 +149,13 @@ class QueuePoster:
             )
 
             destination = conn.execute(
-                "SELECT platform,chat_type FROM destination_channels WHERE user_id=%s AND chat_id=%s",
+                "SELECT platform,chat_type,categories,enabled FROM destination_channels WHERE user_id=%s AND chat_id=%s",
                 (self.user_id, chat_id),
             ).fetchone()
+            if not destination or not destination[3]:
+                return {"status": "cancelled"}
+            if not accepts_category(destination[2], context.get("category", "other")):
+                return {"status": "filtered"}
             is_whatsapp = destination and destination[0] == "whatsapp"
             lock_account(conn, self.user_id)
             now = datetime.now(timezone.utc)
@@ -208,6 +213,7 @@ class QueuePoster:
                     "image_data": image_data,
                     "image_url": image_url,
                     "parse_mode": parse_mode,
+                    "category": context.get("category", "other"),
                 },
                 task_id=identity,
                 expires=datetime.fromtimestamp(deadline, timezone.utc),
@@ -289,6 +295,7 @@ def post_promotion(
     image_data: str | None = None,
     image_url: str | None = None,
     parse_mode: str | None = None,
+    category: str = "other",
 ):
     """Claim once, revalidate destination ownership, retry only definite non-delivery."""
     # Recheck operator validity and the ten-minute ceiling for older queued tasks.
@@ -305,9 +312,12 @@ def post_promotion(
         return
     with connect() as conn:
         allowed = conn.execute(
-            "SELECT platform FROM destination_channels WHERE user_id=%s AND chat_id=%s AND enabled=true",
+            "SELECT platform,categories FROM destination_channels WHERE user_id=%s AND chat_id=%s AND enabled=true",
             (user_id, chat_id),
         ).fetchone()
+    if allowed and not accepts_category(allowed[1], category):
+        update_status(identity, "cancelled", "category_disabled", pending_only=True)
+        return
     is_whatsapp = allowed and allowed[0] == "whatsapp"
     if is_whatsapp:
         from backend.worker.whatsapp_delivery import reserve_delivery
@@ -332,6 +342,7 @@ def post_promotion(
                         "image_data": image_data,
                         "image_url": image_url,
                         "parse_mode": parse_mode,
+                        "category": category,
                     },
                     task_id=identity,
                     countdown=delay,

@@ -4,6 +4,7 @@ from typing import Any, Dict, Optional, Literal
 from pydantic import BaseModel, ConfigDict, EmailStr, field_validator, model_validator
 
 from backend.app.core.security import BCRYPT_MAX_PASSWORD_BYTES
+from backend.app.core.offer_categories import OfferCategory
 
 
 COMMON_PASSWORDS = {
@@ -107,6 +108,7 @@ class DestinationChannelBase(BaseModel):
     chat_type: str = "channel"
     enabled: bool = True
     platform: Literal["telegram", "whatsapp"] = "telegram"
+    categories: list[OfferCategory] | None = None
 
     @model_validator(mode="after")
     def validate_platform_chat(self):

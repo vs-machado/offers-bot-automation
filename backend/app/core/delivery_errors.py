@@ -3,6 +3,7 @@
 import httpx
 
 REASONS = {
+    "category_disabled": "A categoria desta oferta foi desativada neste grupo ou canal antes da publicação.",
     "burst_superseded": "Descartada por rajada: foram priorizadas as 5 ofertas mais recentes deste canal.",
     "policy_deadline": "O prazo terminaria antes do próximo envio permitido. A oferta foi descartada.",
     "delivery_throttled": "Aguardando janela de publicação, coleta de rajada ou limite de frequência da conta/canal.",
