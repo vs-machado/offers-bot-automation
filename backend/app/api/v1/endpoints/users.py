@@ -79,6 +79,7 @@ async def validate_affiliate_credentials(
 async def list_deliveries(
     page: int = Query(1, ge=1, le=10000),
     limit: int = Query(20, ge=1, le=100),
+    group_by_offer: bool = Query(False),
     delivery_status: Literal[
         "queued",
         "retrying",
@@ -95,7 +96,9 @@ async def list_deliveries(
 ):
     """Return owned delivery outcomes, caching missing Telegram destination names."""
     await populate_destination_titles(db, current_user.id)
-    return await get_delivery_history(db, current_user.id, page, limit, delivery_status)
+    return await get_delivery_history(
+        db, current_user.id, page, limit, delivery_status, group_by_offer
+    )
 
 
 def _config_response(config: UserConfig) -> dict[str, object]:

@@ -75,6 +75,7 @@ class PromotionDelivery(Base):
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
     title: Mapped[str | None] = mapped_column(String(200))
+    price: Mapped[str | None] = mapped_column(String(200))
     platform: Mapped[str | None] = mapped_column(String(50))
     stage: Mapped[str] = mapped_column(String(20), server_default="posting")
     __table_args__ = (

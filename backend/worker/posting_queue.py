@@ -72,8 +72,8 @@ class QueuePoster:
                     ).hexdigest()
                     conn.execute(
                         """INSERT INTO promotion_deliveries
-                        (id,user_id,chat_id,status,reason,expires_at,title,platform,stage)
-                        VALUES (%s,%s,%s,'failed',%s,%s,%s,%s,%s) ON CONFLICT (id) DO NOTHING""",
+                        (id,user_id,chat_id,status,reason,expires_at,title,platform,stage,price)
+                        VALUES (%s,%s,%s,'failed',%s,%s,%s,%s,%s,%s) ON CONFLICT (id) DO NOTHING""",
                         (
                             identity,
                             self.user_id,
@@ -85,6 +85,7 @@ class QueuePoster:
                             context.get("title"),
                             context.get("platform"),
                             stage,
+                            context.get("advertised_price"),
                         ),
                     )
 
@@ -182,8 +183,8 @@ class QueuePoster:
             if duplicate and not expired:
                 return {"status": "duplicate"}
             inserted = conn.execute(
-                """INSERT INTO promotion_deliveries (id, user_id, chat_id, status, expires_at, title, platform,source_at,dedup_key)
-                VALUES (%s, %s, %s, %s, %s, %s, %s,%s,%s) ON CONFLICT (id) DO NOTHING RETURNING id""",
+                """INSERT INTO promotion_deliveries (id, user_id, chat_id, status, expires_at, title, platform,source_at,dedup_key,price)
+                VALUES (%s, %s, %s, %s, %s, %s, %s,%s,%s,%s) ON CONFLICT (id) DO NOTHING RETURNING id""",
                 (
                     identity,
                     self.user_id,
@@ -194,6 +195,7 @@ class QueuePoster:
                     context.get("platform"),
                     source_at,
                     key,
+                    context.get("advertised_price"),
                 ),
             ).fetchone()
             if inserted and is_whatsapp and destination[1] == "channel" and not expired:

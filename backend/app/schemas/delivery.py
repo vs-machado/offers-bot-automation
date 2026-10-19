@@ -6,7 +6,9 @@ from pydantic import BaseModel
 
 class DeliveryRead(BaseModel):
     id: str
+    offer_id: str
     title: str | None
+    price: str | None
     platform: str | None
     chat_id: str
     destination_title: str | None

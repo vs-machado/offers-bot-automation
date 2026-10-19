@@ -34,7 +34,7 @@ export async function getDashboardUser(accessToken?: string) {
 }
 
 export async function getDeliveryHistory(accessToken?: string) {
-  return getAuthenticated<DeliveryHistoryData>("/users/me/deliveries", accessToken);
+  return getAuthenticated<DeliveryHistoryData>("/users/me/deliveries?group_by_offer=true", accessToken);
 }
 
 export async function getDestinations(accessToken?: string) {

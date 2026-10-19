@@ -27,6 +27,22 @@ Based on the [make-it-look-good design guidance](https://github.com/jdeworks/mak
 
 ## Layout and behavior
 
+- Publication history groups by persisted offer identity (`dedup_key`), with
+  delivery ID fallback for legacy rows. Never infer identity from product titles.
+- Pagination counts offers and fetches every recorded destination outcome for
+  each selected offer. Status filters select offers with at least one matching
+  outcome, keeping the other outcomes visible for context.
+- Collapsed offer rows show destination count, confirmed sends, aggregate result,
+  and latest delivery registration. Expand to see destination names and individual
+  results; expand a destination to inspect its reason, attempts, and timestamps.
+- Advertised product price appears beneath the offer title on all screen sizes.
+  Preserve source price text, including payment conditions. Legacy deliveries
+  without stored prices display “Preço não registrado”; never infer a price from
+  the product title or deduplication hash.
+- Summary metrics still count individual sends across the entire history. Only
+  recorded delivery attempts appear; absent destinations are not labeled as sent
+  or failed.
+
 - Sidebar: 240px, visible from 1024px. Main content: maximum 1440px.
 - Spacing: 4px base; 16px mobile page padding and 24–32px on larger screens.
 - Typography: 24–30px page heading; 14px dense data; 12px metadata. Base UI Select
@@ -38,7 +54,7 @@ Based on the [make-it-look-good design guidance](https://github.com/jdeworks/mak
   in the disclosure panel.
 - Each disclosure starts closed and opens independently. Entire summary is
   keyboard-operable, with a visible focus outline and state chevron.
-- Retain API-backed status filtering, 20-record pagination, manual refresh,
+- Retain API-backed status filtering, 20-offer pagination, manual refresh,
   and 30-second polling. Metrics describe the entire history, not today's data.
 - No invented charts, activity claims, trend deltas, or production sample data.
 - Icons and text accompany status colors. Motion is limited to interaction
