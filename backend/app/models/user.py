@@ -108,3 +108,15 @@ class DestinationChannel(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     user: Mapped["User"] = relationship(back_populates="destinations")
+
+
+class WhatsAppGroupCreation(Base):
+    """Durable request receipt prevents duplicate groups after browser retries/timeouts."""
+
+    __tablename__ = "whatsapp_group_creations"
+
+    request_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    result: Mapped[dict | None] = mapped_column(JSON(none_as_null=True), nullable=True)

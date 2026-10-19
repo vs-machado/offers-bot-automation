@@ -1,4 +1,4 @@
-import { LayoutDashboard, Link2, Radio, UsersRound } from "lucide-react";
+import { LayoutDashboard, Link2, MessageCircle, Radio, UsersRound } from "lucide-react";
 
 export const workspaceNavigation = [
   {
@@ -10,6 +10,11 @@ export const workspaceNavigation = [
     icon: UsersRound,
     label: "Destinos",
     href: "/settings/destinations",
+  },
+  {
+    icon: MessageCircle,
+    label: "WhatsApp",
+    href: "/whatsapp",
   },
   {
     icon: Radio,

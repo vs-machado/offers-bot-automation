@@ -41,6 +41,7 @@ This is the high-performance, multi-tenant backend for the Telegram Offers Bot. 
 - [x] **Shared Telegram Ingestion**: Listen to catalog sources through one operator Telethon session and fan messages out to subscribed users, deduplicating per user in PostgreSQL.
 - [x] **Destination Bot Posting**: Replace user-account posting with Telegram Bot API posting to user destination groups/channels where the bot has permission.
 - [x] **Destination Management**: Implement CRUD for `/users/me/destinations` and verify bot access before enabling posting.
+- [x] **WhatsApp Group Management**: `/users/me/whatsapp/manage` exposes capacity and subscriber counts, administered group edits and numbered template-based creation, shared category routing, and durable creation receipts (`0015_whatsapp_group_management`). Frontend screen: `/whatsapp`.
 - [x] **Platform Parsers**: Integrate Ling-first OpenRouter parsing through Novita, Qwen via OpenRouter and direct Gemini fallbacks, regex fallback, and canonical platform detection.
 - [x] **Affiliate Conversion**: Implement Amazon, Shopee, AliExpress, and Mercado Livre link generators.
 

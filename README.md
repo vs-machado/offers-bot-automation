@@ -543,3 +543,48 @@ ownership before delivery. WhatsApp sends use the existing Celery queue and expi
 rules. Text/photo sends with uncertain results are not automatically replayed.
 The standalone legacy bot remains Telegram-only; WhatsApp is part of the multiuser
 backend worker. Validate a real QR connection and test group after deployment.
+
+#### WhatsApp group and channel management
+
+Open **WhatsApp** in the sidebar (`/whatsapp`) to manage the linked account's
+groups and administered channels. Search and filter by group, channel, or full
+group. Member counts and capacity appear on group cards; unknown counts remain
+unknown. When WAHA does not supply a group-specific capacity, the screen labels
+the standard **1,024-member** reference limit. Use **Refresh** or the card's
+member/subscriber refresh action for a fresh reading. Channel follower counts
+are displayed when available, with no group capacity imposed on channels.
+
+**Create next group** opens a draft using an existing group as template. The
+suggested suffix follows the highest existing number in the same name series
+(for example, `My tech group #2` plus an existing `#4` suggests `#5`). Review the
+name and create explicitly; a full group is highlighted in the screen. The draft
+inherits description and category routing, and reuses the selected group's photo
+unless replaced or unchecked. New groups default to admin-only messages. You can
+also create a new group from scratch, or edit an administered group's name,
+description, photo, and message permissions. Photos accept JPEG/PNG/WebP up to
+5 MB. Members are not copied or invited to the new group.
+
+Category badges use the existing destination delivery rules, shared with
+**Destinations** and the setup tutorial: `null` accepts all offer categories,
+`[]` accepts none. Category changes and pause/resume controls apply independently
+to groups and channels. Previously saved destinations remain available for
+pausing when WAHA discovery fails. Channel name/photo/description editing remains
+in WhatsApp; WAHA's documented channel API has no equivalent update operations.
+
+Deploy backend and frontend together. Backend startup applies
+`0015_whatsapp_group_management`, adding tenant-scoped creation receipts so a
+browser retry cannot create the same group twice. If creation times out without
+confirmation, refresh the linked account's groups before starting a new request.
+If the group exists but some settings fail, its publication destination stays
+disabled and the screen lists the failed settings; edit that group to finish.
+Existing queue limits, deduplication, and offer expiry apply to new destinations.
+
+Offline validation:
+
+```bash
+python -m unittest tests.test_whatsapp_management tests.test_whatsapp tests.test_destination_categories
+```
+
+These tests mock WAHA; they do not create real groups or change account settings.
+After deployment, verify member counts, photo reuse/upload, admin-only messaging,
+and group creation with a test WhatsApp account on the installed WAHA engine.

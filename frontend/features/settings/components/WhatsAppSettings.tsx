@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { SettingsState } from "@/features/settings/hooks/use-settings";
@@ -26,6 +27,7 @@ export function WhatsAppSettings({ settings }: { settings: SettingsState }) {
           Conecte sua conta e escolha grupos ou canais onde deseja receber
           ofertas com seus links de afiliado.
         </p>
+        <Link href="/whatsapp" className="text-sm font-medium text-primary underline underline-offset-4">Gerenciar grupos, lotação e categorias →</Link>
       </CardHeader>
       <CardContent className="grid gap-6 p-5 sm:p-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,400px)]">
         <section className="min-w-0" aria-label="Destinos do WhatsApp">
