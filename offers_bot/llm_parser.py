@@ -8,8 +8,7 @@ from typing import List, Literal
 
 from pydantic_ai import Agent
 from pydantic_ai.models.google import GoogleModel
-from pydantic_ai.models.openai import OpenAIChatModel
-from pydantic_ai.providers.deepseek import DeepSeekProvider
+from pydantic_ai.models.openai import OpenAIChatModel, OpenAIChatModelSettings
 from pydantic_ai.providers.google import GoogleProvider
 from pydantic_ai.providers.openai import OpenAIProvider
 from openai import AsyncOpenAI
@@ -34,8 +33,8 @@ def _openrouter_headers() -> dict[str, str] | None:
     return headers
 
 
-PRIMARY_LLM_MODEL = "qwen/qwen3.7-flash"
-FALLBACK_LLM_MODEL = "deepseek/deepseek-v4-flash"
+PRIMARY_LLM_MODEL = "inclusionai/ling-3.0-flash"
+FALLBACK_LLM_MODEL = "qwen/qwen3.7-flash"
 FINAL_FALLBACK_LLM_MODEL = "google/gemini-2.5-flash-lite"
 
 
@@ -223,6 +222,7 @@ def save_token_usage(prompt_tokens: int, completion_tokens: int) -> None:
 
 
 def _build_agent(model_name: str, api_key: str) -> Agent:
+    """Build a structured parser; keep Ling on Novita and fall back at application level."""
     if model_name not in {
         PRIMARY_LLM_MODEL,
         FALLBACK_LLM_MODEL,
@@ -230,7 +230,8 @@ def _build_agent(model_name: str, api_key: str) -> Agent:
     }:
         raise ValueError(f"Unsupported LLM model: {model_name}")
 
-    if model_name == PRIMARY_LLM_MODEL:
+    settings: OpenAIChatModelSettings = {}
+    if model_name in {PRIMARY_LLM_MODEL, FALLBACK_LLM_MODEL}:
         client = AsyncOpenAI(
             base_url=OPENROUTER_BASE_URL,
             api_key=api_key,
@@ -240,11 +241,10 @@ def _build_agent(model_name: str, api_key: str) -> Agent:
             model_name,
             provider=OpenAIProvider(openai_client=client),
         )
-    elif model_name == FALLBACK_LLM_MODEL:
-        model = OpenAIChatModel(
-            "deepseek-v4-flash",
-            provider=DeepSeekProvider(api_key=api_key),
-        )
+        if model_name == PRIMARY_LLM_MODEL:
+            settings["extra_body"] = {
+                "provider": {"only": ["novita"], "allow_fallbacks": False}
+            }
     else:
         model = GoogleModel(
             "gemini-2.5-flash-lite",
@@ -255,6 +255,7 @@ def _build_agent(model_name: str, api_key: str) -> Agent:
         model=model,
         output_type=DealParseResult,
         system_prompt=SYSTEM_PROMPT,
+        model_settings=settings,
     )
 
 
@@ -262,7 +263,7 @@ def _llm_configs() -> list[tuple[str, str, str]]:
     """Return configured providers in priority order, without exposing keys."""
     return [
         ("primary", PRIMARY_LLM_MODEL, os.getenv("OPENROUTER_API_KEY", "")),
-        ("fallback", FALLBACK_LLM_MODEL, os.getenv("DEEPSEEK_API_KEY", "")),
+        ("fallback", FALLBACK_LLM_MODEL, os.getenv("OPENROUTER_API_KEY", "")),
         (
             "final fallback",
             FINAL_FALLBACK_LLM_MODEL,

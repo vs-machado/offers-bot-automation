@@ -60,7 +60,14 @@ Changing the URLs does not transfer data between databases.
 
 ## Parsing
 
-Qwen 3.7 Flash (`qwen/qwen3.7-flash`) through OpenRouter is the primary structured parser. DeepSeek V4 Flash and Gemini 2.5 Flash Lite use direct provider APIs as fallbacks. Regex parser runs when AI credentials are absent or AI parsing fails.
+Ling 3.0 Flash (`inclusionai/ling-3.0-flash`) through OpenRouter is the primary
+structured parser, followed by Qwen 3.7 Flash (`qwen/qwen3.7-flash`) through
+OpenRouter, then Gemini 2.5 Flash Lite through Google's direct API. Set
+`OPENROUTER_API_KEY` for Ling and Qwen, and `GEMINI_API_KEY` for Gemini.
+Ling requests are pinned to Novita; if that route fails, the parser tries Qwen
+instead of another Ling provider. Provider prices may change. DeepSeek is no
+longer part of the parser fallback chain. Regex parser runs when AI credentials
+are absent or all configured AI parsers fail.
 
 The existing LLM parsing call identifies unrelated source advertising by meaning
 and returns exact original substrings in `source_advertising_spans`. Code removes
@@ -276,7 +283,7 @@ problems with suppressions.
 
 ### Shared Telegram reader
 
-Set `TELEGRAM_API_ID` and `TELEGRAM_API_HASH` for the operator account. Supply `TELEGRAM_SESSION_STRING` or set `TELEGRAM_PHONE` and scan the QR served on port 8081. Operator sessions, LLM accounting, catalog sources, user destinations and affiliate credentials are persisted in PostgreSQL. Docker mounts `data` for temporary media and legacy import files. Set `OPENROUTER_API_KEY` to enable the primary Qwen parser.
+Set `TELEGRAM_API_ID` and `TELEGRAM_API_HASH` for the operator account. Supply `TELEGRAM_SESSION_STRING` or set `TELEGRAM_PHONE` and scan the QR served on port 8081. Operator sessions, LLM accounting, catalog sources, user destinations and affiliate credentials are persisted in PostgreSQL. Docker mounts `data` for temporary media and legacy import files. Set `OPENROUTER_API_KEY` to enable Ling parsing with Qwen fallback, and `GEMINI_API_KEY` for the final Gemini fallback.
 
 ### Platform persistence migration
 
