@@ -9,9 +9,14 @@ from backend.app.models.worker import PromotionDelivery as Delivery
 
 
 async def get_delivery_history(
-    db: AsyncSession, user_id: int, page: int, limit: int, status: str | None
+    db: AsyncSession,
+    user_id: int,
+    page: int,
+    limit: int,
+    status: str | None,
+    group_by_offer: bool = False,
 ) -> dict:
-    """Return bounded, tenant-scoped history and totals for all delivery states."""
+    """Return owned history, optionally paging whole offers with all their outcomes."""
     effective_status = case(
         (
             Delivery.status.in_(("queued", "retrying"))
@@ -46,13 +51,46 @@ async def get_delivery_history(
         effective_status.label("effective_status"),
         destination_title.label("destination_title"),
     ).where(Delivery.user_id == user_id)
-    if status:
-        statement = statement.where(effective_status == status)
-    result = await db.execute(
-        statement.order_by(Delivery.created_at.desc(), Delivery.id.desc())
-        .offset((page - 1) * limit)
-        .limit(limit)
-    )
+    offer_id = func.coalesce(Delivery.dedup_key, Delivery.id)
+    total = counts.get(status, 0) if status else sum(counts.values())
+    if group_by_offer:
+        # Never merge unrelated legacy rows by title or split destinations by page.
+        offers = (
+            select(
+                offer_id.label("offer_id"),
+                func.max(Delivery.created_at).label("latest_at"),
+            )
+            .where(Delivery.user_id == user_id)
+            .group_by(offer_id)
+        )
+        if status:
+            offers = offers.having(
+                func.sum(case((effective_status == status, 1), else_=0)) > 0
+            )
+        total = await db.scalar(select(func.count()).select_from(offers.subquery()))
+        selected_offers = (
+            offers.order_by(func.max(Delivery.created_at).desc(), offer_id.desc())
+            .offset((page - 1) * limit)
+            .limit(limit)
+            .subquery()
+        )
+        statement = statement.join(
+            selected_offers, offer_id == selected_offers.c.offer_id
+        ).order_by(
+            selected_offers.c.latest_at.desc(),
+            selected_offers.c.offer_id.desc(),
+            Delivery.created_at.desc(),
+            Delivery.id.desc(),
+        )
+    else:
+        if status:
+            statement = statement.where(effective_status == status)
+        statement = (
+            statement.order_by(Delivery.created_at.desc(), Delivery.id.desc())
+            .offset((page - 1) * limit)
+            .limit(limit)
+        )
+    result = await db.execute(statement)
     items = []
     for delivery, current_status, title in result.all():
         reason = delivery.reason
@@ -74,7 +112,9 @@ async def get_delivery_history(
         items.append(
             {
                 "id": delivery.id,
+                "offer_id": delivery.dedup_key or delivery.id,
                 "title": delivery.title,
+                "price": delivery.price,
                 "platform": delivery.platform,
                 "chat_id": delivery.chat_id,
                 "destination_title": title,
@@ -89,6 +129,6 @@ async def get_delivery_history(
         )
     return {
         "items": items,
-        "total": counts.get(status, 0) if status else sum(counts.values()),
+        "total": total,
         "counts": counts,
     }

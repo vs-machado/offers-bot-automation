@@ -8,7 +8,9 @@ export type DeliveryStatus = "queued" | "retrying" | "sending" | "sent" | "faile
 
 export type Delivery = {
   id: string;
+  offer_id: string;
   title: string | null;
+  price: string | null;
   platform: string | null;
   chat_id: string;
   destination_title: string | null;
@@ -18,6 +20,11 @@ export type Delivery = {
   attempts: number;
   created_at: string;
   updated_at: string;
+};
+
+export type Publication = {
+  id: string;
+  deliveries: Delivery[];
 };
 
 export type DeliveryHistoryData = {

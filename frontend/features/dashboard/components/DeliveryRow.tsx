@@ -39,6 +39,7 @@ export function DeliveryRow({ delivery }: { delivery: Delivery }) {
     destinationPlatform === "WhatsApp" ? MessageCircle : Send;
   const details = [
     { label: "Loja", value: getPlatformLabel(delivery.platform) },
+    { label: "Preço anunciado", value: delivery.price || "Não registrado" },
     { label: "Destino", value: `${destinationPlatform} · ${destination}` },
     { label: "Etapa", value: getDeliveryStage(delivery) },
     {
@@ -58,36 +59,24 @@ export function DeliveryRow({ delivery }: { delivery: Delivery }) {
   return (
     <li>
       <details className="group/delivery">
-        <summary className="grid min-h-16 cursor-pointer list-none grid-cols-[minmax(0,1fr)_auto_16px] items-center gap-3 px-4 py-3 text-sm transition-colors hover:bg-muted/50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring group-open/delivery:bg-muted/50 motion-reduce:transition-none md:min-h-14 md:grid-cols-[minmax(0,1fr)_140px_132px_104px_16px] md:gap-4 md:px-5 md:py-1 xl:grid-cols-[minmax(0,1fr)_104px_160px_132px_104px_16px] [&::-webkit-details-marker]:hidden">
+        <summary className="grid min-h-16 cursor-pointer list-none grid-cols-[minmax(0,1fr)_auto_16px] items-center gap-3 px-4 py-3 text-sm transition-colors hover:bg-muted/50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring group-open/delivery:bg-muted/50 motion-reduce:transition-none md:min-h-14 md:grid-cols-[minmax(0,1fr)_132px_104px_16px] md:gap-4 [&::-webkit-details-marker]:hidden">
           <span className="min-w-0">
-            <span className="block truncate font-medium" title={title}>
-              {title}
+            <span className="flex items-center gap-2 font-medium" title={destination}>
+              <DestinationIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
+              <span className="truncate">{destination}</span>
             </span>
-            <span className="mt-1 flex min-w-0 items-center gap-2 text-xs text-muted-foreground md:hidden">
+            <span className="mt-1 flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
               <span className="truncate">
-                {getPlatformLabel(delivery.platform)}
+                {destinationPlatform}
               </span>
-              <span aria-hidden="true">·</span>
+              <span aria-hidden="true" className="md:hidden">·</span>
               <time
-                className="shrink-0 tabular-nums"
+                className="shrink-0 tabular-nums md:hidden"
                 dateTime={delivery.created_at}
               >
                 {formatDeliveryDate(delivery.created_at, true)}
               </time>
             </span>
-          </span>
-          <span
-            className="hidden truncate text-muted-foreground xl:block"
-            title={getPlatformLabel(delivery.platform)}
-          >
-            {getPlatformLabel(delivery.platform)}
-          </span>
-          <span
-            className="hidden items-center gap-2 overflow-hidden text-muted-foreground md:flex"
-            title={`${destinationPlatform} · ${destination}`}
-          >
-            <DestinationIcon aria-hidden="true" className="size-3.5 shrink-0" />
-            <span className="truncate">{destination}</span>
           </span>
           <span
             className={cn(

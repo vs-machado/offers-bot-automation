@@ -13,9 +13,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { SelectField } from "@/components/ui/select";
-import { DeliveryRow } from "@/features/dashboard/components/DeliveryRow";
+import { PublicationRow } from "@/features/dashboard/components/PublicationRow";
 import { useDeliveryHistory } from "@/features/dashboard/hooks/use-delivery-history";
 import { deliveryStatusLabels } from "@/features/dashboard/lib/delivery-presentation";
+import { groupPublications } from "@/features/dashboard/lib/group-publications";
 import type {
   DeliveryHistoryData,
   DeliveryStatus,
@@ -30,6 +31,7 @@ export function PublicationHistory({
 }) {
   const history = useDeliveryHistory(initialData);
   const counts = history.data?.counts;
+  const publications = groupPublications(history.data?.items ?? []);
   const metrics = [
     { label: "Enviadas", value: counts?.sent ?? 0, icon: CheckCheck },
     {
@@ -89,7 +91,9 @@ export function PublicationHistory({
               Publicações
             </h2>
             <p className="mt-1 hidden text-xs text-muted-foreground sm:block">
-              Abra uma oferta para ver os detalhes do envio.
+              {history.status
+                ? "Ofertas com esse resultado em pelo menos um destino. Abra para ver todos."
+                : "Uma linha por oferta. Abra para acompanhar cada grupo ou canal."}
             </p>
           </div>
           <div className="flex w-full items-center gap-2 sm:w-auto">
@@ -160,14 +164,14 @@ export function PublicationHistory({
               >
                 <span>Oferta</span>
                 <span className="hidden xl:block">Loja</span>
-                <span>Destino</span>
+                <span>Destinos · envios</span>
                 <span>Resultado</span>
-                <span>Data · Brasília</span>
+                <span>Último registro</span>
                 <span className="sr-only">Detalhes</span>
               </div>
               <ul className="divide-y" aria-label="Histórico de publicações">
-                {history.data.items.map((delivery) => (
-                  <DeliveryRow key={delivery.id} delivery={delivery} />
+                {publications.map((publication) => (
+                  <PublicationRow key={publication.id} publication={publication} />
                 ))}
               </ul>
             </>
@@ -216,7 +220,7 @@ export function PublicationHistory({
               {countFormatter.format(firstRecord)}–
               {countFormatter.format(lastRecord)} de{" "}
               {countFormatter.format(total)}
-              <span className="hidden sm:inline"> publicações</span>
+              <span> ofertas</span>
             </p>
             <div className="flex items-center gap-2">
               <Button
@@ -250,7 +254,7 @@ export function PublicationHistory({
       </Card>
       <p className="hidden shrink-0 text-xs text-muted-foreground sm:block">
         Atualização automática a cada 30 segundos · Horários de Brasília ·
-        Totais de todo o histórico
+        Totais por envio de todo o histórico · Lista agrupada por oferta
       </p>
     </section>
   );

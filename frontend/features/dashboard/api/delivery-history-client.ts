@@ -1,7 +1,7 @@
 import type { DeliveryHistoryData, DeliveryStatus } from "@/features/dashboard/types";
 
 export async function getDeliveryHistory(page: number, status: DeliveryStatus | "", signal: AbortSignal): Promise<DeliveryHistoryData> {
-  const query = new URLSearchParams({ page: String(page), limit: "20" });
+  const query = new URLSearchParams({ page: String(page), limit: "20", group_by_offer: "true" });
   if (status) query.set("status", status);
   const response = await fetch(`/api/backend/users/me/deliveries?${query}`, { cache: "no-store", signal });
   if (!response.ok) {
