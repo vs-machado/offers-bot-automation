@@ -15,9 +15,8 @@ import {
   affiliateProviders as providers,
   type ProviderType,
 } from "@/lib/affiliate-providers";
-import type { ConfigSummary, DestinationSummary, DestinationInput, OfferCategory } from "@/shared/contracts/user-config";
+import type { ConfigSummary, DestinationSummary, DestinationInput } from "@/shared/contracts/user-config";
 import { DestinationRouting } from "@/features/offer-routing/DestinationRouting";
-import { OfferCategorySelector } from "@/features/offer-routing/OfferCategorySelector";
 import { WhatsAppConnection } from "@/features/whatsapp/WhatsAppConnection";
 import { WhatsAppDeliveryControls } from "@/features/whatsapp/WhatsAppDeliveryControls";
 import { CredentialValidation } from "@/features/credential-validation/CredentialValidation";
@@ -55,7 +54,6 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
   const [chatId, setChatId] = useState(telegramDestination?.chat_id ?? "");
   const [destinationPlatform, setDestinationPlatform] = useState<"telegram" | "whatsapp">(enabledDestination?.platform ?? "telegram");
   const [telegramChatType, setTelegramChatType] = useState(telegramDestination?.chat_type ?? "group");
-  const [telegramCategories, setTelegramCategories] = useState<OfferCategory[] | null>(telegramDestination?.categories ?? null);
   const [selectedProvider, setSelectedProvider] = useState<ProviderType>("amazon");
   const [providerData, setProviderData] = useState<Record<string, string>>(
     getProviderData(providers[0], configs)
@@ -225,7 +223,7 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
         chatId: trimmedChatId,
         id: savedDestinations.find((destination) => destination.platform !== "whatsapp" && destination.chat_id === trimmedChatId)?.id,
         chatType: telegramChatType,
-        categories: telegramCategories,
+        categories: savedDestinations.find((destination) => destination.platform !== "whatsapp" && destination.chat_id === trimmedChatId)?.categories ?? null,
       });
 
       setSavedDestination(saved);
@@ -267,7 +265,6 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
       const saved = await saveDestination({ chatId: input.chat_id, chatType: input.chat_type, title: input.title, platform: input.platform, enabled: input.enabled, categories: input.categories, id });
       setSavedDestinations((current) => current.map((destination) => destination.id === id ? saved : destination));
       if (savedDestination?.id === id) setSavedDestination(saved);
-      if (saved.platform !== "whatsapp" && saved.chat_id === chatId.trim()) setTelegramCategories(saved.categories ?? null);
       setStatus("success");
       setMessage("Categorias salvas. Alterações entram em vigor em até 30 segundos.");
       router.refresh();
@@ -428,6 +425,7 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
             <div className="min-h-0 flex-1 overflow-y-auto p-5 pt-0">
             {screen === "destination" ? (
               <>
+                <div className="mt-5"><DestinationRouting destinations={savedDestinations} saveDestination={saveDestinationCategories} disabled={status === "saving"} /></div>
                 <div className="mt-6 flex gap-3" role="group" aria-label="Plataforma de publicação">
                   <Button variant={destinationPlatform === "telegram" ? "default" : "outline"} aria-pressed={destinationPlatform === "telegram"} disabled={status === "saving"} onClick={() => { setDestinationPlatform("telegram"); setStatus("idle"); setMessage(""); }}>Telegram</Button>
                   <Button variant={destinationPlatform === "whatsapp" ? "default" : "outline"} aria-pressed={destinationPlatform === "whatsapp"} disabled={status === "saving"} onClick={() => { setDestinationPlatform("whatsapp"); setStatus("idle"); setMessage(""); }}>WhatsApp</Button>
@@ -503,8 +501,6 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
                     />
                   </label>
 
-                  <div className="mt-4"><OfferCategorySelector value={telegramCategories} onChange={setTelegramCategories} disabled={status === "saving"} /></div>
-
                   {message ? (
                     <p
                       className={
@@ -537,7 +533,6 @@ export function SetupDialog({ hasEnabledDestination, destinations, configs }: Se
                   </div>
                 </form>
                 </>}
-                <div className="mt-5"><DestinationRouting destinations={savedDestinations} saveDestination={saveDestinationCategories} disabled={status === "saving"} /></div>
               </>
             ) : screen === "providers" ? (
               <div className="setup-screen-slide mt-6 grid gap-5 lg:grid-cols-[260px_1fr]" key="providers-screen">

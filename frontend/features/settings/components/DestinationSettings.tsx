@@ -1,13 +1,13 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { Send } from "lucide-react";
+import { PlatformLogo } from "@/components/PlatformLogo";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SelectField } from "@/components/ui/select";
 import type { SettingsState } from "@/features/settings/hooks/use-settings";
-import type { DestinationSummary, OfferCategory } from "@/shared/contracts/user-config";
-import { OfferCategorySelector } from "@/features/offer-routing/OfferCategorySelector";
+import type { DestinationSummary } from "@/shared/contracts/user-config";
 
 export function DestinationSettings({ settings }: { settings: SettingsState }) {
   const [editingId, setEditingId] = useState<number | undefined>();
@@ -15,7 +15,6 @@ export function DestinationSettings({ settings }: { settings: SettingsState }) {
   const [title, setTitle] = useState("");
   const [chatType, setChatType] = useState("group");
   const [enabled, setEnabled] = useState(true);
-  const [categories, setCategories] = useState<OfferCategory[] | null>(null);
   const [removingId, setRemovingId] = useState<number | null>(null);
   const disabled = Boolean(settings.busy);
   function reset() {
@@ -24,7 +23,6 @@ export function DestinationSettings({ settings }: { settings: SettingsState }) {
     setTitle("");
     setChatType("group");
     setEnabled(true);
-    setCategories(null);
   }
   function edit(destination: DestinationSummary) {
     setEditingId(destination.id);
@@ -32,7 +30,6 @@ export function DestinationSettings({ settings }: { settings: SettingsState }) {
     setTitle(destination.title ?? "");
     setChatType(destination.chat_type ?? "group");
     setEnabled(destination.enabled);
-    setCategories(destination.categories ?? null);
     document
       .getElementById("destination-form")
       ?.scrollIntoView({ block: "start" });
@@ -49,7 +46,7 @@ export function DestinationSettings({ settings }: { settings: SettingsState }) {
           title: title.trim() || null,
           chat_type: chatType,
           enabled,
-          categories,
+          categories: settings.destinations.find((destination) => destination.id === editingId)?.categories ?? null,
         },
         editingId,
       )
@@ -68,7 +65,7 @@ export function DestinationSettings({ settings }: { settings: SettingsState }) {
     <Card id="destinations" className="scroll-mt-24 gap-0 overflow-hidden py-0">
       <CardHeader className="border-b p-5 sm:p-6">
         <CardTitle className="flex items-center gap-2">
-          <Send aria-hidden="true" className="size-4 text-muted-foreground" />
+          <PlatformLogo platform="telegram" />
           Telegram
         </CardTitle>
         <p className="max-w-prose text-sm/6 text-muted-foreground">
@@ -90,8 +87,9 @@ export function DestinationSettings({ settings }: { settings: SettingsState }) {
               {settings.destinations.map((destination) => (
                 <li key={destination.id} className="space-y-3 py-4">
                   <div className="min-w-0">
-                    <p className="wrap-anywhere font-medium">
-                      {destination.title || "Destino do Telegram"}
+                    <p className="flex items-center gap-2 font-medium">
+                      <PlatformLogo platform="telegram" />
+                      <span className="min-w-0 wrap-anywhere">{destination.title || "Destino do Telegram"}</span>
                     </p>
                     <p className="mt-1 wrap-anywhere text-xs text-muted-foreground">
                       {destination.chat_type === "channel" ? "Canal" : "Grupo"}{" "}
@@ -169,7 +167,6 @@ export function DestinationSettings({ settings }: { settings: SettingsState }) {
             {editingId ? "Editar destino" : "Adicionar destino"}
           </h3>
           <fieldset disabled={disabled} className="space-y-4">
-            <OfferCategorySelector value={categories} onChange={setCategories} disabled={disabled} />
             <label
               className="block space-y-2 text-sm font-medium"
               htmlFor="destination-chat-id"
@@ -222,11 +219,10 @@ export function DestinationSettings({ settings }: { settings: SettingsState }) {
               />
             </div>
             <label className="flex min-h-11 items-center gap-3 text-sm">
-              <input
-                type="checkbox"
-                className="size-4 shrink-0 accent-primary"
+              <Checkbox
+                disabled={disabled}
                 checked={enabled}
-                onChange={(event) => setEnabled(event.target.checked)}
+                onCheckedChange={setEnabled}
               />
               Habilitar publicação neste destino
             </label>

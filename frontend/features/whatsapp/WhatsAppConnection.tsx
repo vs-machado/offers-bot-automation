@@ -5,8 +5,8 @@ import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { SelectField } from "@/components/ui/select";
 import { useWhatsApp } from "@/features/whatsapp/hooks/use-whatsapp";
-import type { DestinationInput, DestinationSummary, OfferCategory } from "@/shared/contracts/user-config";
-import { OfferCategorySelector } from "@/features/offer-routing/OfferCategorySelector";
+import type { DestinationInput, DestinationSummary } from "@/shared/contracts/user-config";
+import { PlatformLogo } from "@/components/PlatformLogo";
 
 const statusLabels: Record<string, string> = {
   LOADING: "Consultando conexão…", UNCONFIGURED: "Integração ainda não configurada pelo administrador",
@@ -26,7 +26,6 @@ type Props = {
 export function WhatsAppConnection({ destinations, saveDestination, busy = false, onDisconnect }: Props) {
   const whatsapp = useWhatsApp();
   const [chatId, setChatId] = useState("");
-  const [categories, setCategories] = useState<OfferCategory[] | null>(null);
   const [chatType, setChatType] = useState<"group" | "channel">("channel");
   const [confirmDisconnect, setConfirmDisconnect] = useState(false);
   const disabled = whatsapp.busy || busy;
@@ -45,14 +44,13 @@ export function WhatsAppConnection({ destinations, saveDestination, busy = false
 
   async function addDestination() {
     const chat = chats.find((item) => item.id === chatId);
-    if (chat && await saveDestination({ chat_id: chat.id, title: chat.name, chat_type: chatType, enabled: true, platform: "whatsapp", categories })) {
+    if (chat && await saveDestination({ chat_id: chat.id, title: chat.name, chat_type: chatType, enabled: true, platform: "whatsapp" })) {
       setChatId("");
-      setCategories(null);
     }
   }
 
   return <div className="space-y-4">
-    <p aria-live="polite">{statusLabels[whatsapp.connection.status] ?? whatsapp.connection.status}{whatsapp.connection.name ? ` · ${whatsapp.connection.name}` : ""}</p>
+    <p aria-live="polite" className="flex items-center gap-2"><PlatformLogo platform="whatsapp" />{statusLabels[whatsapp.connection.status] ?? whatsapp.connection.status}{whatsapp.connection.name ? ` · ${whatsapp.connection.name}` : ""}</p>
     {whatsapp.error ? <p role="alert" className="text-sm text-destructive">{whatsapp.error}</p> : null}
     {whatsapp.error ? <Button variant="outline" disabled={disabled} onClick={() => void whatsapp.refresh()}>Tentar novamente</Button> : null}
     {["STOPPED", "FAILED"].includes(whatsapp.connection.status) ? <Button disabled={disabled} onClick={() => void whatsapp.start()}>Conectar WhatsApp</Button> : null}
@@ -94,7 +92,6 @@ export function WhatsAppConnection({ destinations, saveDestination, busy = false
         />
       </div>
       {!chatsError && !availableChats.length ? <p className="text-sm text-muted-foreground">Nenhum {chatType === "group" ? "grupo" : "canal administrado"} disponível para adicionar. Confira sua conta e atualize os destinos; destinos já cadastrados não aparecem novamente.</p> : null}
-      <OfferCategorySelector value={categories} onChange={setCategories} disabled={disabled} />
       <Button disabled={disabled || !availableChats.some((chat) => chat.id === chatId)} onClick={() => void addDestination()}>Adicionar {chatType === "group" ? "grupo" : "canal"} WhatsApp</Button>
       <p className="text-sm text-muted-foreground">Grupos: sua conta precisa participar e ter permissão para enviar. Canais: só aparecem aqueles que você administra. Publicações serão feitas em nome da conta conectada.</p>
     </div> : null}

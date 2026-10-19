@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { PlatformLogo } from "@/components/PlatformLogo";
 import { OfferCategorySelector } from "@/features/offer-routing/OfferCategorySelector";
 import type { DestinationInput, DestinationSummary, OfferCategory } from "@/shared/contracts/user-config";
 
@@ -17,7 +18,10 @@ function DestinationRule({ destination, saveDestination, disabled }: {
   return (
     <li className="space-y-3 rounded-xl border p-4">
       <div>
-        <h4 className="wrap-anywhere font-medium">{destination.title || destination.chat_id}</h4>
+        <h4 className="flex items-center gap-2 font-medium">
+          <PlatformLogo platform={destination.platform ?? "telegram"} />
+          <span className="min-w-0 wrap-anywhere">{destination.title || destination.chat_id}</span>
+        </h4>
         <p className="text-xs text-muted-foreground">
           {destination.platform === "whatsapp" ? "WhatsApp" : "Telegram"} · {destination.chat_type === "channel" ? "Canal" : "Grupo"} · {destination.enabled ? "Habilitado" : "Desativado"}
         </p>

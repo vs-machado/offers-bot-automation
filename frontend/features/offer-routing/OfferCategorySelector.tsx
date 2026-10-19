@@ -1,6 +1,7 @@
 "use client";
 
 import type { OfferCategory } from "@/shared/contracts/user-config";
+import { Checkbox } from "@/components/ui/checkbox";
 
 const categories: { value: OfferCategory; label: string }[] = [
   { value: "tech", label: "Tecnologia" },
@@ -23,11 +24,11 @@ export function OfferCategorySelector({
     <fieldset disabled={disabled} className="space-y-3 rounded-xl border p-4">
       <legend className="px-1 text-sm font-semibold">Ofertas neste destino</legend>
       <label className="flex items-center gap-2 text-sm font-medium">
-        <input
-          type="checkbox"
+        <Checkbox
+          disabled={disabled}
           checked={value === null}
-          onChange={(event) => onChange(
-            event.target.checked ? null : categories.map((category) => category.value),
+          onCheckedChange={(checked) => onChange(
+            checked ? null : categories.map((category) => category.value),
           )}
         />
         Todas as ofertas
@@ -35,12 +36,12 @@ export function OfferCategorySelector({
       <div className="grid gap-3 sm:grid-cols-2">
         {categories.map((category) => (
           <label key={category.value} className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
+            <Checkbox
+              disabled={disabled}
               checked={value === null || value.includes(category.value)}
-              onChange={(event) => {
+              onCheckedChange={(checked) => {
                 const selected = value ?? categories.map((item) => item.value);
-                onChange(event.target.checked
+                onChange(checked
                   ? [...selected, category.value]
                   : selected.filter((item) => item !== category.value));
               }}
