@@ -60,7 +60,7 @@ class LLMParserTest(unittest.TestCase):
                 _llm_configs(),
                 [
                     ("primary", PRIMARY_LLM_MODEL, "openrouter-key"),
-                    ("fallback", FALLBACK_LLM_MODEL, "deepseek-key"),
+                    ("fallback", FALLBACK_LLM_MODEL, "openrouter-key"),
                     ("final fallback", FINAL_FALLBACK_LLM_MODEL, "gemini-key"),
                 ],
             )
