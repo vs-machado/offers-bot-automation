@@ -1,6 +1,8 @@
+import asyncio
+
 import httpx
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from typing import Literal
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -39,8 +41,46 @@ from backend.app.api.v1.endpoints.auth import get_current_user
 from backend.app.core.source_groups import approved_source, enabled_source_groups
 from backend.app.core.telegram_sources import fetch_source_messages
 from backend.worker.poster import BotPoster, BotPosterError
+from backend.app.core.integration_health import mercado_livre_health, whatsapp_health
 
 router = APIRouter()
+
+
+@router.get("/me/integration-health")
+async def integration_health(
+    response: Response,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Check owned integrations without mutating sessions or returning saved secrets."""
+    response.headers["Cache-Control"] = "no-store"
+    result = await db.execute(
+        select(UserConfig)
+        .where(
+            UserConfig.user_id == current_user.id,
+            UserConfig.config_type == "mercado_livre",
+        )
+        .order_by(UserConfig.id)
+    )
+    config = result.scalars().first()
+    values = (
+        decrypt_config(config.config_data, current_user.id, "mercado_livre")
+        if config
+        else None
+    )
+    result = await db.execute(
+        select(DestinationChannel.id)
+        .where(
+            DestinationChannel.user_id == current_user.id,
+            DestinationChannel.platform == "whatsapp",
+        )
+        .limit(1)
+    )
+    whatsapp, mercado_livre = await asyncio.gather(
+        whatsapp_health(current_user.id, result.scalar_one_or_none() is not None),
+        mercado_livre_health(values),
+    )
+    return {"whatsapp": whatsapp, "mercado_livre": mercado_livre}
 
 
 @router.post(

@@ -1,6 +1,7 @@
 "use client";
 
 import { Tabs } from "@base-ui/react/tabs";
+import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DestinationSettings } from "@/features/settings/components/DestinationSettings";
@@ -20,6 +21,10 @@ export function SettingsEditor({
   section: SettingsSection;
 }) {
   const settings = useSettings(initialData);
+  const searchParams = useSearchParams();
+  const selectedProvider = affiliateProviders.find(
+    (provider) => provider.type === searchParams.get("provider"),
+  )?.type ?? affiliateProviders[0].type;
   const configuredSources = settings.configs.find(
     (config) => config.config_type === "source_chats",
   )?.config_data?.source_chats;
@@ -114,7 +119,8 @@ export function SettingsEditor({
             </p>
           </div>
           <Tabs.Root
-            defaultValue={affiliateProviders[0].type}
+            key={selectedProvider}
+            defaultValue={selectedProvider}
             orientation="vertical"
             className="grid items-start gap-4 md:grid-cols-[13rem_minmax(0,1fr)] md:gap-6"
           >

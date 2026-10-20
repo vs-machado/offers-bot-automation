@@ -9,6 +9,7 @@ import {
   getUserConfigs,
 } from "@/features/dashboard/api/dashboard-server";
 import { PublicationHistory } from "@/features/dashboard/components/PublicationHistory";
+import { IntegrationAlerts } from "@/features/dashboard/components/IntegrationAlerts";
 import { SetupDialog } from "@/features/setup/SetupDialog";
 
 export async function Dashboard() {
@@ -94,6 +95,7 @@ export async function Dashboard() {
           </div>
         ) : null}
       </div>
+      <IntegrationAlerts />
       {isConfigured ? (
         <PublicationHistory initialData={deliveryHistory} />
       ) : (
