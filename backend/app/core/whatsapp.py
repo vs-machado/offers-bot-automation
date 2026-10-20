@@ -50,7 +50,7 @@ class WahaClient:
             )
         return response
 
-    async def status(self) -> dict:
+    async def status(self, *, include_session: bool = False) -> dict:
         """Return only connection state and account display name for this tenant."""
         if not self.base_url or not self.api_key:
             return {"status": "UNCONFIGURED", "name": None}
@@ -64,6 +64,7 @@ class WahaClient:
         return {
             "status": data.get("status", "STOPPED"),
             "name": (data.get("me") or {}).get("pushName"),
+            **({"session_exists": True} if include_session else {}),
         }
 
     async def start(self) -> dict:

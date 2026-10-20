@@ -182,6 +182,11 @@ The **Destinations** screen (`/settings/destinations#whatsapp`) combines account
 connection, a single group/channel management list, and collapsible publication
 controls. The old `/whatsapp` route redirects here. Saved destinations remain
 visible while disconnected; reconnecting never enables them automatically.
+The dashboard checks connection health on entry, every minute while visible,
+and when returning to the page. Disconnected sessions show an explicit alert
+linking to `/settings/destinations#whatsapp`; upstream outages are shown as
+unconfirmed status rather than confirmed disconnections. Checks never restart
+sessions or enable destinations.
 Removing a destination deletes routing only, not the group or channel in WhatsApp.
 Category rules are shared with setup. Groups show member counts and
 capacity; when WAHA provides no specific capacity, the 1,024-member reference is
