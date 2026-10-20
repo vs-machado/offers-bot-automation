@@ -73,11 +73,11 @@ class PolicyCalculationTests(unittest.TestCase):
         )
         self.assertEqual(
             next_slot(WhatsAppPolicy(), now, attempts[-1:], "a"),
-            now + timedelta(seconds=25),
+            now + timedelta(seconds=15),
         )
         self.assertEqual(
             next_slot(WhatsAppPolicy(), now, attempts[-1:], "b"),
-            now + timedelta(seconds=55),
+            now + timedelta(seconds=40),
         )
 
     def test_window_moves_send_to_next_opening(self):
@@ -182,7 +182,7 @@ class PolicyAPITests(unittest.TestCase):
             self.client.get("/users/me/whatsapp/policy", headers=second).json()[
                 "settings"
             ]["max_per_hour"],
-            60,
+            90,
         )
         invalid = self.client.put(
             "/users/me/whatsapp/policy",
