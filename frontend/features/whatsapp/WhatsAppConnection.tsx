@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { SelectField } from "@/components/ui/select";
@@ -16,15 +16,25 @@ const statusLabels: Record<string, string> = {
   PASSKEY_CONFIRMATION_REQUIRED: "Confirme vinculação no seu celular.",
 };
 
-type Props = {
+type Props = ({
+  connectionOnly?: false;
   destinations: DestinationSummary[];
   saveDestination: (input: DestinationInput) => Promise<boolean>;
+} | {
+  connectionOnly: true;
+  destinations?: never;
+  saveDestination?: never;
+}) & {
   busy?: boolean;
   onDisconnect: () => void;
+  onStatusChange?: (status: string) => void;
 };
 
-export function WhatsAppConnection({ destinations, saveDestination, busy = false, onDisconnect }: Props) {
-  const whatsapp = useWhatsApp();
+export function WhatsAppConnection({ destinations = [], saveDestination, connectionOnly = false, busy = false, onDisconnect, onStatusChange }: Props) {
+  const whatsapp = useWhatsApp({ connectionOnly });
+  useEffect(() => {
+    onStatusChange?.(whatsapp.connection.status);
+  }, [onStatusChange, whatsapp.connection.status]);
   const [chatId, setChatId] = useState("");
   const [chatType, setChatType] = useState<"group" | "channel">("channel");
   const [confirmDisconnect, setConfirmDisconnect] = useState(false);
@@ -44,7 +54,7 @@ export function WhatsAppConnection({ destinations, saveDestination, busy = false
 
   async function addDestination() {
     const chat = chats.find((item) => item.id === chatId);
-    if (chat && await saveDestination({ chat_id: chat.id, title: chat.name, chat_type: chatType, enabled: true, platform: "whatsapp" })) {
+    if (chat && saveDestination && await saveDestination({ chat_id: chat.id, title: chat.name, chat_type: chatType, enabled: true, platform: "whatsapp" })) {
       setChatId("");
     }
   }
@@ -56,8 +66,8 @@ export function WhatsAppConnection({ destinations, saveDestination, busy = false
     {["STOPPED", "FAILED"].includes(whatsapp.connection.status) ? <Button disabled={disabled} onClick={() => void whatsapp.start()}>Conectar WhatsApp</Button> : null}
     {whatsapp.qr ? <div className="space-y-3"><p className="text-sm">No celular: WhatsApp → Aparelhos conectados → Conectar aparelho. QR atualizado automaticamente.</p><Image src={whatsapp.qr} unoptimized width={256} height={256} alt="QR para conectar sua conta WhatsApp" className="rounded-lg bg-white p-2" /></div> : null}
     {connected ? <div className="space-y-3">
-      <div className="flex flex-wrap gap-2"><Button variant="outline" disabled={disabled} onClick={() => void whatsapp.loadGroups()}>Atualizar destinos</Button><Button variant="outline" disabled={disabled} onClick={() => setConfirmDisconnect(true)}>Desconectar conta</Button></div>
-      <div className="space-y-2">
+      <div className="flex flex-wrap gap-2">{!connectionOnly ? <Button variant="outline" disabled={disabled} onClick={() => void whatsapp.loadGroups()}>Atualizar destinos</Button> : null}<Button variant="outline" disabled={disabled} onClick={() => setConfirmDisconnect(true)}>Desconectar conta</Button></div>
+      {!connectionOnly ? <><div className="space-y-2">
         <label className="block text-sm font-medium" htmlFor="whatsapp-chat-type">
           Tipo de destino
         </label>
@@ -93,7 +103,7 @@ export function WhatsAppConnection({ destinations, saveDestination, busy = false
       </div>
       {!chatsError && !availableChats.length ? <p className="text-sm text-muted-foreground">Nenhum {chatType === "group" ? "grupo" : "canal administrado"} disponível para adicionar. Confira sua conta e atualize os destinos; destinos já cadastrados não aparecem novamente.</p> : null}
       <Button disabled={disabled || !availableChats.some((chat) => chat.id === chatId)} onClick={() => void addDestination()}>Adicionar {chatType === "group" ? "grupo" : "canal"} WhatsApp</Button>
-      <p className="text-sm text-muted-foreground">Grupos: sua conta precisa participar e ter permissão para enviar. Canais: só aparecem aqueles que você administra. Publicações serão feitas em nome da conta conectada.</p>
+      <p className="text-sm text-muted-foreground">Grupos: sua conta precisa participar e ter permissão para enviar. Canais: só aparecem aqueles que você administra. Publicações serão feitas em nome da conta conectada.</p></> : null}
     </div> : null}
     {confirmDisconnect ? <div className="rounded-lg bg-muted p-3 text-sm"><p>Desconectar WhatsApp? Publicação nos seus grupos e canais será desativada.</p><div className="mt-3 flex gap-2"><Button variant="destructive" disabled={disabled} onClick={() => void disconnect()}>Desconectar</Button><Button variant="outline" onClick={() => setConfirmDisconnect(false)}>Cancelar</Button></div></div> : null}
   </div>;

@@ -6,7 +6,8 @@ import type { ManagedWhatsAppChat, WhatsAppGroupDraft, WhatsAppGroupEditor } fro
 import type { OfferCategory } from "@/shared/contracts/user-config";
 import { getRequestErrorMessage } from "@/lib/api-error-message";
 
-export function useWhatsAppManagement() {
+/** Keep saved routing and live chats together; disconnected accounts load saved destinations only. */
+export function useWhatsAppManagement(connectionStatus: string) {
   const [chats, setChats] = useState<ManagedWhatsAppChat[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isBusy, setIsBusy] = useState(false);
@@ -16,13 +17,18 @@ export function useWhatsAppManagement() {
   const [editor, setEditor] = useState<WhatsAppGroupEditor | null>(null);
   const [updatedAt, setUpdatedAt] = useState("");
   const lock = useRef(false);
+  const loadVersion = useRef(0);
 
   const load = useCallback(async () => {
+    const version = ++loadVersion.current;
     setIsLoading(true);
     try {
       const [groups, channels, saved] = await Promise.allSettled([
-        api.getManagedWhatsAppGroups(), api.getManagedWhatsAppChannels(), api.getSavedWhatsAppDestinations(),
+        connectionStatus === "WORKING" ? api.getManagedWhatsAppGroups() : Promise.resolve([]),
+        connectionStatus === "WORKING" ? api.getManagedWhatsAppChannels() : Promise.resolve([]),
+        api.getSavedWhatsAppDestinations(),
       ]);
+      if (version !== loadVersion.current) return;
       const next: ManagedWhatsAppChat[] = [];
       const failures: string[] = [];
       for (const result of [groups, channels]) {
@@ -31,7 +37,10 @@ export function useWhatsAppManagement() {
       }
       if (saved.status === "fulfilled") {
         for (const destination of saved.value) {
-          if (!next.some((chat) => chat.id === destination.chat_id)) next.push({
+          const index = next.findIndex((chat) => chat.id === destination.chat_id);
+          if (index >= 0) {
+            next[index] = { ...next[index], destination_id: destination.id, enabled: destination.enabled, categories: destination.categories ?? null };
+          } else next.push({
             id: destination.chat_id, name: destination.title || destination.chat_id,
             chat_type: destination.chat_type === "channel" ? "channel" : "group",
             member_count: null, capacity: null, capacity_reported: false, is_full: null,
@@ -44,13 +53,14 @@ export function useWhatsAppManagement() {
       setErrors([...new Set(failures)]);
       setUpdatedAt(new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }));
     } finally {
-      setIsLoading(false);
+      if (version === loadVersion.current) setIsLoading(false);
     }
-  }, []);
+  }, [connectionStatus]);
 
   useEffect(() => {
+    const version = loadVersion;
     const timer = setTimeout(() => void load(), 0);
-    return () => clearTimeout(timer);
+    return () => { clearTimeout(timer); version.current++; };
   }, [load]);
 
   async function run(operation: () => Promise<void>) {
@@ -102,6 +112,15 @@ export function useWhatsAppManagement() {
     });
   }
 
+  function removeDestination(chat: ManagedWhatsAppChat) {
+    return run(async () => {
+      if (chat.destination_id == null) return;
+      await api.removeWhatsAppDestination(chat.destination_id);
+      setNotice(`${chat.name}: destino removido. O grupo ou canal continua no WhatsApp.`);
+      await load();
+    });
+  }
+
   return { chats, isLoading, isBusy, errors, error, notice, editor, updatedAt,
-    refresh: () => run(load), openEditor, closeEditor: () => setEditor(null), saveGroup, saveRouting, refreshChat };
+    refresh: () => run(load), openEditor, closeEditor: () => setEditor(null), saveGroup, saveRouting, refreshChat, removeDestination };
 }

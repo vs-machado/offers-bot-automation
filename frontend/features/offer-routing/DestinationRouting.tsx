@@ -55,7 +55,7 @@ export function DestinationRouting({ destinations, saveDestination, disabled = f
       <div>
         <h3 className="font-semibold">Categorias por grupo ou canal</h3>
         <p className="mt-2 text-sm/relaxed text-muted-foreground">
-          Telegram e WhatsApp: envie tudo para um destino e selecione categorias específicas para outros.
+          Envie tudo para um destino e selecione categorias específicas para outros.
           Cada destino tem regras independentes. Alterações valem também para ofertas ainda aguardando envio.
         </p>
       </div>
@@ -71,7 +71,7 @@ export function DestinationRouting({ destinations, saveDestination, disabled = f
           ))}
         </ul>
       ) : (
-        <p className="text-sm text-muted-foreground">Adicione grupos ou canais do Telegram ou WhatsApp para escolher as categorias.</p>
+        <p className="text-sm text-muted-foreground">Adicione grupos ou canais para escolher as categorias.</p>
       )}
     </section>
   );

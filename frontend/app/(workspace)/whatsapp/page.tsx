@@ -1,5 +1,5 @@
-import { WhatsAppManagement } from "@/features/whatsapp/WhatsAppManagement";
+import { redirect } from "next/navigation";
 
 export default function Page() {
-  return <WhatsAppManagement />;
+  redirect("/settings/destinations#whatsapp");
 }

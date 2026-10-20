@@ -37,3 +37,12 @@ export async function getSavedWhatsAppDestinations() {
   if (!response.ok) throw new Error(getApiErrorMessage(data, "Não foi possível carregar destinos salvos."));
   return (data as DestinationSummary[]).filter((destination) => destination.platform === "whatsapp");
 }
+
+/** Remove routing only; the WhatsApp group or channel is not deleted. */
+export async function removeWhatsAppDestination(id: number) {
+  const response = await fetch(`/api/backend/users/me/destinations/${id}`, { method: "DELETE" });
+  if (!response.ok) {
+    const data = await response.json().catch(() => null);
+    throw new Error(getApiErrorMessage(data, "Não foi possível remover o destino."));
+  }
+}

@@ -47,7 +47,7 @@ export function SettingsEditor({
       </div>
       {section === "destinations" ? (
         <div className="space-y-6">
-          <DestinationRouting destinations={settings.destinations} saveDestination={settings.saveDestination} disabled={Boolean(settings.busy)} />
+          <DestinationRouting destinations={settings.destinations.filter((destination) => destination.platform !== "whatsapp")} saveDestination={settings.saveDestination} disabled={Boolean(settings.busy)} />
           <DestinationSettings
             settings={{
               ...settings,
@@ -56,7 +56,7 @@ export function SettingsEditor({
               ),
             }}
           />
-          <WhatsAppSettings settings={settings} />
+          <WhatsAppSettings />
         </div>
       ) : null}
       {section === "sources" ? (
