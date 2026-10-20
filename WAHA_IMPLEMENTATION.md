@@ -178,8 +178,12 @@ PostgreSQL databases and do not send real messages.
 
 ### Group and channel management
 
-The **WhatsApp** screen (`/whatsapp`) lists groups and administered channels with
-category rules shared with Destinations/setup. Groups show member counts and
+The **Destinations** screen (`/settings/destinations#whatsapp`) combines account
+connection, a single group/channel management list, and collapsible publication
+controls. The old `/whatsapp` route redirects here. Saved destinations remain
+visible while disconnected; reconnecting never enables them automatically.
+Removing a destination deletes routing only, not the group or channel in WhatsApp.
+Category rules are shared with setup. Groups show member counts and
 capacity; when WAHA provides no specific capacity, the 1,024-member reference is
 identified in the UI. Missing counts are not treated as zero. Refreshing is explicit,
 without frequent calls to `/groups/refresh`. Channels support follower-count

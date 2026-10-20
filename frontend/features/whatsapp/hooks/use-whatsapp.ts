@@ -5,7 +5,7 @@ import * as api from "@/features/whatsapp/api/whatsapp-client";
 import type { WhatsAppChat, WhatsAppStatus } from "@/features/whatsapp/types";
 import { getRequestErrorMessage } from "@/lib/api-error-message";
 
-export function useWhatsApp() {
+export function useWhatsApp({ connectionOnly = false }: { connectionOnly?: boolean } = {}) {
   const [connection, setConnection] = useState<WhatsAppStatus>({ status: "LOADING", name: null });
   const [qr, setQr] = useState("");
   const [groups, setGroups] = useState<WhatsAppChat[]>([]);
@@ -46,7 +46,7 @@ export function useWhatsApp() {
       } else {
         setQr("");
       }
-      if (status.status === "WORKING" && lastStatus.current !== "WORKING") {
+      if (!connectionOnly && status.status === "WORKING" && lastStatus.current !== "WORKING") {
         await fetchChats();
       } else if (status.status !== "WORKING") {
         setGroups([]);
@@ -61,7 +61,7 @@ export function useWhatsApp() {
     } finally {
       lock.current = false;
     }
-  }, [fetchChats]);
+  }, [connectionOnly, fetchChats]);
 
   useEffect(() => {
     const initial = setTimeout(() => void refresh(), 0);

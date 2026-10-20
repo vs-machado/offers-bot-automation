@@ -9,15 +9,18 @@ import type { OfferCategory } from "@/shared/contracts/user-config";
 
 const categoryLabels: Record<OfferCategory, string> = { tech: "Tecnologia", home: "Casa", clothes: "Roupas e acessórios", other: "Outros", coupon: "Cupons" };
 
-export function WhatsAppChatCard({ chat, disabled, onEdit, onNext, onRefresh, onRouting }: {
+export function WhatsAppChatCard({ chat, disabled, connected, onEdit, onNext, onRefresh, onRouting, onRemove }: {
   chat: ManagedWhatsAppChat;
   disabled: boolean;
+  connected: boolean;
   onEdit: () => void;
   onNext: () => void;
   onRefresh: () => void;
   onRouting: (categories: OfferCategory[] | null, enabled: boolean) => Promise<void>;
+  onRemove: () => Promise<void>;
 }) {
   const [showRouting, setShowRouting] = useState(false);
+  const [confirmRemove, setConfirmRemove] = useState(false);
   const [categories, setCategories] = useState(chat.categories);
   const isGroup = chat.chat_type === "group";
   const Icon = isGroup ? UsersRound : Megaphone;
@@ -29,7 +32,7 @@ export function WhatsAppChatCard({ chat, disabled, onEdit, onNext, onRefresh, on
       <div className="rounded-xl bg-muted p-3"><Icon className="size-5" aria-hidden="true" /></div>
       <div className="min-w-0 flex-1">
         <h3 className="wrap-anywhere font-semibold">{chat.name}</h3>
-        <p className="mt-1 text-xs text-muted-foreground">{isGroup ? "Grupo" : "Canal"} · {chat.enabled ? "Publicações ativas" : "Publicações desativadas"}</p>
+        <p className="mt-1 text-xs text-muted-foreground">{isGroup ? "Grupo" : "Canal"} · {chat.destination_id == null ? "Não cadastrado" : chat.enabled ? "Publicações ativas" : "Publicações desativadas"}</p>
       </div>
     </div>
     <div className="space-y-2">
@@ -45,16 +48,21 @@ export function WhatsAppChatCard({ chat, disabled, onEdit, onNext, onRefresh, on
     <div className="flex flex-wrap gap-1.5" aria-label="Categorias de ofertas">{tags.map((tag) => <span key={tag} className="rounded-full bg-muted px-2.5 py-1 text-xs">{tag}</span>)}</div>
     <div className="mt-auto flex flex-wrap gap-2">
       {isGroup ? <>
-        <Button variant={chat.is_full ? "default" : "outline"} disabled={disabled} onClick={onNext}>Criar próximo grupo</Button>
-        <Button variant="outline" disabled={disabled} onClick={onEdit}>Editar grupo</Button>
+        <Button variant={chat.is_full ? "default" : "outline"} disabled={disabled || !connected || !chat.can_manage} onClick={onNext}>Criar próximo grupo</Button>
+        <Button variant="outline" disabled={disabled || !connected || !chat.can_manage} onClick={onEdit}>Editar grupo</Button>
       </> : null}
-      <Button variant="outline" disabled={disabled} onClick={() => { setCategories(chat.categories); setShowRouting(!showRouting); }} aria-expanded={showRouting}>Categorias</Button>
-      <Button variant="outline" disabled={disabled} onClick={() => void onRouting(chat.categories, !chat.enabled)}>{chat.enabled ? "Pausar ofertas" : "Ativar ofertas"}</Button>
-      <Button variant="ghost" disabled={disabled} onClick={onRefresh}>Atualizar {isGroup ? "membros" : "seguidores"}</Button>
+      <Button variant="outline" disabled={disabled || !connected} onClick={() => { setCategories(chat.categories); setShowRouting(!showRouting); }} aria-expanded={showRouting}>Categorias</Button>
+      <Button variant="outline" disabled={disabled || !connected} onClick={() => void onRouting(chat.categories, !chat.enabled)}>{chat.enabled ? "Pausar ofertas" : "Ativar ofertas"}</Button>
+      <Button variant="ghost" disabled={disabled || !connected} onClick={onRefresh}>Atualizar {isGroup ? "membros" : "seguidores"}</Button>
+      {chat.destination_id != null ? <Button variant="ghost" disabled={disabled} onClick={() => setConfirmRemove(true)}>Remover destino</Button> : null}
     </div>
+    {confirmRemove ? <div className="space-y-3 rounded-lg bg-muted p-3 text-sm">
+      <p>Remover este destino? Ofertas deixarão de ser enviadas. O grupo ou canal não será excluído do WhatsApp.</p>
+      <div className="flex flex-wrap gap-2"><Button variant="destructive" disabled={disabled} onClick={() => void onRemove().then(() => setConfirmRemove(false))}>Confirmar remoção</Button><Button variant="outline" disabled={disabled} onClick={() => setConfirmRemove(false)}>Cancelar</Button></div>
+    </div> : null}
     {showRouting ? <div className="space-y-3 border-t pt-4">
-      <OfferCategorySelector value={categories} onChange={setCategories} disabled={disabled} />
-      <Button disabled={disabled} onClick={() => void onRouting(categories, chat.enabled)}>Salvar categorias</Button>
+      <OfferCategorySelector value={categories} onChange={setCategories} disabled={disabled || !connected} />
+      <Button disabled={disabled || !connected} onClick={() => void onRouting(categories, chat.enabled)}>Salvar categorias</Button>
     </div> : null}
   </article>;
 }
