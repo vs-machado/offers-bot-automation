@@ -136,20 +136,27 @@ limits, transactional cross-source deduplication by product/variation and price
 recovery, automatic pauses, and UI/tutorial controls. Price changes permit a new
 post; destinations and users have independent deduplication.
 
-Initial values, defined as editorial policy rather than guarantees against bans:
+Default values, defined as editorial policy rather than guarantees against bans:
 
 | Control | Default |
 | --- | --- |
 | Lifetime | 600 seconds, also capped by the operator's `PROMOTION_TTL_SECONDS` |
-| Aggregate account interval | 30 seconds |
-| Destination interval | 60 seconds |
-| Account attempts | 60/hour and 300/24h, in rolling windows |
+| Aggregate account interval | 20 seconds |
+| Destination interval | 45 seconds |
+| Account attempts | 90/hour and 600/24h, in rolling windows |
 | Burst | 6 eligible offers in 60 seconds; retain the 5 most recent pending offers |
 | Initial collection period per channel offer | 60 seconds (matches the configured burst window) |
 | Posting window | 0–24h UTC (all day), configurable without crossing midnight |
 | Consecutive failures | 3 failures: pause the account for 15 minutes |
 | Authentication/permission/destination rejection | Immediate 15-minute pause |
 | Explicit HTTP 429 rate limit | Pause for at least 60 seconds or `Retry-After`, whichever is longer |
+
+Account quotas are shared by all WhatsApp groups and channels on the same account.
+The shorter spacing and higher quotas reduce policy-driven expiration when both
+types of destination receive offers. These defaults apply when no saved policy
+exists; saved settings retain their configured values. The API and workers must
+also use `PROMOTION_TTL_SECONDS=600` to allow the full ten-minute lifetime: a lower
+operator value still takes precedence over the policy's lifetime.
 
 Permission/destination failures pause only the destination; authentication,
 rate limits, and repeated failures pause the account. Internal error responses
