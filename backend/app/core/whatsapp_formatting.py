@@ -15,15 +15,15 @@ TOKENS = re.compile(
 
 
 def format_whatsapp_offer(text: str) -> str:
-    """Convert offer markup while preserving coupon code spans and affiliate URLs.
+    """Convert offer markup and unwrap coupon code spans without rewriting contents.
 
-    WhatsApp supports the existing triple-backtick coupon monospace syntax.
-    Formatting does not guarantee a coupon-only long-press copy action: selection
-    and clipboard behavior belong to the recipient's WhatsApp client.
+    Coupons use regular text for readability; affiliate URLs remain unchanged.
     """
 
     def replace(match: re.Match) -> str:
-        if match.group("code") or match.group("url"):
+        if code := match.group("code"):
+            return code[3:-3] if code.startswith("```") else code[1:-1]
+        if match.group("url"):
             return match.group()
         if match.group("link"):
             label, target = match.group("label", "target")
