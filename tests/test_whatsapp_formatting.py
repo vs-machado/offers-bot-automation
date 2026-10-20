@@ -18,7 +18,7 @@ class WhatsAppFormattingTests(unittest.TestCase):
         self.assertEqual(
             format_whatsapp_offer(text),
             "🔥 *Oferta 🎧*\n~R$ 199,90~ *R$ 99,90*\n"
-            "_Só hoje_\n🎟️ Cupom: ```SAVE10``` ou ```OFF20``` + moedas",
+            "_Só hoje_\n🎟️ Cupom: SAVE10 ou OFF20 + moedas",
         )
 
     def test_code_contents_and_affiliate_parameters_are_not_rewritten(self):
@@ -26,7 +26,11 @@ class WhatsAppFormattingTests(unittest.TestCase):
             "```SAVE__10**OFF~~20```\n`CODE__10`\n"
             "https://shop.example/item__id?tag=a**b&coupon=SAVE~~20#fragment"
         )
-        self.assertEqual(format_whatsapp_offer(text), text)
+        self.assertEqual(
+            format_whatsapp_offer(text),
+            "SAVE__10**OFF~~20\nCODE__10\n"
+            "https://shop.example/item__id?tag=a**b&coupon=SAVE~~20#fragment",
+        )
 
     def test_link_labels_retain_clickable_target_and_tracking(self):
         url = "https://shop.example/item?tag=affiliate&coupon=SAVE10"
@@ -41,11 +45,16 @@ class WhatsAppFormattingTests(unittest.TestCase):
             format_whatsapp_offer("**Oferta __hoje__**"), "*Oferta _hoje_*"
         )
         native = "*Oferta* _hoje_ ~antes~\n```SAVE10```"
-        self.assertEqual(format_whatsapp_offer(native), native)
+        self.assertEqual(
+            format_whatsapp_offer(native), "*Oferta* _hoje_ ~antes~\nSAVE10"
+        )
 
     def test_multiline_code_and_unmatched_delimiters(self):
         text = "```**literal**\n__literal__```\n**aberto\ntexto normal"
-        self.assertEqual(format_whatsapp_offer(text), text)
+        self.assertEqual(
+            format_whatsapp_offer(text),
+            "**literal**\n__literal__\n**aberto\ntexto normal",
+        )
 
 
 class WhatsAppFormattingDeliveryTests(unittest.IsolatedAsyncioTestCase):
@@ -64,6 +73,6 @@ class WhatsAppFormattingDeliveryTests(unittest.IsolatedAsyncioTestCase):
                     self.assertEqual(endpoint, "sendImage" if image else "sendText")
                     self.assertEqual(
                         payload["caption" if image else "text"],
-                        "*Oferta*\nCupom: ```SAVE10```",
+                        "*Oferta*\nCupom: SAVE10",
                     )
                     self.assertEqual(payload["session"], "offers-user-7")
