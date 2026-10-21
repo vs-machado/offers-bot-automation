@@ -17,7 +17,8 @@ TOKENS = re.compile(
 def format_whatsapp_offer(text: str) -> str:
     """Convert offer markup and unwrap coupon code spans without rewriting contents.
 
-    Coupons use regular text for readability; affiliate URLs remain unchanged.
+    Coupons use regular text; disclosure loses its list marker to avoid a bullet.
+    Affiliate URLs remain unchanged.
     """
 
     def replace(match: re.Match) -> str:
@@ -38,4 +39,5 @@ def format_whatsapp_offer(text: str) -> str:
                 return f"{marker}{format_whatsapp_offer(content)}{marker}"
         return match.group()
 
-    return TOKENS.sub(replace, text)
+    formatted = TOKENS.sub(replace, text)
+    return re.sub(r"(?m)^- Anúncio$", "Anúncio", formatted)
