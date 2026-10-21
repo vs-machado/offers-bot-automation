@@ -115,6 +115,7 @@ async def get_delivery_history(
                 "offer_id": delivery.dedup_key or delivery.id,
                 "title": delivery.title,
                 "price": delivery.price,
+                "affiliate_url": delivery.affiliate_url,
                 "platform": delivery.platform,
                 "chat_id": delivery.chat_id,
                 "destination_title": title,

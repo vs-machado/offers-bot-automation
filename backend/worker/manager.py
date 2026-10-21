@@ -287,6 +287,7 @@ class UserBotInstance:
                         {
                             **promotion_context.get(),
                             "product_key": affiliate.product_key,
+                            "affiliate_url": affiliate.short_url,
                             "price": f"{offer.price}|{offer.card_price}",
                         }
                     )

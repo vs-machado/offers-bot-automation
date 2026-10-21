@@ -39,6 +39,12 @@ Based on the [make-it-look-good design guidance](https://github.com/jdeworks/mak
   Preserve source price text, including payment conditions. Legacy deliveries
   without stored prices display “Preço não registrado”; never infer a price from
   the product title or deduplication hash.
+- Expanded offers include a button to copy the exact generated affiliate link,
+  with accessible success feedback and a selectable fallback if clipboard access
+  fails. Links are retained per delivery; legacy rows without a stored link show
+  “Link comissionado indisponível”. Never substitute the original source URL.
+- Keep “Abrir oferta” beside the copy action inside the expanded offer details.
+  Open the stored affiliate link in a new tab; no additional dropdown is needed.
 - Summary metrics still count individual sends across the entire history. Only
   recorded delivery attempts appear; absent destinations are not labeled as sent
   or failed.
