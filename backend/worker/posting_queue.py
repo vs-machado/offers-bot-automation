@@ -28,6 +28,10 @@ class PromotionExpired(Exception):
     """The absolute source deadline passed before an HTTP send began."""
 
 
+class DestinationChanged(Exception):
+    """Routing was disabled or reassigned after the send reservation."""
+
+
 @task_revoked.connect
 def record_expiration(request=None, expired=False, **kwargs):
     """Record broker-side expiration without replaying the promotion."""
@@ -150,7 +154,7 @@ class QueuePoster:
             )
 
             destination = conn.execute(
-                "SELECT platform,chat_type,categories,enabled FROM destination_channels WHERE user_id=%s AND chat_id=%s",
+                "SELECT platform,chat_type,categories,enabled,connection_id FROM destination_channels WHERE user_id=%s AND chat_id=%s",
                 (self.user_id, chat_id),
             ).fetchone()
             if not destination or not destination[3]:
@@ -158,7 +162,15 @@ class QueuePoster:
             if not accepts_category(destination[2], context.get("category", "other")):
                 return {"status": "filtered"}
             is_whatsapp = destination and destination[0] == "whatsapp"
-            lock_account(conn, self.user_id)
+            connection_id = None
+            if is_whatsapp:
+                from backend.worker.whatsapp_delivery import connection_scope
+
+                connection_id, _ = connection_scope(conn, self.user_id, destination[4])
+                lock_account(conn, self.user_id, connection_id)
+            else:
+                # Preserve concurrent deduplication without waiting on WhatsApp policy locks.
+                lock_account(conn, self.user_id, None, "telegram")
             now = datetime.now(timezone.utc)
             stamp = source_timestamp.get()
             source_at = datetime.fromtimestamp(
@@ -167,7 +179,7 @@ class QueuePoster:
             )
             key = offer_key(context, text)
             if is_whatsapp:
-                policy = load_policy(conn, self.user_id)
+                policy = load_policy(conn, self.user_id, connection_id)
                 deadline = min(
                     deadline,
                     (source_at + timedelta(seconds=policy.ttl_seconds)).timestamp(),
@@ -183,8 +195,8 @@ class QueuePoster:
             if duplicate and not expired:
                 return {"status": "duplicate"}
             inserted = conn.execute(
-                """INSERT INTO promotion_deliveries (id, user_id, chat_id, status, expires_at, title, platform,source_at,dedup_key,price)
-                VALUES (%s, %s, %s, %s, %s, %s, %s,%s,%s,%s) ON CONFLICT (id) DO NOTHING RETURNING id""",
+                """INSERT INTO promotion_deliveries (id, user_id, chat_id, status, expires_at, title, platform,source_at,dedup_key,price,connection_id)
+                VALUES (%s, %s, %s, %s, %s, %s, %s,%s,%s,%s,%s) ON CONFLICT (id) DO NOTHING RETURNING id""",
                 (
                     identity,
                     self.user_id,
@@ -196,6 +208,7 @@ class QueuePoster:
                     source_at,
                     key,
                     context.get("advertised_price"),
+                    connection_id,
                 ),
             ).fetchone()
             if inserted and is_whatsapp and destination[1] == "channel" and not expired:
@@ -236,6 +249,7 @@ async def deliver(
     parse_mode: str | None,
     user_id: int | None = None,
     platform: str = "telegram",
+    connection_id: int | None = None,
 ) -> None:
     """Send before deadline; only explicit photo rejection permits text fallback."""
     path = None
@@ -248,8 +262,26 @@ async def deliver(
             raise PromotionExpired
         if platform == "whatsapp":
             from backend.app.core.whatsapp import WahaClient
+            from backend.worker.whatsapp_delivery import connection_scope
 
-            await WahaClient(user_id).send_offer(
+            if connection_id is not None:
+                with connect() as conn:
+                    scope, primary = connection_scope(conn, user_id, connection_id)
+                    routing = conn.execute(
+                        "SELECT connection_id FROM destination_channels WHERE user_id=%s AND chat_id=%s AND platform='whatsapp' AND enabled=true",
+                        (user_id, chat_id),
+                    ).fetchone()
+                    if not routing or (
+                        routing[0] != scope and not (primary and routing[0] is None)
+                    ):
+                        raise DestinationChanged
+                client = WahaClient(user_id) if primary else WahaClient(user_id, scope)
+            else:
+                client = WahaClient(user_id)
+
+            if time.time() >= deadline:
+                raise PromotionExpired
+            await client.send_offer(
                 chat_id,
                 text,
                 image_file=path or image_url,
@@ -303,7 +335,7 @@ def post_promotion(
     # Recheck operator validity and the ten-minute ceiling for older queued tasks.
     with connect() as conn:
         audit = conn.execute(
-            "SELECT source_at,created_at FROM promotion_deliveries WHERE id=%s AND user_id=%s AND chat_id=%s",
+            "SELECT source_at,created_at,connection_id FROM promotion_deliveries WHERE id=%s AND user_id=%s AND chat_id=%s",
             (identity, user_id, chat_id),
         ).fetchone()
     if not audit:
@@ -321,6 +353,7 @@ def post_promotion(
         update_status(identity, "cancelled", "category_disabled", pending_only=True)
         return
     is_whatsapp = allowed and allowed[0] == "whatsapp"
+    connection_id = None
     if is_whatsapp:
         from backend.worker.whatsapp_delivery import reserve_delivery
 
@@ -360,6 +393,7 @@ def post_promotion(
                 update_status(identity, "failed", "broker_unavailable")
                 raise
             return
+        connection_id = audit[2]
     else:
         with connect() as conn:
             claimed = conn.execute(
@@ -387,16 +421,25 @@ def post_promotion(
                 parse_mode,
                 user_id=user_id,
                 platform=allowed[0],
+                connection_id=connection_id,
             )
         )
     except PromotionExpired:
         update_status(identity, "expired")
+    except DestinationChanged:
+        update_status(identity, "cancelled", "destination_connection_changed")
     except (BotPosterError, httpx.HTTPError) as exc:
         reason = classify_failure(exc, "posting", "whatsapp" if is_whatsapp else None)
         if is_whatsapp:
             from backend.worker.whatsapp_delivery import record_outcome
 
-            record_outcome(user_id, chat_id, reason, getattr(exc, "retry_after", None))
+            record_outcome(
+                user_id,
+                chat_id,
+                reason,
+                getattr(exc, "retry_after", None),
+                connection_id=connection_id,
+            )
         safe_retry = isinstance(exc, (httpx.ConnectError, httpx.ConnectTimeout)) or (
             isinstance(exc, BotPosterError) and exc.status_code == 429
         )
@@ -438,11 +481,16 @@ def post_promotion(
         if is_whatsapp:
             from backend.worker.whatsapp_delivery import record_outcome
 
-            record_outcome(user_id, chat_id, "unexpected_delivery_error")
+            record_outcome(
+                user_id,
+                chat_id,
+                "unexpected_delivery_error",
+                connection_id=connection_id,
+            )
         raise
     else:
         update_status(identity, "sent")
         if is_whatsapp:
             from backend.worker.whatsapp_delivery import record_outcome
 
-            record_outcome(user_id, chat_id, None)
+            record_outcome(user_id, chat_id, None, connection_id=connection_id)

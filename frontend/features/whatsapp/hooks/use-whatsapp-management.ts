@@ -7,7 +7,7 @@ import type { OfferCategory } from "@/shared/contracts/user-config";
 import { getRequestErrorMessage } from "@/lib/api-error-message";
 
 /** Keep saved routing and live chats together; disconnected accounts load saved destinations only. */
-export function useWhatsAppManagement(connectionStatus: string) {
+export function useWhatsAppManagement(connectionStatus: string, connectionId?: number) {
   const [chats, setChats] = useState<ManagedWhatsAppChat[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isBusy, setIsBusy] = useState(false);
@@ -24,9 +24,9 @@ export function useWhatsAppManagement(connectionStatus: string) {
     setIsLoading(true);
     try {
       const [groups, channels, saved] = await Promise.allSettled([
-        connectionStatus === "WORKING" ? api.getManagedWhatsAppGroups() : Promise.resolve([]),
-        connectionStatus === "WORKING" ? api.getManagedWhatsAppChannels() : Promise.resolve([]),
-        api.getSavedWhatsAppDestinations(),
+        connectionStatus === "WORKING" ? api.getManagedWhatsAppGroups(connectionId) : Promise.resolve([]),
+        connectionStatus === "WORKING" ? api.getManagedWhatsAppChannels(connectionId) : Promise.resolve([]),
+        api.getSavedWhatsAppDestinations(connectionId),
       ]);
       if (version !== loadVersion.current) return;
       const next: ManagedWhatsAppChat[] = [];
@@ -55,7 +55,7 @@ export function useWhatsAppManagement(connectionStatus: string) {
     } finally {
       if (version === loadVersion.current) setIsLoading(false);
     }
-  }, [connectionStatus]);
+  }, [connectionStatus, connectionId]);
 
   useEffect(() => {
     const version = loadVersion;
@@ -76,7 +76,7 @@ export function useWhatsAppManagement(connectionStatus: string) {
 
   function openEditor(chat: ManagedWhatsAppChat | null, mode: "create" | "edit") {
     return run(async () => {
-      const details = chat ? await api.getManagedWhatsAppChat(chat) : null;
+      const details = chat ? await api.getManagedWhatsAppChat(chat, connectionId) : null;
       if (details && !details.can_manage) throw new Error("Sua conta precisa ser administradora para gerenciar este grupo.");
       if (details) setChats((current) => current.map((item) => item.id === details.id ? details : item));
       setEditor({ chat: details, mode, requestId: crypto.randomUUID() });
@@ -87,8 +87,8 @@ export function useWhatsAppManagement(connectionStatus: string) {
     return run(async () => {
       if (!editor) return;
       const result = editor.mode === "edit" && editor.chat
-        ? await api.updateWhatsAppGroup(editor.chat, draft)
-        : await api.createWhatsAppGroup({ ...draft, source_id: editor.chat?.id ?? null, reuse_photo: reusePhoto, request_id: editor.requestId });
+        ? await api.updateWhatsAppGroup(editor.chat, draft, connectionId)
+        : await api.createWhatsAppGroup({ ...draft, source_id: editor.chat?.id ?? null, reuse_photo: reusePhoto, request_id: editor.requestId }, connectionId);
       setEditor(null);
       setNotice(result.warnings.length
         ? `${result.name}: ${result.warnings.join(" ")} Publicações desativadas até concluir configuração.`
@@ -99,7 +99,7 @@ export function useWhatsAppManagement(connectionStatus: string) {
 
   function saveRouting(chat: ManagedWhatsAppChat, categories: OfferCategory[] | null, enabled: boolean) {
     return run(async () => {
-      const result = await api.saveWhatsAppRouting(chat, categories, enabled);
+      const result = await api.saveWhatsAppRouting(chat, categories, enabled, connectionId);
       setChats((current) => current.map((item) => item.id === chat.id ? { ...item, ...result } : item));
       setNotice(`${chat.name}: categorias e publicação atualizadas.`);
     });
@@ -107,7 +107,7 @@ export function useWhatsAppManagement(connectionStatus: string) {
 
   function refreshChat(chat: ManagedWhatsAppChat) {
     return run(async () => {
-      const result = await api.getManagedWhatsAppChat(chat);
+      const result = await api.getManagedWhatsAppChat(chat, connectionId);
       setChats((current) => current.map((item) => item.id === chat.id ? result : item));
     });
   }
@@ -121,6 +121,14 @@ export function useWhatsAppManagement(connectionStatus: string) {
     });
   }
 
+  function moveDestination(chat: ManagedWhatsAppChat, targetId: number) {
+    return run(async () => {
+      await api.moveWhatsAppDestination(chat, targetId);
+      setNotice(`${chat.name}: transferido com publicações desativadas. Selecione nova conexão e ative após conferir permissões.`);
+      await load();
+    });
+  }
+
   return { chats, isLoading, isBusy, errors, error, notice, editor, updatedAt,
-    refresh: () => run(load), openEditor, closeEditor: () => setEditor(null), saveGroup, saveRouting, refreshChat, removeDestination };
+    refresh: () => run(load), openEditor, closeEditor: () => setEditor(null), saveGroup, saveRouting, refreshChat, removeDestination, moveDestination };
 }

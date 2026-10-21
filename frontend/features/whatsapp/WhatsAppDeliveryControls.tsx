@@ -6,20 +6,23 @@ import { Button } from "@/components/ui/button";
 import { useWhatsAppPolicy } from "@/features/whatsapp/hooks/use-whatsapp-policy";
 import type { WhatsAppPolicy } from "@/features/whatsapp/types";
 
-const fields: { key: keyof WhatsAppPolicy; label: string; min: number; max: number }[] = [
+const fields: { key: Exclude<keyof WhatsAppPolicy, "posting_timezone">; label: string; min: number; max: number; optional?: boolean }[] = [
   { key: "ttl_seconds", label: "Validade máxima (segundos)", min: 30, max: 600 },
-  { key: "account_interval_seconds", label: "Intervalo por conta (segundos)", min: 1, max: 600 },
+  { key: "account_interval_seconds", label: "Intervalo mínimo por conexão (segundos)", min: 1, max: 600 },
+  { key: "account_interval_max_seconds", label: "Intervalo máximo aleatório (vazio = fixo)", min: 1, max: 600, optional: true },
   { key: "channel_interval_seconds", label: "Intervalo por destino (segundos)", min: 1, max: 600 },
   { key: "max_per_hour", label: "Tentativas por hora / conta", min: 1, max: 3600 },
   { key: "max_per_day", label: "Tentativas por 24h / conta", min: 1, max: 10000 },
+  { key: "destination_max_per_day", label: "Tentativas por 24h / destino (vazio = sem cota adicional)", min: 1, max: 10000, optional: true },
+  { key: "max_groups", label: "Grupos habilitados por conexão", min: 1, max: 6 },
   { key: "burst_window_seconds", label: "Janela de rajada/coleta (segundos)", min: 5, max: 300 },
   { key: "burst_threshold", label: "Quantidade que caracteriza rajada", min: 6, max: 100 },
-  { key: "start_hour_utc", label: "Início da publicação (hora UTC)", min: 0, max: 23 },
-  { key: "end_hour_utc", label: "Fim da publicação (hora UTC)", min: 1, max: 24 },
+  { key: "start_hour_utc", label: "Início da publicação (hora no fuso escolhido)", min: 0, max: 23 },
+  { key: "end_hour_utc", label: "Fim da publicação (hora no fuso escolhido)", min: 1, max: 24 },
 ];
 
-export function WhatsAppDeliveryControls({ compact = false }: { compact?: boolean }) {
-  const policy = useWhatsAppPolicy();
+export function WhatsAppDeliveryControls({ compact = false, connectionId }: { compact?: boolean; connectionId?: number }) {
+  const policy = useWhatsAppPolicy(connectionId);
   const settings = policy.data?.settings;
 
   return <section className="space-y-4 rounded-xl border border-border p-4" aria-label="Controles de publicação WhatsApp">
@@ -37,7 +40,7 @@ export function WhatsAppDeliveryControls({ compact = false }: { compact?: boolea
       <div className="space-y-4 border-t pt-4">
         <p className="text-sm/6 text-muted-foreground">Ofertas do mesmo produto/variação e preço não se repetem no mesmo destino por 30 minutos, mesmo vindo de origens diferentes. Mudança de preço permite nova publicação.</p>
         {!settings && !policy.error ? <p role="status" className="text-sm text-muted-foreground">Consultando regras de publicação…</p> : null}
-        {settings ? <p className="text-sm/6 text-muted-foreground">Ofertas expiram em até {policy.data?.effective_ttl_seconds} segundos desde a origem, considerando também o limite do servidor, sem renovar prazo em retries. Ao detectar {settings.burst_threshold} ofertas em {settings.burst_window_seconds} segundos, mantemos somente as {policy.data?.burst_keep} mais recentes por canal. Cada oferta aguarda uma janela de coleta antes do envio. Intervalos mínimos: {settings.account_interval_seconds}s por conta e {settings.channel_interval_seconds}s por destino, com teto de {settings.max_per_hour}/hora e {settings.max_per_day}/24h por conta. Publicação das {settings.start_hour_utc}h às {settings.end_hour_utc}h UTC. Ofertas que não couberem no prazo são descartadas.</p> : null}
+        {settings ? <p className="text-sm/6 text-muted-foreground">Validade efetiva: {policy.data?.effective_ttl_seconds}s desde origem, sem renovar prazo. Rajadas mantêm as {policy.data?.burst_keep} ofertas mais recentes por canal; coleta de {settings.burst_window_seconds}s. Espaçamento entre envios desta conexão: {settings.account_interval_seconds}–{settings.account_interval_max_seconds ?? settings.account_interval_seconds}s; por destino: pelo menos {settings.channel_interval_seconds}s. Cotas compartilhadas pelos grupos/canais desta conexão: {settings.max_per_hour}/hora e {settings.max_per_day}/24h. Cota adicional por destino: {settings.destination_max_per_day ?? "não definida"}/24h. Até {settings.max_groups} grupos habilitados. Janela: {settings.start_hour_utc}h–{settings.end_hour_utc}h ({settings.posting_timezone}). Ofertas que não cabem no prazo são descartadas. Telegram recebe conforme chegam, sem estes controles.</p> : null}
         {compact ? (
           <Link className="text-sm font-medium text-primary underline" href="/settings/destinations#whatsapp">Gerenciar limites e pausas nas configurações</Link>
         ) : policy.draft ? (
@@ -49,17 +52,20 @@ export function WhatsAppDeliveryControls({ compact = false }: { compact?: boolea
                   <input
                     className="h-11 w-full rounded-lg border border-border bg-background px-3"
                     type="number"
-                    required
+                    required={!field.optional}
                     step={1}
                     min={field.min}
                     max={field.max}
-                    value={Number.isFinite(policy.draft?.[field.key]) ? policy.draft?.[field.key] : ""}
-                    onChange={(event) => policy.change(field.key, event.target.valueAsNumber)}
+                    value={Number.isFinite(policy.draft?.[field.key]) ? policy.draft?.[field.key] ?? "" : ""}
+                    onChange={(event) => policy.change(field.key, field.optional && event.target.value === "" ? null : event.target.valueAsNumber)}
                   />
                 </label>
               ))}
+              <label className="space-y-2 text-sm font-medium">Fuso horário (IANA)
+                <input className="h-11 w-full rounded-lg border bg-background px-3" required value={policy.draft.posting_timezone} onChange={(event) => policy.change("posting_timezone", event.target.value)} placeholder="America/Sao_Paulo" />
+              </label>
             </fieldset>
-            <p className="text-xs/5 text-muted-foreground">Janela UTC: 0–24 permite o dia inteiro (Brasília = UTC−3). Limites são controles editoriais, sem garantia contra banimento. Mudanças não recuperam ofertas expiradas ou descartadas.</p>
+            <p className="text-xs/5 text-muted-foreground">Janela 0–24 permite dia inteiro. Intervalo aleatório é sorteado uma vez por tentativa e preservado durante esperas. Cotas contam tentativas, inclusive falhas, em janelas móveis. Limites são controles editoriais, sem garantia contra banimento. Mudanças não recuperam ofertas expiradas ou descartadas.</p>
             <Button type="submit" disabled={policy.isBusy}>{policy.isBusy ? "Salvando…" : "Salvar limites WhatsApp"}</Button>
           </form>
         ) : null}

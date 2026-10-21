@@ -31,6 +31,7 @@ REASONS = {
     "processing_failure": "Não foi possível preparar essa promoção para publicação.",
     "broker_unavailable": "O serviço de fila estava indisponível. A promoção não foi agendada para envio.",
     "destination_disabled_or_removed": "O destino foi desativado ou removido antes da publicação.",
+    "destination_connection_changed": "A conexão responsável pelo destino mudou antes da publicação. A oferta pendente foi cancelada.",
     "promotion_expired": "O prazo de publicação terminou. A promoção foi descartada para evitar enviar uma oferta antiga.",
     "sending_interrupted": "O envio não teve confirmação antes do fim do prazo. Confira o grupo; não haverá reenvio automático.",
     "unexpected_delivery_error": "O envio foi interrompido por uma falha inesperada. O resultado não pôde ser confirmado.",

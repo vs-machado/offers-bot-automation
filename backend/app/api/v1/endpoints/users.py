@@ -49,6 +49,7 @@ router = APIRouter()
 @router.get("/me/integration-health")
 async def integration_health(
     response: Response,
+    all_whatsapp_accounts: bool = False,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -76,8 +77,56 @@ async def integration_health(
         )
         .limit(1)
     )
+    has_destinations = result.scalar_one_or_none() is not None
+    connections = []
+    if all_whatsapp_accounts:
+        from backend.app.models.whatsapp_connection import WhatsAppConnection
+
+        has_routing = (
+            select(DestinationChannel.id)
+            .where(
+                DestinationChannel.user_id == current_user.id,
+                DestinationChannel.platform == "whatsapp",
+                (DestinationChannel.connection_id == WhatsAppConnection.id)
+                | (
+                    WhatsAppConnection.is_default.is_(True)
+                    & DestinationChannel.connection_id.is_(None)
+                ),
+            )
+            .exists()
+        )
+        connections = (
+            await db.execute(
+                select(WhatsAppConnection, has_routing).where(
+                    WhatsAppConnection.user_id == current_user.id
+                )
+            )
+        ).all()
+
+    async def account_health():
+        if not connections:
+            return await whatsapp_health(current_user.id, has_destinations)
+        states = await asyncio.gather(
+            *(
+                whatsapp_health(
+                    current_user.id,
+                    has_routing,
+                    None if row.is_default else row.id,
+                )
+                for row, has_routing in connections
+            )
+        )
+        return next(
+            (
+                state
+                for state in ("disconnected", "unknown", "connected")
+                if state in states
+            ),
+            "not_configured",
+        )
+
     whatsapp, mercado_livre = await asyncio.gather(
-        whatsapp_health(current_user.id, result.scalar_one_or_none() is not None),
+        account_health(),
         mercado_livre_health(values),
     )
     return {"whatsapp": whatsapp, "mercado_livre": mercado_livre}
@@ -249,15 +298,16 @@ async def _verify_destination_enabled(
     platform: str = "telegram",
     user_id: int | None = None,
     chat_type: str = "group",
+    connection=None,
 ) -> None:
     """Confirm platform bot can post before enabling a destination."""
     if not enabled:
         return
     try:
         if platform == "whatsapp":
-            from backend.app.core.whatsapp import WahaClient
+            from backend.app.core.whatsapp_connections import client_for
 
-            await WahaClient(user_id).verify_destination(chat_id, chat_type)
+            await client_for(user_id, connection).verify_destination(chat_id, chat_type)
             return
         can_post = await BotPoster().can_post(chat_id)
     except BotPosterError as exc:
@@ -464,12 +514,28 @@ async def create_destination(
     db: AsyncSession = Depends(get_db),
 ):
     """Verify and persist one destination chat for authenticated user."""
+    from backend.app.core.whatsapp_connections import owned_connection, validate_routing
+
+    connection = None
+    if destination_data.platform == "whatsapp":
+        connection = await owned_connection(
+            db, current_user.id, destination_data.connection_id
+        )
+        await validate_routing(
+            db,
+            current_user.id,
+            connection,
+            destination_data.chat_id,
+            destination_data.chat_type,
+            destination_data.enabled,
+        )
     await _verify_destination_enabled(
         destination_data.chat_id,
         destination_data.enabled,
         destination_data.platform,
         current_user.id,
         destination_data.chat_type,
+        connection,
     )
     new_destination = DestinationChannel(
         user_id=current_user.id,
@@ -484,6 +550,7 @@ async def create_destination(
         enabled=destination_data.enabled,
         platform=destination_data.platform,
         categories=destination_data.categories,
+        connection_id=connection.id if connection else None,
     )
     db.add(new_destination)
     await db.commit()
@@ -511,12 +578,30 @@ async def update_destination(
             detail="Grupo ou canal de publicação não encontrado.",
         )
 
+    from backend.app.core.whatsapp_connections import owned_connection, validate_routing
+
+    connection = None
+    if destination_data.platform == "whatsapp":
+        requested_id = destination_data.connection_id
+        if "connection_id" not in destination_data.model_fields_set:
+            requested_id = destination.connection_id
+        connection = await owned_connection(db, current_user.id, requested_id)
+        await validate_routing(
+            db,
+            current_user.id,
+            connection,
+            destination_data.chat_id,
+            destination_data.chat_type,
+            destination_data.enabled,
+            destination.id,
+        )
     await _verify_destination_enabled(
         destination_data.chat_id,
         destination_data.enabled,
         destination_data.platform,
         current_user.id,
         destination_data.chat_type,
+        connection,
     )
 
     destination.chat_id = destination_data.chat_id
@@ -529,6 +614,7 @@ async def update_destination(
     destination.enabled = destination_data.enabled
     destination.platform = destination_data.platform
     destination.categories = destination_data.categories
+    destination.connection_id = connection.id if connection else None
     await db.commit()
     await db.refresh(destination)
     return destination

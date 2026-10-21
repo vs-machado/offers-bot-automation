@@ -109,9 +109,14 @@ class DestinationChannelBase(BaseModel):
     enabled: bool = True
     platform: Literal["telegram", "whatsapp"] = "telegram"
     categories: list[OfferCategory] | None = None
+    connection_id: int | None = None
 
     @model_validator(mode="after")
     def validate_platform_chat(self):
+        if self.connection_id is not None and (
+            self.connection_id < 1 or self.platform != "whatsapp"
+        ):
+            raise ValueError("Conexão válida é permitida somente para WhatsApp.")
         if self.platform == "whatsapp":
             from backend.app.core.whatsapp import GROUP_ID, CHANNEL_ID
 

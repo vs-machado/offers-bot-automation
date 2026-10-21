@@ -4,7 +4,7 @@ export type IntegrationHealth = {
 };
 
 export async function getIntegrationHealth(signal: AbortSignal): Promise<IntegrationHealth> {
-  const response = await fetch("/api/backend/users/me/integration-health", {
+  const response = await fetch("/api/backend/users/me/integration-health?all_whatsapp_accounts=true", {
     cache: "no-store",
     signal,
   });

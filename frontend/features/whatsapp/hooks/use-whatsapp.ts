@@ -5,7 +5,7 @@ import * as api from "@/features/whatsapp/api/whatsapp-client";
 import type { WhatsAppChat, WhatsAppStatus } from "@/features/whatsapp/types";
 import { getRequestErrorMessage } from "@/lib/api-error-message";
 
-export function useWhatsApp({ connectionOnly = false }: { connectionOnly?: boolean } = {}) {
+export function useWhatsApp({ connectionOnly = false, connectionId }: { connectionOnly?: boolean; connectionId?: number } = {}) {
   const [connection, setConnection] = useState<WhatsAppStatus>({ status: "LOADING", name: null });
   const [qr, setQr] = useState("");
   const [groups, setGroups] = useState<WhatsAppChat[]>([]);
@@ -18,7 +18,7 @@ export function useWhatsApp({ connectionOnly = false }: { connectionOnly?: boole
   const lastStatus = useRef("");
 
   const fetchChats = useCallback(async () => {
-    const [groupResult, channelResult] = await Promise.allSettled([api.getWhatsAppGroups(), api.getWhatsAppChannels()]);
+    const [groupResult, channelResult] = await Promise.allSettled([api.getWhatsAppGroups(connectionId), api.getWhatsAppChannels(connectionId)]);
     if (groupResult.status === "fulfilled") {
       setGroups(groupResult.value);
       setGroupsError("");
@@ -33,16 +33,16 @@ export function useWhatsApp({ connectionOnly = false }: { connectionOnly?: boole
       setChannels([]);
       setChannelsError("Canais indisponíveis nesta conexão. Tente atualizar destinos ou selecione grupos, se disponíveis.");
     }
-  }, []);
+  }, [connectionId]);
 
   const refresh = useCallback(async () => {
     if (lock.current) return;
     lock.current = true;
     try {
-      const status = await api.getWhatsAppStatus();
+      const status = await api.getWhatsAppStatus(connectionId);
       setConnection(status);
       if (status.status === "SCAN_QR_CODE") {
-        setQr((await api.getWhatsAppQr()).qr);
+        setQr((await api.getWhatsAppQr(connectionId)).qr);
       } else {
         setQr("");
       }
@@ -61,7 +61,7 @@ export function useWhatsApp({ connectionOnly = false }: { connectionOnly?: boole
     } finally {
       lock.current = false;
     }
-  }, [connectionOnly, fetchChats]);
+  }, [connectionOnly, connectionId, fetchChats]);
 
   useEffect(() => {
     const initial = setTimeout(() => void refresh(), 0);
@@ -88,14 +88,14 @@ export function useWhatsApp({ connectionOnly = false }: { connectionOnly?: boole
 
   function start() {
     return run(async () => {
-      setConnection(await api.startWhatsApp());
+      setConnection(await api.startWhatsApp(connectionId));
       lastStatus.current = "";
     });
   }
 
   function disconnect() {
     return run(async () => {
-      await api.disconnectWhatsApp();
+      await api.disconnectWhatsApp(connectionId);
       setConnection({ status: "STOPPED", name: null });
       setQr("");
       setGroups([]);

@@ -39,3 +39,7 @@ class WhatsAppSendAttempt(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
     chat_id: Mapped[str] = mapped_column(String(100))
     attempted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    next_send_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    connection_id: Mapped[int | None] = mapped_column(
+        ForeignKey("whatsapp_connections.id", ondelete="RESTRICT"), index=True
+    )

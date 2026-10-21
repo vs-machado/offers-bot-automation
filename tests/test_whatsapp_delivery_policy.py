@@ -432,6 +432,65 @@ class PostgreSQLAdmissionTests(unittest.TestCase):
                 "expired",
             )
 
+    def test_telegram_sends_while_whatsapp_is_locked_paused_and_at_quota(self):
+        from backend.worker.whatsapp_delivery import lock_account
+
+        with self.connection() as conn:
+            conn.execute(
+                "INSERT INTO destination_channels(user_id,chat_id,platform,chat_type,enabled) VALUES (1,'-100123','telegram','channel',true)"
+            )
+            conn.execute(
+                "INSERT INTO whatsapp_delivery_policies(user_id,config_data) VALUES (%s,%s)",
+                (
+                    1,
+                    WhatsAppPolicy(
+                        ttl_seconds=90, max_per_hour=1, max_per_day=1
+                    ).model_dump_json(),
+                ),
+            )
+            conn.execute(
+                "INSERT INTO whatsapp_send_attempts(user_id,chat_id,attempted_at) VALUES (1,'123@newsletter',CURRENT_TIMESTAMP)"
+            )
+        record_outcome(1, "123@newsletter", "whatsapp_authentication")
+
+        with self.connection() as locked, ThreadPoolExecutor(max_workers=1) as executor:
+            lock_account(locked, 1)
+
+            def enqueue_telegram():
+                with self.connection() as conn:
+                    conn.execute("SET statement_timeout = '2s'")
+                    with patch(
+                        "backend.worker.posting_queue.connect", return_value=conn
+                    ):
+                        return self.enqueue(1, chat_id="-100123", age=180)
+
+            item = executor.submit(enqueue_telegram).result(timeout=5)
+            self.assertEqual(item["status"], "queued")
+            kwargs = dict(self.broker.call_args.kwargs["kwargs"])
+            self.broker.reset_mock()
+            with (
+                patch(
+                    "backend.worker.posting_queue.deliver", new_callable=AsyncMock
+                ) as send,
+                patch("backend.worker.whatsapp_delivery.reserve_delivery") as reserve,
+                patch("backend.worker.whatsapp_delivery.record_outcome") as outcome,
+            ):
+                post_promotion.run(**kwargs)
+                send.assert_awaited_once()
+                self.assertEqual(send.call_args.kwargs["platform"], "telegram")
+                reserve.assert_not_called()
+                outcome.assert_not_called()
+            self.broker.assert_not_called()
+
+        with self.connection() as conn:
+            self.assertEqual(
+                conn.execute(
+                    "SELECT status,attempts FROM promotion_deliveries WHERE id=%s",
+                    (item["id"],),
+                ).fetchone(),
+                ("sent", 1),
+            )
+
     def test_failures_pause_account_or_destination_without_replaying(self):
         for _ in range(3):
             record_outcome(1, "123@newsletter", "connection_failure")

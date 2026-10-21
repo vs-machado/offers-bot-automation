@@ -26,12 +26,13 @@ type Props = ({
   saveDestination?: never;
 }) & {
   busy?: boolean;
+  connectionId?: number;
   onDisconnect: () => void;
   onStatusChange?: (status: string) => void;
 };
 
-export function WhatsAppConnection({ destinations = [], saveDestination, connectionOnly = false, busy = false, onDisconnect, onStatusChange }: Props) {
-  const whatsapp = useWhatsApp({ connectionOnly });
+export function WhatsAppConnection({ destinations = [], saveDestination, connectionOnly = false, busy = false, connectionId, onDisconnect, onStatusChange }: Props) {
+  const whatsapp = useWhatsApp({ connectionOnly, connectionId });
   useEffect(() => {
     onStatusChange?.(whatsapp.connection.status);
   }, [onStatusChange, whatsapp.connection.status]);
@@ -54,7 +55,7 @@ export function WhatsAppConnection({ destinations = [], saveDestination, connect
 
   async function addDestination() {
     const chat = chats.find((item) => item.id === chatId);
-    if (chat && saveDestination && await saveDestination({ chat_id: chat.id, title: chat.name, chat_type: chatType, enabled: true, platform: "whatsapp" })) {
+    if (chat && saveDestination && await saveDestination({ chat_id: chat.id, title: chat.name, chat_type: chatType, enabled: true, platform: "whatsapp", connection_id: connectionId })) {
       setChatId("");
     }
   }

@@ -4,12 +4,12 @@ import { useState } from "react";
 import { UsersRound, Megaphone, LockKeyhole, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { OfferCategorySelector } from "@/features/offer-routing/OfferCategorySelector";
-import type { ManagedWhatsAppChat } from "@/features/whatsapp/types";
+import type { ManagedWhatsAppChat, WhatsAppConnectionSummary } from "@/features/whatsapp/types";
 import type { OfferCategory } from "@/shared/contracts/user-config";
 
 const categoryLabels: Record<OfferCategory, string> = { tech: "Tecnologia", home: "Casa", clothes: "Roupas e acessórios", other: "Outros", coupon: "Cupons" };
 
-export function WhatsAppChatCard({ chat, disabled, connected, onEdit, onNext, onRefresh, onRouting, onRemove }: {
+export function WhatsAppChatCard({ chat, disabled, connected, onEdit, onNext, onRefresh, onRouting, onRemove, otherConnections, onMove }: {
   chat: ManagedWhatsAppChat;
   disabled: boolean;
   connected: boolean;
@@ -18,10 +18,13 @@ export function WhatsAppChatCard({ chat, disabled, connected, onEdit, onNext, on
   onRefresh: () => void;
   onRouting: (categories: OfferCategory[] | null, enabled: boolean) => Promise<void>;
   onRemove: () => Promise<void>;
+  otherConnections: WhatsAppConnectionSummary[];
+  onMove: (id: number) => Promise<void>;
 }) {
   const [showRouting, setShowRouting] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState(false);
   const [categories, setCategories] = useState(chat.categories);
+  const [targetId, setTargetId] = useState("");
   const isGroup = chat.chat_type === "group";
   const Icon = isGroup ? UsersRound : Megaphone;
   const percentage = chat.member_count !== null && chat.capacity ? Math.min(100, chat.member_count / chat.capacity * 100) : null;
@@ -56,6 +59,15 @@ export function WhatsAppChatCard({ chat, disabled, connected, onEdit, onNext, on
       <Button variant="ghost" disabled={disabled || !connected} onClick={onRefresh}>Atualizar {isGroup ? "membros" : "seguidores"}</Button>
       {chat.destination_id != null ? <Button variant="ghost" disabled={disabled} onClick={() => setConfirmRemove(true)}>Remover destino</Button> : null}
     </div>
+    {chat.destination_id != null && otherConnections.length ? <div className="space-y-2 border-t pt-3">
+      <label className="block space-y-2 text-sm">Transferir para outra conta
+        <select className="h-10 w-full rounded-lg border bg-background px-3" disabled={disabled} value={targetId} onChange={(event) => setTargetId(event.target.value)}>
+          <option value="">Selecione uma conexão</option>
+          {otherConnections.map((connection) => <option key={connection.id} value={connection.id}>{connection.name}</option>)}
+        </select>
+      </label>
+      <Button variant="outline" disabled={disabled || !targetId} onClick={() => void onMove(Number(targetId))}>Transferir e pausar publicações</Button>
+    </div> : null}
     {confirmRemove ? <div className="space-y-3 rounded-lg bg-muted p-3 text-sm">
       <p>Remover este destino? Ofertas deixarão de ser enviadas. O grupo ou canal não será excluído do WhatsApp.</p>
       <div className="flex flex-wrap gap-2"><Button variant="destructive" disabled={disabled} onClick={() => void onRemove().then(() => setConfirmRemove(false))}>Confirmar remoção</Button><Button variant="outline" disabled={disabled} onClick={() => setConfirmRemove(false)}>Cancelar</Button></div>

@@ -105,6 +105,9 @@ class DestinationChannel(Base):
     categories: Mapped[list[str] | None] = mapped_column(
         JSON(none_as_null=True), nullable=True
     )
+    connection_id: Mapped[int | None] = mapped_column(
+        ForeignKey("whatsapp_connections.id", ondelete="RESTRICT"), index=True
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     user: Mapped["User"] = relationship(back_populates="destinations")
@@ -120,3 +123,6 @@ class WhatsAppGroupCreation(Base):
         ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
     )
     result: Mapped[dict | None] = mapped_column(JSON(none_as_null=True), nullable=True)
+    connection_id: Mapped[int | None] = mapped_column(
+        ForeignKey("whatsapp_connections.id", ondelete="RESTRICT")
+    )
