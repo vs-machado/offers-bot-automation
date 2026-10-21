@@ -11,6 +11,7 @@ export type Delivery = {
   offer_id: string;
   title: string | null;
   price: string | null;
+  affiliate_url: string | null;
   platform: string | null;
   chat_id: string;
   destination_title: string | null;

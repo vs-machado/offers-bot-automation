@@ -6,6 +6,7 @@ import {
   Minus,
 } from "lucide-react";
 import { DeliveryRow } from "@/features/dashboard/components/DeliveryRow";
+import { AffiliateLinkActions } from "@/features/dashboard/components/AffiliateLinkActions";
 import {
   deliveryStatusLabels,
   formatDeliveryDate,
@@ -21,6 +22,7 @@ export function PublicationRow({ publication }: { publication: Publication }) {
     deliveries.find((delivery) => delivery.title)?.title ||
     "Promoção sem título registrado";
   const price = deliveries.find((delivery) => delivery.price)?.price;
+  const affiliateUrl = deliveries.find((delivery) => delivery.affiliate_url)?.affiliate_url ?? null;
   const sent = deliveries.filter((delivery) => delivery.status === "sent").length;
   const pending = deliveries.filter((delivery) =>
     ["queued", "retrying", "sending"].includes(delivery.status),
@@ -113,6 +115,7 @@ export function PublicationRow({ publication }: { publication: Publication }) {
           <p className="mt-1 wrap-anywhere text-sm font-semibold tabular-nums">
             Preço anunciado: {price || "não registrado"}
           </p>
+          <AffiliateLinkActions key={affiliateUrl} url={affiliateUrl} />
           <p className="mt-1 text-xs/relaxed text-muted-foreground">
             Resultado por grupo ou canal. Abra um destino para ver tentativas e detalhes do envio.
           </p>
