@@ -1,6 +1,7 @@
 import type { OfferCategory } from "@/shared/contracts/user-config";
 
 export type WhatsAppStatus = { status: string; name: string | null };
+export type WhatsAppConnectionSummary = { id: number; name: string; is_default: boolean };
 export type WhatsAppChat = { id: string; name: string };
 
 export type ManagedWhatsAppChat = WhatsAppChat & {
@@ -50,9 +51,13 @@ export type WhatsAppGroupEditor = {
 export type WhatsAppPolicy = {
   ttl_seconds: number;
   account_interval_seconds: number;
+  account_interval_max_seconds: number | null;
   channel_interval_seconds: number;
   max_per_hour: number;
   max_per_day: number;
+  destination_max_per_day: number | null;
+  max_groups: number;
+  posting_timezone: string;
   burst_window_seconds: number;
   burst_threshold: number;
   start_hour_utc: number;

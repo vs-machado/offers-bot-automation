@@ -21,10 +21,14 @@ def session_name(user_id: int) -> str:
 
 
 class WahaClient:
-    def __init__(self, user_id: int):
+    def __init__(self, user_id: int, connection_id: int | None = None):
         if not isinstance(user_id, int) or user_id < 1:
             raise ValueError("Authenticated user ID is required")
         self.session = session_name(user_id)
+        if connection_id is not None:
+            if not isinstance(connection_id, int) or connection_id < 1:
+                raise ValueError("Validated connection ID is required")
+            self.session += f"-connection-{connection_id}"
         self.base_url = os.getenv("WAHA_BASE_URL", "").rstrip("/")
         self.api_key = os.getenv("WAHA_API_KEY", "")
 

@@ -78,8 +78,12 @@ def uploaded_photo(value: str | None) -> dict | None:
 
 
 class WhatsAppManagement:
-    def __init__(self, user_id: int):
-        self.client = WahaClient(user_id)
+    def __init__(self, user_id: int, connection_id: int | None = None):
+        self.client = (
+            WahaClient(user_id)
+            if connection_id is None
+            else WahaClient(user_id, connection_id)
+        )
 
     def path(self, chat_id: str, kind="groups") -> str:
         pattern = GROUP_ID if kind == "groups" else CHANNEL_ID

@@ -8,10 +8,40 @@ import { WhatsAppDeliveryControls } from "@/features/whatsapp/WhatsAppDeliveryCo
 import { WhatsAppChatCard } from "@/features/whatsapp/components/WhatsAppChatCard";
 import { WhatsAppGroupForm } from "@/features/whatsapp/components/WhatsAppGroupForm";
 import { useWhatsAppManagement } from "@/features/whatsapp/hooks/use-whatsapp-management";
+import { useWhatsAppConnections } from "@/features/whatsapp/hooks/use-whatsapp-connections";
+import type { WhatsAppConnectionSummary } from "@/features/whatsapp/types";
 
 export function WhatsAppManagement() {
+  const connections = useWhatsAppConnections();
+  const [name, setName] = useState("");
+  const selected = connections.connections.find((row) => row.id === connections.selectedId);
+  return <>
+    <section aria-label="Conexões WhatsApp" className="space-y-4 rounded-xl border p-4">
+      <h3 className="font-semibold">Suas contas WhatsApp</h3>
+      <p className="text-sm text-muted-foreground">Cada conexão representa um número, com QR, destinos, cotas e pausas próprios. Selecione uma conta para gerenciar. Telegram permanece independente.</p>
+      {connections.error ? <p role="alert" className="text-sm text-destructive">{connections.error} <button className="underline" onClick={() => void connections.refresh()}>Tentar novamente</button></p> : null}
+      <label className="block space-y-2 text-sm font-medium">Conta selecionada
+        <select className="h-11 w-full rounded-lg border bg-background px-3" disabled={connections.isBusy} value={connections.selectedId ?? ""} onChange={(event) => connections.select(Number(event.target.value))}>
+          {!connections.connections.length ? <option value="">Carregando conexões…</option> : null}
+          {connections.connections.map((row) => <option key={row.id} value={row.id}>{row.name}{row.is_default ? " · principal" : ""}</option>)}
+        </select>
+      </label>
+      <form className="flex flex-wrap items-end gap-3" onSubmit={(event) => { event.preventDefault(); void connections.save(name); }}>
+        <label className="min-w-48 flex-1 space-y-2 text-sm font-medium">Nome da conexão
+          <input required maxLength={100} className="h-11 w-full rounded-lg border bg-background px-3" value={name} onChange={(event) => setName(event.target.value)} placeholder="Ofertas · número 2" />
+        </label>
+        <Button type="submit" disabled={connections.isBusy || !name.trim() || !selected}>Adicionar conta</Button>
+        <Button type="button" variant="outline" disabled={connections.isBusy || !name.trim() || !selected} onClick={() => void connections.save(name, true)}>Renomear selecionada</Button>
+      </form>
+      <p className="text-xs text-muted-foreground">Novas contas: 30–90s entre envios, mínimo 60s por destino, até 6 grupos habilitados e janela 7h–23h (Brasília). Capacidade de múltiplas sessões depende da instalação WAHA.</p>
+    </section>
+    {selected ? <ConnectionManagement key={selected.id} connectionId={selected.id} name={selected.name} connections={connections.connections} /> : null}
+  </>;
+}
+
+function ConnectionManagement({ connectionId, name, connections }: { connectionId: number; name: string; connections: WhatsAppConnectionSummary[] }) {
   const [connectionStatus, setConnectionStatus] = useState("LOADING");
-  const management = useWhatsAppManagement(connectionStatus);
+  const management = useWhatsAppManagement(connectionStatus, connectionId);
   const connected = connectionStatus === "WORKING";
   const [filter, setFilter] = useState<"all" | "group" | "channel" | "full">("all");
   const [search, setSearch] = useState("");
@@ -22,8 +52,8 @@ export function WhatsAppManagement() {
 
   return <>
     <section id="whatsapp-connection" aria-label="Conexão da conta WhatsApp" className="scroll-mt-32 space-y-3 rounded-xl border bg-muted/20 p-4 sm:p-5">
-      <h3 className="text-sm font-semibold">Conexão da conta</h3>
-      <WhatsAppConnection connectionOnly busy={management.isBusy} onStatusChange={setConnectionStatus} onDisconnect={() => setConnectionStatus("STOPPED")} />
+      <h3 className="text-sm font-semibold">Conexão: {name}</h3>
+      <WhatsAppConnection connectionOnly connectionId={connectionId} busy={management.isBusy} onStatusChange={setConnectionStatus} onDisconnect={() => setConnectionStatus("STOPPED")} />
       <p className="text-sm text-muted-foreground">Ative ofertas nos grupos e canais abaixo para adicioná-los aos seus destinos. Canais disponíveis somente para administradores. Reconectar não reativa publicações automaticamente.</p>
     </section>
     <header className="flex flex-wrap items-start justify-between gap-4">
@@ -54,11 +84,12 @@ export function WhatsAppManagement() {
       {management.isLoading && !management.chats.length ? <p role="status" className="rounded-xl border border-dashed p-8 text-center text-sm text-muted-foreground">Carregando grupos e canais…</p> : visible.length ? <div className="grid gap-4 xl:grid-cols-2">
         {visible.map((chat) => <WhatsAppChatCard key={`${chat.id}:${chat.destination_id}:${JSON.stringify(chat.categories)}`} chat={chat} connected={connected} disabled={disabled || Boolean(management.editor)}
           onEdit={() => void management.openEditor(chat, "edit")} onNext={() => void management.openEditor(chat, "create")}
-          onRefresh={() => void management.refreshChat(chat)} onRouting={(categories, enabled) => management.saveRouting(chat, categories, enabled)} onRemove={() => management.removeDestination(chat)} />)}
+          onRefresh={() => void management.refreshChat(chat)} onRouting={(categories, enabled) => management.saveRouting(chat, categories, enabled)} onRemove={() => management.removeDestination(chat)}
+          otherConnections={connections.filter((row) => row.id !== connectionId)} onMove={(id) => management.moveDestination(chat, id)} />)}
       </div> : <div className="rounded-xl border border-dashed p-8 text-center">
         <h2 className="font-medium">Nenhum destino encontrado</h2><p className="mt-2 text-sm text-muted-foreground">Conecte seu WhatsApp, crie um grupo ou ajuste filtros. Canais exibidos somente quando sua conta é administradora.</p>
       </div>}
     </section>
-    <WhatsAppDeliveryControls />
+    <WhatsAppDeliveryControls connectionId={connectionId} />
   </>;
 }

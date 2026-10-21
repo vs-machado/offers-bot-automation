@@ -11,7 +11,7 @@ export function IntegrationAlerts() {
   if (health?.whatsapp === "disconnected") {
     alerts.push({
       title: "WhatsApp desconectado",
-      description: "Sua conexão com o WhatsApp foi interrompida. As ofertas não podem ser enviadas por essa conta. Reconecte e confira quais destinos estão habilitados.",
+      description: "Uma ou mais contas WhatsApp estão desconectadas. Destinos dessas contas não recebem ofertas. Confira conexões e destinos habilitados nas configurações.",
       href: "/settings/destinations#whatsapp",
       action: "Reconectar WhatsApp",
     });

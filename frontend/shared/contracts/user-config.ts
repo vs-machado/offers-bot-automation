@@ -7,6 +7,7 @@ export type ConfigSummary = {
 export type OfferCategory = "tech" | "home" | "clothes" | "other" | "coupon";
 
 export type DestinationSummary = {
+  connection_id?: number | null;
   id: number;
   chat_id: string;
   enabled: boolean;
@@ -17,6 +18,7 @@ export type DestinationSummary = {
 };
 
 export type DestinationInput = {
+  connection_id?: number | null;
   chat_id: string;
   title: string | null;
   chat_type: string;

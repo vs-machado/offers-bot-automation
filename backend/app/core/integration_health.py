@@ -10,12 +10,17 @@ from backend.app.core.whatsapp import WahaClient
 from backend.worker.poster import BotPosterError
 
 
-async def whatsapp_health(user_id: int, has_destinations: bool) -> str:
+async def whatsapp_health(
+    user_id: int, has_destinations: bool, connection_id: int | None = None
+) -> str:
     """Inspect the owned session without starting pairing or changing destinations."""
     try:
-        state = await asyncio.wait_for(
-            WahaClient(user_id).status(include_session=True), timeout=10
+        client = (
+            WahaClient(user_id)
+            if connection_id is None
+            else WahaClient(user_id, connection_id)
         )
+        state = await asyncio.wait_for(client.status(include_session=True), timeout=10)
     except (BotPosterError, httpx.HTTPError, asyncio.TimeoutError):
         return "unknown" if has_destinations else "not_configured"
     if state["status"] == "WORKING":

@@ -126,7 +126,7 @@ offers. Rules are checked before queue entry and again before delivery, includin
 after deferral due to limits. Required migration: `0013_destination_categories`.
 Blocked categories do not occupy slots in new bursts when the rule is already saved.
 
-Existing foundation: per-user sessions, QR pairing, administered channels,
+Existing foundation: user-owned sessions, QR pairing, administered channels,
 destinations, and delivery through the Celery queue, with expiration and
 conservative retry handling. The UI and tutorial received additions in this branch.
 
@@ -164,15 +164,114 @@ and statuses are not assumed to match HTTP codes. Manual recovery clears pauses
 without enabling destinations or recovering discarded offers. Offers expire early
 when there is insufficient time to start a request before the deadline.
 
-Workers use a per-user PostgreSQL transaction lock to coordinate deduplication,
+Workers use a per-connection PostgreSQL transaction lock to coordinate deduplication,
 burst trimming, and send reservations across processes. An active reservation
 prevents concurrent WhatsApp sends on the same account; each attempt counts
 toward limits, including failed attempts. No credentials are interpolated into SQL.
+
+Telegram enqueue deduplication uses a separate advisory-lock namespace. WhatsApp
+account locks, pauses, quotas, collection windows, and policy-specific lifetimes
+must not delay or suppress Telegram deliveries. Both platforms retain the shared
+operator validity ceiling (`PROMOTION_TTL_SECONDS`, at most 600 seconds).
 
 Deployment requires migration `0010_whatsapp_delivery_policy` before starting
 updated workers. **Still pending:** an end-to-end test with QR pairing and real
 text/image delivery to a channel after deployment. Automated tests use disposable
 PostgreSQL databases and do not send real messages.
+
+## Multiple WhatsApp connections per user
+
+Migration **`0016_whatsapp_connections`** adds owned connections and associates
+destinations, delivery audits, send attempts, and group-creation receipts with
+their responsible connection. Apply this migration before starting updated API
+and workers. Deploy the API, posting workers, and frontend together; enable new
+connections only after all posting workers run the updated version. Older workers
+cannot route additional sessions correctly.
+
+The existing session remains **`offers-user-{user_id}`**, labeled **Principal**.
+Migration preserves pairing, saved policy, pauses, quotas, and pending work.
+Additional sessions use server-generated
+`offers-user-{user_id}-connection-{connection_id}`. Clients submit only an owned
+numeric connection ID; arbitrary session names and operator credentials remain
+unavailable to browsers. The installed WAHA edition/engine must support multiple
+simultaneous sessions. Creating a connection record does not start pairing.
+
+Primary policies and circuit state retain their existing tables for compatibility;
+additional policies are stored on `whatsapp_connections`, with circuit state in
+`whatsapp_connection_states`. This does not share primary pauses or quotas with
+additional accounts. Send attempts store their connection and a persistent
+`next_send_at`: random spacing is sampled **once per reserved attempt**, never
+again during polling, broker redelivery, or process restart. Failed attempts also
+consume spacing and quota. Advisory namespaces are 81273 for primary accounts,
+81275 for additional connections, and 81274 for Telegram deduplication.
+
+Each user's WhatsApp destination has one responsible connection. The API serializes
+routing edits on the user row and rejects duplicate destinations across connections.
+The panel supports adding/renaming/selecting accounts, their own QR/status,
+connection-specific groups/channels, and connection-specific publication controls.
+Transferring a destination pauses its publication; explicitly enable it after
+checking membership/permissions on the new number. Queued deliveries keep their
+original connection snapshot and are cancelled if routing changes before sending.
+Deduplication, destination spacing and destination daily quotas survive transfer.
+Disconnecting disables only that connection's destinations. Reconnecting or
+clearing its circuit pauses does not enable destinations or replay old offers.
+The dashboard requests `all_whatsapp_accounts=true` to aggregate owned connection
+health; the legacy health endpoint mode continues to inspect the primary account.
+
+### Editorial defaults for newly created connections
+
+| Control | New connection default |
+| --- | --- |
+| Account spacing | Uniform random integer from 30 through 90 seconds |
+| Destination spacing | At least 60 seconds |
+| Account attempts | 90/hour and 600/24h, rolling windows |
+| Additional destination quota | 100 attempts/24h, rolling window |
+| Enabled groups | At most 6 per connection; configurable down to 1 |
+| Posting window | 07:00–23:00, `America/Sao_Paulo` |
+| Validity and channel burst collection | Existing 600-second ceiling and 60-second collection |
+
+The 100/destination quota is our editorial choice (600 aggregate attempts divided
+among six groups), **not a published Manda Boa quota**. Channels share account
+limits and have their own destination quota, but do not count toward the six-group
+activation limit. Disabled groups do not consume activation capacity. Existing
+saved primary policy values are preserved; migration does not automatically
+disable groups if an existing account exceeds the new activation limit.
+
+Policy fields `account_interval_max_seconds` and `destination_max_per_day` accept
+`null` for fixed spacing and no additional destination quota, respectively. Legacy
+hour field names `start_hour_utc`/`end_hour_utc` remain wire-compatible; their hours
+are now interpreted in `posting_timezone` (IANA name, default `UTC`). The window
+cannot cross midnight; 0–24 permits all day. Configurations outside the window
+defer only valid offers, without extending their original deadline.
+
+These WhatsApp controls do not apply to Telegram. The shared operator validity
+ceiling remains at most 600 seconds. Existing primary defaults in the earlier table
+describe legacy policies without saved values, not additional-connection defaults.
+
+### Operational references behind these choices
+
+- Manda Boa's public page describes one offer/minute from 07:00–23:00 in Standard
+  mode, configurable intervals/windows, and Telegram delivery as offers arrive:
+  <https://mandaboa.com/blog/enviar-ofertas-no-whatsapp-e-telegram-ao-mesmo-tempo/>.
+- Its consulted public pages do not specify an exact random inter-group delay
+  range or a numeric default daily group quota. Do not attribute our 30–90s range
+  or 100/day quota to Manda Boa.
+- The 30–90s inter-group range appears in another supplier's operational guide:
+  <https://blog.geekacademy.site/blog/anti-ban-whatsapp-mencionar-grupos-geekzap/>.
+- Six enabled groups per number follows the developer guidance supplied by the
+  user. These are configurable editorial controls, not proven ban-prevention limits.
+
+Targeted multi-account validation:
+
+```bash
+python -m unittest tests.test_whatsapp_connections tests.test_whatsapp_delivery_policy tests.test_whatsapp tests.test_whatsapp_management tests.test_integration_health
+```
+
+Set `WAHA_POLICY_TEST_DATABASE_URL` to a disposable PostgreSQL database for migration,
+concurrent activation, independent account locks, persisted random spacing,
+destination quota transfer, and delivery-session routing tests. After deployment,
+pair two distinct test numbers and validate real group/channel text/image delivery
+through each number; automated tests do not contact WhatsApp.
 
 ## Automated tests
 
