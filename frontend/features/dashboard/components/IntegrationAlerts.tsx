@@ -30,13 +30,6 @@ export function IntegrationAlerts() {
       href: "/settings/affiliates?provider=mercado_livre#affiliates",
       action: "Reconfigurar cookies",
     });
-  } else if (health?.mercado_livre === "unknown") {
-    alerts.push({
-      title: "Não foi possível verificar a sessão do Mercado Livre",
-      description: "A loja não confirmou o acesso. Isso pode ser temporário e não confirma expiração dos cookies. Confira as credenciais e valide a integração.",
-      href: "/settings/affiliates?provider=mercado_livre#affiliates",
-      action: "Verificar credenciais",
-    });
   }
 
   return (
@@ -54,6 +47,15 @@ export function IntegrationAlerts() {
         </section>
       ))}
       {hasError ? <p role="status" className="text-sm text-muted-foreground">Não foi possível atualizar os avisos das integrações. Nova tentativa automática em até um minuto.</p> : null}
+      {health?.mercado_livre === "unknown" ? (
+        <details className="text-xs text-muted-foreground">
+          <summary className="cursor-pointer rounded-md py-2 focus-visible:outline-2 focus-visible:outline-ring">Verificação automática do Mercado Livre inconclusiva</summary>
+          <p className="mt-1 text-sm/relaxed">
+            O acesso automático ao site não pôde ser confirmado. Isso não invalida uma geração de link validada em Afiliados nem exige trocar os cookies. A verificação será repetida automaticamente.
+            {" "}<Link href="/settings/affiliates?provider=mercado_livre#affiliates" className="underline underline-offset-4">Abrir Afiliados</Link>
+          </p>
+        </details>
+      ) : null}
     </div>
   );
 }

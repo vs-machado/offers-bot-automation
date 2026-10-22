@@ -49,6 +49,13 @@ async def mercado_livre_health(values: dict | None) -> str:
             response = await client.get(
                 "https://www.mercadolivre.com.br/afiliados/hub",
                 headers={
+                    "accept": "text/html,application/xhtml+xml",
+                    "accept-language": "pt-BR,pt;q=0.9",
+                    "user-agent": (
+                        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                        "AppleWebKit/537.36 (KHTML, like Gecko) "
+                        "Chrome/124.0.0.0 Safari/537.36"
+                    ),
                     "cookie": values["ml_cookie_header"],
                     "x-csrf-token": values["ml_csrf_token"],
                 },
