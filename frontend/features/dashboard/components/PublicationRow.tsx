@@ -56,7 +56,7 @@ export function PublicationRow({ publication }: { publication: Publication }) {
   return (
     <li>
       <details className="group/publication">
-        <summary className="grid min-h-16 cursor-pointer list-none grid-cols-[minmax(0,1fr)_auto_16px] items-center gap-3 px-4 py-3 text-sm transition-colors hover:bg-muted/50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring group-open/publication:bg-muted/50 motion-reduce:transition-none md:min-h-14 md:grid-cols-[minmax(0,1fr)_140px_132px_104px_16px] md:gap-4 md:px-5 md:py-2 xl:grid-cols-[minmax(0,1fr)_104px_160px_132px_104px_16px] [&::-webkit-details-marker]:hidden">
+        <summary className="grid min-h-16 cursor-pointer list-none grid-cols-[minmax(0,1fr)_auto_16px] items-center gap-3 px-4 py-3 text-sm transition-colors hover:bg-muted/50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring group-open/publication:bg-primary/10 group-open/publication:inset-ring-1 group-open/publication:inset-ring-primary/30 motion-reduce:transition-none md:min-h-14 md:grid-cols-[minmax(0,1fr)_140px_132px_104px_16px] md:gap-4 md:px-5 md:py-2 xl:grid-cols-[minmax(0,1fr)_104px_160px_132px_104px_16px] [&::-webkit-details-marker]:hidden">
           <span className="min-w-0">
             <span className="block truncate font-medium" title={title}>
               {title}
@@ -89,7 +89,7 @@ export function PublicationRow({ publication }: { publication: Publication }) {
             className={cn(
               "inline-flex w-fit items-center gap-1.5 rounded-full border px-2 py-1 text-xs font-medium whitespace-nowrap",
               isComplete
-                ? "border-sidebar-primary/20 bg-sidebar-primary/10 text-foreground"
+                ? "border-primary bg-primary text-primary-foreground"
                 : failures > 0
                   ? "border-destructive/20 bg-background text-destructive"
                   : "border-border bg-muted/50 text-muted-foreground",
