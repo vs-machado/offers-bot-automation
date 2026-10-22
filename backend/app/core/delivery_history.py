@@ -1,6 +1,6 @@
 """Read-only delivery history; normalize stale queue state without replaying it."""
 
-from sqlalchemy import case, func, select
+from sqlalchemy import String, case, cast, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.app.core.delivery_errors import REASONS
@@ -50,12 +50,55 @@ async def get_delivery_history(
         .correlate(Delivery)
         .scalar_subquery()
     )
-    statement = select(
-        Delivery,
-        effective_status.label("effective_status"),
-        destination_title.label("destination_title"),
-    ).where(*filters)
-    offer_id = func.coalesce(Delivery.dedup_key, Delivery.id)
+    # A product key is permanent. Split its audit rows into publication episodes
+    # after a gap longer than the offer lifetime; source time keeps slow sends together.
+    product_id = func.coalesce(Delivery.dedup_key, Delivery.id)
+    occurred_at = func.extract(
+        "epoch", func.coalesce(Delivery.source_at, Delivery.created_at)
+    )
+    timeline = (
+        select(
+            Delivery.id.label("delivery_id"),
+            product_id.label("product_id"),
+            occurred_at.label("occurred_at"),
+            func.lag(occurred_at)
+            .over(partition_by=product_id, order_by=(occurred_at, Delivery.id))
+            .label("previous_at"),
+        )
+        .where(*filters)
+        .subquery()
+    )
+    episodes = select(
+        timeline.c.delivery_id,
+        timeline.c.product_id,
+        func.sum(
+            case(
+                (timeline.c.previous_at.is_(None), 1),
+                (timeline.c.occurred_at - timeline.c.previous_at > 600, 1),
+                else_=0,
+            )
+        )
+        .over(
+            partition_by=timeline.c.product_id,
+            order_by=(timeline.c.occurred_at, timeline.c.delivery_id),
+            rows=(None, 0),
+        )
+        .label("episode"),
+    ).subquery()
+    offer_id = case(
+        (episodes.c.episode == 1, episodes.c.product_id),
+        else_=episodes.c.product_id + ":" + cast(episodes.c.episode, String),
+    )
+    statement = (
+        select(
+            Delivery,
+            effective_status.label("effective_status"),
+            destination_title.label("destination_title"),
+            offer_id.label("offer_id"),
+        )
+        .join(episodes, Delivery.id == episodes.c.delivery_id)
+        .where(*filters)
+    )
     total = counts.get(status, 0) if status else sum(counts.values())
     if group_by_offer:
         # Never merge unrelated legacy rows by title or split destinations by page.
@@ -64,6 +107,7 @@ async def get_delivery_history(
                 offer_id.label("offer_id"),
                 func.max(Delivery.created_at).label("latest_at"),
             )
+            .join(episodes, Delivery.id == episodes.c.delivery_id)
             .where(*filters)
             .group_by(offer_id)
         )
@@ -96,7 +140,7 @@ async def get_delivery_history(
         )
     result = await db.execute(statement)
     items = []
-    for delivery, current_status, title in result.all():
+    for delivery, current_status, title, publication_id in result.all():
         reason = delivery.reason
         if current_status == "expired" and not reason:
             reason = "promotion_expired"
@@ -116,7 +160,7 @@ async def get_delivery_history(
         items.append(
             {
                 "id": delivery.id,
-                "offer_id": delivery.dedup_key or delivery.id,
+                "offer_id": publication_id,
                 "title": delivery.title,
                 "price": delivery.price,
                 "affiliate_url": delivery.affiliate_url,

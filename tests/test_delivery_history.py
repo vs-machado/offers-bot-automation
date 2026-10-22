@@ -115,3 +115,32 @@ class GroupedDeliveryHistoryTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(history["total"], 1)
         self.assertEqual(history["counts"], {"failed": 1})
         self.assertEqual([row["id"] for row in history["items"]], ["shopee"])
+
+    async def test_repeated_product_has_separate_publication_episodes(self):
+        self.add_delivery("today-a", "repeated", age=0)
+        self.add_delivery("today-b", "repeated", age=2)
+        self.add_delivery("earlier", "repeated", age=60)
+        self.add_delivery("yesterday", "repeated", age=1440)
+
+        history = await get_delivery_history(self.db, 1, 1, 1, None, True)
+
+        self.assertEqual(history["total"], 3)
+        self.assertEqual(history["counts"], {"sent": 4})
+        self.assertEqual(
+            [row["id"] for row in history["items"]], ["today-a", "today-b"]
+        )
+        self.assertEqual(len({row["offer_id"] for row in history["items"]}), 1)
+
+    async def test_source_timestamp_keeps_delayed_destinations_together(self):
+        self.add_delivery("fast", "delayed", age=30)
+        self.add_delivery("slow", "delayed", age=0)
+        for identity in ("fast", "slow"):
+            self.session.get(PromotionDelivery, identity).source_at = (
+                self.now - timedelta(minutes=30)
+            )
+        self.session.commit()
+
+        history = await get_delivery_history(self.db, 1, 1, 20, None, True)
+
+        self.assertEqual(history["total"], 1)
+        self.assertEqual(len(history["items"]), 2)
