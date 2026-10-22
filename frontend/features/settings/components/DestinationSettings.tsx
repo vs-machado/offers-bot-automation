@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { Pencil, Power, PowerOff, Save, Trash2, X } from "lucide-react";
 import { PlatformLogo } from "@/components/PlatformLogo";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
@@ -103,7 +104,7 @@ export function DestinationSettings({ settings }: { settings: SettingsState }) {
                       disabled={disabled}
                       onClick={() => edit(destination)}
                     >
-                      Editar
+                      <Pencil aria-hidden="true" />Editar
                     </Button>
                     <Button
                       variant="outline"
@@ -112,14 +113,15 @@ export function DestinationSettings({ settings }: { settings: SettingsState }) {
                         void settings.toggleDestination(destination)
                       }
                     >
+                      {destination.enabled ? <PowerOff aria-hidden="true" /> : <Power aria-hidden="true" />}
                       {destination.enabled ? "Desativar" : "Habilitar"}
                     </Button>
                     <Button
-                      variant="ghost"
+                      variant="destructive-outline"
                       disabled={disabled}
                       onClick={() => setRemovingId(destination.id)}
                     >
-                      Remover
+                      <Trash2 aria-hidden="true" />Remover
                     </Button>
                   </div>
                   {removingId === destination.id ? (
@@ -129,18 +131,18 @@ export function DestinationSettings({ settings }: { settings: SettingsState }) {
                       </p>
                       <div className="mt-3 flex flex-wrap gap-2">
                         <Button
-                          variant="destructive"
+                          variant="destructive-outline"
                           disabled={disabled}
                           onClick={() => void remove(destination.id)}
                         >
-                          Confirmar remoção
+                          <Trash2 aria-hidden="true" />Confirmar remoção
                         </Button>
                         <Button
                           variant="outline"
                           disabled={disabled}
                           onClick={() => setRemovingId(null)}
                         >
-                          Cancelar
+                          <X aria-hidden="true" />Cancelar
                         </Button>
                       </div>
                     </div>
@@ -229,6 +231,7 @@ export function DestinationSettings({ settings }: { settings: SettingsState }) {
           </fieldset>
           <div className="flex flex-wrap gap-2">
             <Button type="submit" disabled={disabled}>
+              <Save aria-hidden="true" />
               {settings.busy === "destinations"
                 ? "Salvando…"
                 : "Salvar destino"}
@@ -240,7 +243,7 @@ export function DestinationSettings({ settings }: { settings: SettingsState }) {
                 disabled={disabled}
                 onClick={reset}
               >
-                Cancelar edição
+                <X aria-hidden="true" />Cancelar edição
               </Button>
             ) : null}
           </div>
