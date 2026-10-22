@@ -15,6 +15,7 @@ async def get_delivery_history(
     limit: int,
     status: str | None,
     group_by_offer: bool = False,
+    platform: str | None = None,
 ) -> dict:
     """Return owned history, optionally paging whole offers with all their outcomes."""
     effective_status = case(
@@ -29,9 +30,12 @@ async def get_delivery_history(
         ),
         else_=Delivery.status,
     )
+    filters = [Delivery.user_id == user_id]
+    if platform:
+        filters.append(Delivery.platform == platform)
     counts_result = await db.execute(
         select(effective_status.label("status"), func.count())
-        .where(Delivery.user_id == user_id)
+        .where(*filters)
         .group_by(effective_status)
     )
     counts = dict(counts_result.all())
@@ -50,7 +54,7 @@ async def get_delivery_history(
         Delivery,
         effective_status.label("effective_status"),
         destination_title.label("destination_title"),
-    ).where(Delivery.user_id == user_id)
+    ).where(*filters)
     offer_id = func.coalesce(Delivery.dedup_key, Delivery.id)
     total = counts.get(status, 0) if status else sum(counts.values())
     if group_by_offer:
@@ -60,7 +64,7 @@ async def get_delivery_history(
                 offer_id.label("offer_id"),
                 func.max(Delivery.created_at).label("latest_at"),
             )
-            .where(Delivery.user_id == user_id)
+            .where(*filters)
             .group_by(offer_id)
         )
         if status:

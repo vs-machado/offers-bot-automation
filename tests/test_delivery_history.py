@@ -103,3 +103,15 @@ class GroupedDeliveryHistoryTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(history["total"], 2)
         self.assertEqual(len(history["items"]), 1)
+
+    async def test_store_filter_applies_to_counts_and_grouped_pages(self):
+        self.add_delivery("amazon", "amazon-offer")
+        self.add_delivery("shopee", "shopee-offer", status="failed")
+        self.session.get(PromotionDelivery, "shopee").platform = "shopee"
+        self.session.commit()
+
+        history = await get_delivery_history(self.db, 1, 1, 20, None, True, "shopee")
+
+        self.assertEqual(history["total"], 1)
+        self.assertEqual(history["counts"], {"failed": 1})
+        self.assertEqual([row["id"] for row in history["items"]], ["shopee"])
