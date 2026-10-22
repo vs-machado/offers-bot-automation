@@ -80,7 +80,7 @@ function ConnectionManagement({ connectionId, name, connections }: { connectionI
         </div>
         <input type="search" aria-label="Buscar grupo ou canal" placeholder="Buscar grupo ou canal…" className="h-10 w-full rounded-lg border bg-background px-3 text-sm sm:w-64" value={search} onChange={(event) => setSearch(event.target.value)} />
       </div>
-      <p className="text-xs text-muted-foreground">{management.chats.length} destinos · {management.isLoading ? "Consultando WhatsApp…" : `Última consulta: ${management.updatedAt || "—"}. Atualize para conferir mudanças de membros.`}</p>
+      <p className="text-xs text-muted-foreground">{management.chats.length} destinos · {management.isLoading ? "Consultando WhatsApp…" : `Última consulta: ${management.updatedAt || "—"}. Seguidores dos canais atualizados ao abrir esta página. Use Atualizar para consultar novamente.`}</p>
       {management.isLoading && !management.chats.length ? <p role="status" className="rounded-xl border border-dashed p-8 text-center text-sm text-muted-foreground">Carregando grupos e canais…</p> : visible.length ? <div className="grid gap-4 xl:grid-cols-2">
         {visible.map((chat) => <WhatsAppChatCard key={`${chat.id}:${chat.destination_id}:${JSON.stringify(chat.categories)}`} chat={chat} connected={connected} disabled={disabled || Boolean(management.editor)}
           onEdit={() => void management.openEditor(chat, "edit")} onNext={() => void management.openEditor(chat, "create")}
