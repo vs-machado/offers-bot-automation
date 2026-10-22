@@ -17,8 +17,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "TG Offers Bot",
-  description: "Publique ofertas no Telegram automaticamente com seus links de afiliado.",
+  title: "Offers Bot",
+  description: "Publique ofertas no Telegram e WhatsApp automaticamente com seus links de afiliado.",
 };
 
 export default function RootLayout({

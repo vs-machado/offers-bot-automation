@@ -51,7 +51,7 @@ export function WorkspaceShell({
           className="flex h-16 shrink-0 items-center gap-3 border-b border-sidebar-border px-6 font-semibold tracking-tight focus-visible:outline-2 focus-visible:outline-ring"
         >
           <Image src="/vsm_ofertas.jpeg" alt="VSM Ofertas" width={32} height={32} className="size-8 rounded-lg" />
-          TG Offers Bot
+          Offers Bot
         </Link>
         <div className="flex-1 overflow-y-auto p-3">
           <p className="px-3 pb-2 pt-4 text-xs font-medium text-muted-foreground">

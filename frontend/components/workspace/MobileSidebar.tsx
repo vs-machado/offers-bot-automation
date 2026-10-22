@@ -46,7 +46,7 @@ export function MobileSidebar({
           <div className="flex h-16 shrink-0 items-center justify-between gap-3 border-b border-sidebar-border px-4">
             <Dialog.Title className="flex items-center gap-3 font-semibold tracking-tight">
               <Image src="/vsm_ofertas.jpeg" alt="VSM Ofertas" width={32} height={32} className="size-8 rounded-lg" />
-              TG Offers Bot
+              Offers Bot
             </Dialog.Title>
             <Dialog.Close
               render={
