@@ -2,6 +2,7 @@
 
 import { useRef, useState, type FormEvent } from "react";
 import Image from "next/image";
+import { Plus, Save, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { OfferCategorySelector } from "@/features/offer-routing/OfferCategorySelector";
@@ -64,7 +65,7 @@ export function WhatsAppGroupForm({ editor, disabled, onSave, onClose }: {
             <h2 id="group-form-title" className="text-lg font-semibold">{mode === "edit" ? "Editar grupo" : chat ? "Criar próximo grupo" : "Novo grupo"}</h2>
             <p className="mt-1 text-sm text-muted-foreground">{chat && mode === "create" ? `Modelo: ${chat.name}. Descrição, foto e categorias reaproveitadas. Membros não são copiados.` : "Nome, descrição e foto serão salvos no WhatsApp."}</p>
           </div>
-          <Button type="button" variant="ghost" disabled={disabled} onClick={onClose}>Fechar</Button>
+          <Button type="button" variant="ghost" disabled={disabled} onClick={onClose}><X aria-hidden="true" />Fechar</Button>
         </div>
         <fieldset disabled={disabled} className="grid gap-5 lg:grid-cols-2">
           <div className="space-y-4">
@@ -100,8 +101,8 @@ export function WhatsAppGroupForm({ editor, disabled, onSave, onClose }: {
           </div>
         </fieldset>
         <div className="flex flex-wrap gap-3">
-          <Button type="submit" disabled={disabled || isReadingPhoto || Boolean(photoError) || !draft.name.trim()}>{disabled ? "Salvando…" : isReadingPhoto ? "Lendo foto…" : mode === "create" ? "Criar grupo" : "Salvar grupo"}</Button>
-          <Button type="button" variant="outline" disabled={disabled} onClick={onClose}>Cancelar</Button>
+          <Button type="submit" disabled={disabled || isReadingPhoto || Boolean(photoError) || !draft.name.trim()}>{mode === "create" ? <Plus aria-hidden="true" /> : <Save aria-hidden="true" />}{disabled ? "Salvando…" : isReadingPhoto ? "Lendo foto…" : mode === "create" ? "Criar grupo" : "Salvar grupo"}</Button>
+          <Button type="button" variant="outline" disabled={disabled} onClick={onClose}><X aria-hidden="true" />Cancelar</Button>
         </div>
       </form>
     </section>

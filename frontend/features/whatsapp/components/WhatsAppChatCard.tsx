@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { UsersRound, Megaphone, LockKeyhole, TriangleAlert } from "lucide-react";
+import { UsersRound, Megaphone, LockKeyhole, TriangleAlert, Plus, Pencil, Tags, Pause, Play, RefreshCw, Trash2, ArrowRightLeft, Save, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { OfferCategorySelector } from "@/features/offer-routing/OfferCategorySelector";
 import type { ManagedWhatsAppChat, WhatsAppConnectionSummary } from "@/features/whatsapp/types";
@@ -51,13 +51,13 @@ export function WhatsAppChatCard({ chat, disabled, connected, onEdit, onNext, on
     <div className="flex flex-wrap gap-1.5" aria-label="Categorias de ofertas">{tags.map((tag) => <span key={tag} className="rounded-full bg-muted px-2.5 py-1 text-xs">{tag}</span>)}</div>
     <div className="mt-auto flex flex-wrap gap-2">
       {isGroup ? <>
-        <Button variant={chat.is_full ? "default" : "outline"} disabled={disabled || !connected || !chat.can_manage} onClick={onNext}>Criar próximo grupo</Button>
-        <Button variant="outline" disabled={disabled || !connected || !chat.can_manage} onClick={onEdit}>Editar grupo</Button>
+        <Button variant={chat.is_full ? "default" : "outline"} disabled={disabled || !connected || !chat.can_manage} onClick={onNext}><Plus aria-hidden="true" />Criar próximo grupo</Button>
+        <Button variant="outline" disabled={disabled || !connected || !chat.can_manage} onClick={onEdit}><Pencil aria-hidden="true" />Editar grupo</Button>
       </> : null}
-      <Button variant="outline" disabled={disabled || !connected} onClick={() => { setCategories(chat.categories); setShowRouting(!showRouting); }} aria-expanded={showRouting}>Categorias</Button>
-      <Button variant="outline" disabled={disabled || !connected} onClick={() => void onRouting(chat.categories, !chat.enabled)}>{chat.enabled ? "Pausar ofertas" : "Ativar ofertas"}</Button>
-      <Button variant="ghost" disabled={disabled || !connected} onClick={onRefresh}>Atualizar {isGroup ? "membros" : "seguidores"}</Button>
-      {chat.destination_id != null ? <Button variant="ghost" disabled={disabled} onClick={() => setConfirmRemove(true)}>Remover destino</Button> : null}
+      <Button variant="outline" disabled={disabled || !connected} onClick={() => { setCategories(chat.categories); setShowRouting(!showRouting); }} aria-expanded={showRouting}><Tags aria-hidden="true" />Categorias</Button>
+      <Button variant="outline" disabled={disabled || !connected} onClick={() => void onRouting(chat.categories, !chat.enabled)}>{chat.enabled ? <Pause aria-hidden="true" /> : <Play aria-hidden="true" />}{chat.enabled ? "Pausar ofertas" : "Ativar ofertas"}</Button>
+      <Button variant="ghost" disabled={disabled || !connected} onClick={onRefresh}><RefreshCw aria-hidden="true" />Atualizar {isGroup ? "membros" : "seguidores"}</Button>
+      {chat.destination_id != null ? <Button variant="destructive-outline" disabled={disabled} onClick={() => setConfirmRemove(true)}><Trash2 aria-hidden="true" />Remover destino</Button> : null}
     </div>
     {chat.destination_id != null && otherConnections.length ? <div className="space-y-2 border-t pt-3">
       <label className="block space-y-2 text-sm">Transferir para outra conta
@@ -68,15 +68,15 @@ export function WhatsAppChatCard({ chat, disabled, connected, onEdit, onNext, on
       </label>
       <p className="text-xs/relaxed text-muted-foreground">Troca somente a conta usada pelo Offers Bot para enviar ofertas a este destino. Não transfere a propriedade do grupo ou canal no WhatsApp nem adiciona o novo número. Adicione a nova conta ao destino e confirme permissões de administrador antes de ativar.</p>
       <p className="text-xs/relaxed text-muted-foreground">A transferência pausa os envios deste destino e cancela publicações pendentes da conta anterior. Depois, selecione a nova conta e clique em Ativar ofertas. Categorias e histórico são preservados.</p>
-      <Button variant="outline" disabled={disabled || !targetId} onClick={() => void onMove(Number(targetId))}>Transferir e pausar publicações</Button>
+      <Button variant="outline" disabled={disabled || !targetId} onClick={() => void onMove(Number(targetId))}><ArrowRightLeft aria-hidden="true" />Transferir e pausar publicações</Button>
     </div> : null}
     {confirmRemove ? <div className="space-y-3 rounded-lg bg-muted p-3 text-sm">
       <p>Remover este destino? Ofertas deixarão de ser enviadas. O grupo ou canal não será excluído do WhatsApp.</p>
-      <div className="flex flex-wrap gap-2"><Button variant="destructive" disabled={disabled} onClick={() => void onRemove().then(() => setConfirmRemove(false))}>Confirmar remoção</Button><Button variant="outline" disabled={disabled} onClick={() => setConfirmRemove(false)}>Cancelar</Button></div>
+      <div className="flex flex-wrap gap-2"><Button variant="destructive-outline" disabled={disabled} onClick={() => void onRemove().then(() => setConfirmRemove(false))}><Trash2 aria-hidden="true" />Confirmar remoção</Button><Button variant="outline" disabled={disabled} onClick={() => setConfirmRemove(false)}><X aria-hidden="true" />Cancelar</Button></div>
     </div> : null}
     {showRouting ? <div className="space-y-3 border-t pt-4">
       <OfferCategorySelector value={categories} onChange={setCategories} disabled={disabled || !connected} />
-      <Button disabled={disabled || !connected} onClick={() => void onRouting(categories, chat.enabled)}>Salvar categorias</Button>
+      <Button disabled={disabled || !connected} onClick={() => void onRouting(categories, chat.enabled)}><Save aria-hidden="true" />Salvar categorias</Button>
     </div> : null}
   </article>;
 }

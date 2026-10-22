@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, RefreshCw } from "lucide-react";
+import { Plus, Pencil, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { WhatsAppConnection } from "@/features/whatsapp/WhatsAppConnection";
 import { WhatsAppDeliveryControls } from "@/features/whatsapp/WhatsAppDeliveryControls";
@@ -30,8 +30,8 @@ export function WhatsAppManagement() {
         <label className="min-w-48 flex-1 space-y-2 text-sm font-medium">Nome da conexão
           <input required maxLength={100} className="h-11 w-full rounded-lg border bg-background px-3" value={name} onChange={(event) => setName(event.target.value)} placeholder="Ofertas · número 2" />
         </label>
-        <Button type="submit" disabled={connections.isBusy || !name.trim() || !selected}>Adicionar conta</Button>
-        <Button type="button" variant="outline" disabled={connections.isBusy || !name.trim() || !selected} onClick={() => void connections.save(name, true)}>Renomear selecionada</Button>
+        <Button type="submit" disabled={connections.isBusy || !name.trim() || !selected}><Plus aria-hidden="true" />Adicionar conta</Button>
+        <Button type="button" variant="outline" disabled={connections.isBusy || !name.trim() || !selected} onClick={() => void connections.save(name, true)}><Pencil aria-hidden="true" />Renomear selecionada</Button>
       </form>
       <p className="text-xs text-muted-foreground">Novas contas: 30–90s entre envios, mínimo 60s por destino, até 6 grupos habilitados e janela 7h–23h (Brasília). Capacidade de múltiplas sessões depende da instalação WAHA.</p>
     </section>
