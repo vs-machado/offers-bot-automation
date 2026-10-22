@@ -4,6 +4,8 @@ import {
   CheckCheck,
   ChevronLeft,
   ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
   CircleAlert,
   Clock3,
   Hourglass,
@@ -240,6 +242,15 @@ export function PublicationHistory({
             <div className="flex items-center gap-2">
               <Button
                 variant="ghost"
+                className="min-h-11 min-w-11"
+                disabled={history.isLoading || history.page === 1}
+                onClick={() => void history.loadHistory(1, history.status)}
+                aria-label="Primeira página"
+              >
+                <ChevronsLeft aria-hidden="true" className="size-4" />
+              </Button>
+              <Button
+                variant="ghost"
                 className="min-h-11 min-w-11 motion-reduce:transition-none"
                 disabled={history.isLoading || history.page === 1}
                 onClick={() =>
@@ -249,9 +260,32 @@ export function PublicationHistory({
               >
                 <ChevronLeft aria-hidden="true" className="size-4" />
               </Button>
-              <span className="text-xs text-muted-foreground tabular-nums">
-                {history.page} / {pageCount}
-              </span>
+              <form
+                className="flex items-center gap-2 text-xs text-muted-foreground tabular-nums"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  const value = Number(new FormData(event.currentTarget).get("page"));
+                  if (Number.isInteger(value) && value >= 1 && value <= pageCount) {
+                    void history.loadHistory(value, history.status);
+                  }
+                }}
+              >
+                <label htmlFor="publication-page" className="sr-only">Número da página</label>
+                <input
+                  key={history.page}
+                  id="publication-page"
+                  name="page"
+                  type="number"
+                  min={1}
+                  max={pageCount}
+                  required
+                  defaultValue={history.page}
+                  disabled={history.isLoading}
+                  className="h-11 w-16 rounded-lg border bg-background px-2 text-center text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                />
+                <span>/ {countFormatter.format(pageCount)}</span>
+                <Button type="submit" variant="outline" disabled={history.isLoading}>Ir</Button>
+              </form>
               <Button
                 variant="ghost"
                 className="min-h-11 min-w-11 motion-reduce:transition-none"
@@ -262,6 +296,15 @@ export function PublicationHistory({
                 aria-label="Próxima página"
               >
                 <ChevronRight aria-hidden="true" className="size-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                className="min-h-11 min-w-11"
+                disabled={history.isLoading || history.page >= pageCount}
+                onClick={() => void history.loadHistory(pageCount, history.status)}
+                aria-label="Última página"
+              >
+                <ChevronsRight aria-hidden="true" className="size-4" />
               </Button>
             </div>
           </footer>
