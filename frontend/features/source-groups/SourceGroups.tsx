@@ -108,9 +108,6 @@ export function SourceGroups({
                       return (
                         <div key={message.id}>
                           <TelegramPostEmbed postId={postId} onReady={previews.markTelegramPostReady} />
-                          <a href={message.post_url} target="_blank" rel="noreferrer" className="text-xs text-primary underline">
-                            Ver mensagem no Telegram
-                          </a>
                         </div>
                       );
                     }
@@ -140,11 +137,6 @@ export function SourceGroups({
                                 </a>
                               ))}
                             </div>
-                          ) : null}
-                          {message.post_url ? (
-                            <a href={message.post_url} target="_blank" rel="noreferrer" className="text-xs text-primary underline">
-                              Ver mensagem no Telegram
-                            </a>
                           ) : null}
                         </div>
                       </article>
