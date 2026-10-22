@@ -66,6 +66,8 @@ export function WhatsAppChatCard({ chat, disabled, connected, onEdit, onNext, on
           {otherConnections.map((connection) => <option key={connection.id} value={connection.id}>{connection.name}</option>)}
         </select>
       </label>
+      <p className="text-xs/relaxed text-muted-foreground">Troca somente a conta usada pelo Offers Bot para enviar ofertas a este destino. Não transfere a propriedade do grupo ou canal no WhatsApp nem adiciona o novo número. Adicione a nova conta ao destino e confirme permissões de administrador antes de ativar.</p>
+      <p className="text-xs/relaxed text-muted-foreground">A transferência pausa os envios deste destino e cancela publicações pendentes da conta anterior. Depois, selecione a nova conta e clique em Ativar ofertas. Categorias e histórico são preservados.</p>
       <Button variant="outline" disabled={disabled || !targetId} onClick={() => void onMove(Number(targetId))}>Transferir e pausar publicações</Button>
     </div> : null}
     {confirmRemove ? <div className="space-y-3 rounded-lg bg-muted p-3 text-sm">
