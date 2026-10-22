@@ -166,7 +166,7 @@ async def validate_affiliate_credentials(
 
 @router.get("/me/deliveries", response_model=DeliveryHistory)
 async def list_deliveries(
-    page: int = Query(1, ge=1, le=10000),
+    page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     group_by_offer: bool = Query(False),
     platform: Literal["amazon", "shopee", "mercado_livre", "aliexpress"] | None = Query(
