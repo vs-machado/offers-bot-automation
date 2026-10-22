@@ -2,7 +2,7 @@
 
 import { useId, useState, type FormEvent } from "react";
 import { Popover } from "@base-ui/react/popover";
-import { CircleHelp } from "lucide-react";
+import { CircleHelp, Save } from "lucide-react";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -147,6 +147,7 @@ export function ProviderSettings({
             disabled={Boolean(settings.busy)}
           >
             <Button type="submit" form={formId} disabled={Boolean(settings.busy)}>
+              <Save aria-hidden="true" />
               {settings.busy === provider.type ? "Salvando…" : "Salvar"}
             </Button>
           </CredentialValidation>
