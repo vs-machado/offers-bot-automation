@@ -72,7 +72,7 @@ export function MobileSidebar({
                   pathname.startsWith("/admin") ? "page" : undefined
                 }
                 onClick={() => setIsOpen(false)}
-                className="flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:outline-2 focus-visible:outline-ring aria-[current=page]:bg-sidebar-accent aria-[current=page]:font-semibold aria-[current=page]:text-sidebar-accent-foreground"
+                className="flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:outline-2 focus-visible:outline-ring aria-[current=page]:bg-sidebar-primary/15 aria-[current=page]:font-semibold aria-[current=page]:text-primary aria-[current=page]:inset-ring-1 aria-[current=page]:inset-ring-sidebar-primary/30 dark:aria-[current=page]:text-sidebar-primary"
               >
                 <ShieldCheck aria-hidden="true" className="size-4" />
                 Administração

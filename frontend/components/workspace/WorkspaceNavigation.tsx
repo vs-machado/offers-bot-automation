@@ -18,7 +18,7 @@ export function WorkspaceNavigation({
         const className = cn(
           "flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm transition-colors focus-visible:outline-2 focus-visible:outline-ring motion-reduce:transition-none",
           active
-            ? "bg-sidebar-accent font-semibold text-sidebar-accent-foreground"
+            ? "bg-sidebar-primary/15 font-semibold text-primary inset-ring-1 inset-ring-sidebar-primary/30 dark:text-sidebar-primary"
             : "text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
         );
         return (
