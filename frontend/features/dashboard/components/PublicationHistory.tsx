@@ -96,7 +96,22 @@ export function PublicationHistory({
                 : "Uma linha por oferta. Abra para acompanhar cada grupo ou canal."}
             </p>
           </div>
-          <div className="flex w-full items-center gap-2 sm:w-auto">
+          <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
+            <label htmlFor="delivery-platform" className="sr-only">Filtrar por loja</label>
+            <SelectField
+              id="delivery-platform"
+              className="flex-1 sm:w-40 sm:flex-none"
+              value={history.platform}
+              disabled={history.isLoading}
+              options={[
+                { value: "", label: "Todas as lojas" },
+                { value: "amazon", label: "Amazon" },
+                { value: "shopee", label: "Shopee" },
+                { value: "mercado_livre", label: "Mercado Livre" },
+                { value: "aliexpress", label: "AliExpress" },
+              ]}
+              onValueChange={(value) => void history.loadHistory(1, history.status, value)}
+            />
             <label htmlFor="delivery-status" className="sr-only">
               Filtrar por resultado
             </label>
@@ -186,23 +201,23 @@ export function PublicationHistory({
               <h3 className="text-sm font-medium">
                 {!history.data
                   ? "Histórico indisponível"
-                  : history.status
-                    ? "Nenhuma publicação com esse resultado"
+                   : history.status || history.platform
+                     ? "Nenhuma publicação com esses filtros"
                     : "Suas próximas ofertas aparecem aqui"}
               </h3>
               <p className="mt-2 max-w-sm text-sm/relaxed text-muted-foreground">
                 {!history.data
                   ? "Use Atualizar para tentar carregar seus envios novamente."
-                  : history.status
-                    ? "Escolha outro resultado ou volte para todas as publicações."
+                   : history.status || history.platform
+                     ? "Escolha outra loja ou resultado, ou volte para todas as publicações."
                     : "Quando uma oferta for processada, você poderá acompanhar cada destino e resultado por aqui."}
               </p>
-              {history.status ? (
+               {history.status || history.platform ? (
                 <Button
                   variant="outline"
                   className="mt-4 min-h-11 motion-reduce:transition-none"
                   disabled={history.isLoading}
-                  onClick={() => void history.loadHistory(1, "")}
+                   onClick={() => void history.loadHistory(1, "", "")}
                 >
                   Ver todas as publicações
                 </Button>
@@ -254,7 +269,7 @@ export function PublicationHistory({
       </Card>
       <p className="hidden shrink-0 text-xs text-muted-foreground sm:block">
         Atualização automática a cada 30 segundos · Horários de Brasília ·
-        Totais por envio de todo o histórico · Lista agrupada por oferta
+        Totais por envio da loja selecionada · Lista agrupada por oferta
       </p>
     </section>
   );
