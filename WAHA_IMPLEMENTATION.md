@@ -291,7 +291,11 @@ Category rules are shared with setup. Groups show member counts and
 capacity; when WAHA provides no specific capacity, the 1,024-member reference is
 identified in the UI. Missing counts are not treated as zero. Refreshing is explicit,
 without frequent calls to `/groups/refresh`. Channels support follower-count
-queries, with no group capacity limit applied.
+queries, with no group capacity limit applied. Opening the destinations page or
+switching the selected connection fetches each administered channel's current
+details, at most three requests concurrently. Failed detail requests preserve the
+list entry and show a retry message; group-list failures do not block channels.
+Manual refresh remains available; there is no recurring follower polling.
 
 **Create next group** suggests the next available number in the series and opens
 a form for explicit creation. It reuses the selected group's description,

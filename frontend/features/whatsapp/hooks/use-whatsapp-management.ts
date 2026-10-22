@@ -35,6 +35,23 @@ export function useWhatsAppManagement(connectionStatus: string, connectionId?: n
         if (result.status === "fulfilled") next.push(...result.value);
         else failures.push(getRequestErrorMessage(result.reason, "Não foi possível atualizar destinos."));
       }
+      // Channel lists may omit or cache follower counts. Fetch current details on entry,
+      // with bounded concurrency; one unavailable channel must not hide the others.
+      const liveChannels = channels.status === "fulfilled" ? channels.value : [];
+      for (let offset = 0; offset < liveChannels.length; offset += 3) {
+        if (version !== loadVersion.current) return;
+        const batch = liveChannels.slice(offset, offset + 3);
+        const details = await Promise.allSettled(batch.map((chat) => api.getManagedWhatsAppChat(chat, connectionId)));
+        details.forEach((result, index) => {
+          if (result.status === "fulfilled") {
+            const position = next.findIndex((chat) => chat.id === batch[index].id);
+            next[position] = result.value;
+          } else {
+            failures.push(`${batch[index].name}: não foi possível atualizar seguidores. Use Atualizar seguidores para tentar novamente.`);
+          }
+        });
+      }
+      if (version !== loadVersion.current) return;
       if (saved.status === "fulfilled") {
         for (const destination of saved.value) {
           const index = next.findIndex((chat) => chat.id === destination.chat_id);
