@@ -1,7 +1,8 @@
 "use client";
 
 import { Dialog } from "@base-ui/react/dialog";
-import { Menu, Send, ShieldCheck, X } from "lucide-react";
+import { Menu, ShieldCheck, X } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -44,9 +45,7 @@ export function MobileSidebar({
         <Dialog.Popup className="fixed inset-y-0 left-0 z-50 flex w-72 max-w-[calc(100vw-2rem)] flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground outline-none">
           <div className="flex h-16 shrink-0 items-center justify-between gap-3 border-b border-sidebar-border px-4">
             <Dialog.Title className="flex items-center gap-3 font-semibold tracking-tight">
-              <span className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                <Send aria-hidden="true" className="size-4" />
-              </span>
+              <Image src="/vsm_ofertas.jpeg" alt="VSM Ofertas" width={32} height={32} className="size-8 rounded-lg" />
               TG Offers Bot
             </Dialog.Title>
             <Dialog.Close
