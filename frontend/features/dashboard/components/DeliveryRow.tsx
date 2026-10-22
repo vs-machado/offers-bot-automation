@@ -82,7 +82,7 @@ export function DeliveryRow({ delivery }: { delivery: Delivery }) {
             className={cn(
               "inline-flex w-fit max-w-36 items-center gap-1.5 rounded-full border px-2 py-1 text-xs font-medium whitespace-nowrap",
               delivery.status === "sent"
-                ? "border-sidebar-primary/20 bg-sidebar-primary/10 text-foreground"
+                ? "border-primary bg-primary text-primary-foreground"
                 : isFailure
                   ? "border-destructive/20 bg-background text-destructive"
                   : "border-border bg-muted/50 text-muted-foreground",
