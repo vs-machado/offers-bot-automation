@@ -91,6 +91,14 @@ class ProductSection(BaseModel):
         None,
         description="Redemption note if present, e.g. 'Resgate o cupom no anúncio do produto'",
     )
+    purchase_instructions: Optional[str] = Field(
+        None,
+        description=(
+            "Required purchase quantity or cart instructions in Portuguese, e.g. "
+            "'Adicionar 6 unidades ao carrinho'. Preserve quantity prefixes such as "
+            "'6x Produto' and instructions such as 'add 6x'. Never use installments here."
+        ),
+    )
     meli_plus_only: bool
     urls: List[str] = Field(
         default_factory=list,
@@ -161,6 +169,14 @@ FIELD RULES:
 - If message says "Cupom: Resgate cupom no anúncio" and gives no actual code, set product.coupon = null and product.resgate_anuncio_note = "Resgate cupom no anúncio".
 - product.card_price must be set only when text explicitly indicates a different card/parcelado price, e.g. "R$ 110 no cartão" while product.price is "R$ 100 no PIX".
 - If same price is shown with installments, e.g. "R$ 680 em 10x sem juros", set product.price = "R$ 680", product.installment_info = "10X SEM JUROS", and product.card_price = null.
+
+REQUIRED QUANTITY AND CART INSTRUCTIONS:
+- Preserve any quantity required to obtain the offer in product.purchase_instructions. This is essential deal content, never advertising or noise.
+- A quantity prefix before the product name, e.g. "6x Sabonete" or "5x Detergente", means units to purchase, not payment installments. Keep a clean product title and output "Adicionar 6 unidades ao carrinho" or "Adicionar 5 unidades ao carrinho" respectively.
+- Instructions anywhere in the offer such as "add 6x", "adicione 6", "adicionar 6 unidades" or "leve 5 unidades" must appear in purchase_instructions for the corresponding product, preserving the exact quantity and any explicit minimum or required combination.
+- Do not confuse "6x Produto" or "add 6x" with "em 6x sem juros" or "6 parcelas". Only explicit payment context belongs in installment_info. Both purchase quantity and installments may coexist and must be preserved separately.
+- Keep unit prices and bundle prices as stated; do not multiply, divide or invent a total. Do not infer a cart instruction from a product's packaged contents alone, e.g. "kit com 6 peças".
+- For multiple products, attach each instruction only to the relevant offer. Set purchase_instructions to null when no required quantity or cart instruction is given.
 
 CATEGORY CLASSIFICATION RULE: After classifying as "product" or "coupon", determine the product category:
 - "tech": For electronic devices like smartphones, laptops, tablets, smart watches, headphones, etc.

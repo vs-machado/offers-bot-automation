@@ -415,6 +415,7 @@ def format_llm_offer(offer: Offer, affiliate_url: str) -> str:
         shipping = prod.get("shipping_info") or offer.shipping_info or ""
         coupon = prod.get("coupon") or offer.coupon or ""
         resgate_note = prod.get("resgate_anuncio_note") or ""
+        purchase_instructions = prod.get("purchase_instructions") or ""
         meli_plus = prod.get("meli_plus_only", False) or offer.meli_plus_only
 
         if coupon and _is_resgate_note_without_code(coupon):
@@ -445,6 +446,9 @@ def format_llm_offer(offer: Offer, affiliate_url: str) -> str:
 
         if resgate_note:
             parts.append(f"🏷️ {resgate_note}")
+
+        if purchase_instructions:
+            parts.append(f"🛒 {purchase_instructions}")
 
         if meli_plus:
             parts.append("⭐ Exclusivo para clientes Meli+")
