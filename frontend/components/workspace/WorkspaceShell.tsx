@@ -2,7 +2,8 @@
 
 import type { ReactNode } from "react";
 import { usePathname } from "next/navigation";
-import { Send, ShieldCheck } from "lucide-react";
+import { ShieldCheck } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -49,9 +50,7 @@ export function WorkspaceShell({
           href="/dashboard"
           className="flex h-16 shrink-0 items-center gap-3 border-b border-sidebar-border px-6 font-semibold tracking-tight focus-visible:outline-2 focus-visible:outline-ring"
         >
-          <span className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-            <Send aria-hidden="true" className="size-4" />
-          </span>
+          <Image src="/vsm_ofertas.jpeg" alt="VSM Ofertas" width={32} height={32} className="size-8 rounded-lg" />
           TG Offers Bot
         </Link>
         <div className="flex-1 overflow-y-auto p-3">
