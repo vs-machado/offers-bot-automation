@@ -62,7 +62,7 @@ Types: `feat`, `fix`, `refactor`, `test`, `docs`, `chore`.
 
 ## Documentation
 When implementing or reviewing WhatsApp/WAHA functionality, read
-`WAHA_IMPLEMENTATION.md` and consider its channel delivery requirements,
+`docs/whatsapp-implementation.md` and consider its channel delivery requirements,
 operational controls, and validation criteria.
 
 Document crucial functions or methods when behavior is not obvious. Add concise docstrings to:

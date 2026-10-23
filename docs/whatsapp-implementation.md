@@ -1,5 +1,7 @@
 # WAHA: channel implementation recommendations
 
+[Documentation index](README.md) · [WhatsApp operator and user guide](whatsapp.md)
+
 ## Objective
 
 Connect WhatsApp accounts and publish to **channels**, integrated into the UI,
@@ -128,9 +130,9 @@ Blocked categories do not occupy slots in new bursts when the rule is already sa
 
 Existing foundation: user-owned sessions, QR pairing, administered channels,
 destinations, and delivery through the Celery queue, with expiration and
-conservative retry handling. The UI and tutorial received additions in this branch.
+conservative retry handling, integrated into the UI and setup tutorial.
 
-Implemented in this branch: a maximum 600-second lifetime, account and destination
+Implemented: a maximum 600-second lifetime, account and destination
 limits, transactional cross-source deduplication by product/variation and price
 (30-minute window), retention of the 5 most recent offers during bursts and backlog
 recovery, automatic pauses, and UI/tutorial controls. Price changes permit a new
