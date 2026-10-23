@@ -2,7 +2,7 @@ import asyncio
 
 import httpx
 from backend.app.core.awin import valid_credentials
-from offers_bot.magalu import MagaluClient
+from backend.app.core.magalu import MagaluClient
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from typing import Literal
