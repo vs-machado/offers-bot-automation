@@ -22,6 +22,7 @@ export function PublicationRow({ publication }: { publication: Publication }) {
     deliveries.find((delivery) => delivery.title)?.title ||
     "Promoção sem título registrado";
   const price = deliveries.find((delivery) => delivery.price)?.price;
+  const coupon = deliveries.find((delivery) => delivery.coupon?.trim())?.coupon?.trim();
   const affiliateUrl = deliveries.find((delivery) => delivery.affiliate_url)?.affiliate_url ?? null;
   const sent = deliveries.filter((delivery) => delivery.status === "sent").length;
   const pending = deliveries.filter((delivery) =>
@@ -61,15 +62,15 @@ export function PublicationRow({ publication }: { publication: Publication }) {
             <span className="block truncate font-medium" title={title}>
               {title}
             </span>
-            <span
-              className={cn(
-                "mt-1 block truncate text-xs tabular-nums",
-                price ? "font-semibold text-foreground" : "text-muted-foreground",
-              )}
-              title={price || "Preço não registrado"}
-              aria-label={`Preço anunciado: ${price || "não registrado"}`}
-            >
-              {price || "Preço não registrado"}
+            <span className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-xs tabular-nums">
+              <span
+                className={cn("min-w-0 wrap-anywhere", price ? "font-semibold text-foreground" : "text-muted-foreground")}
+                title={price || "Preço não registrado"}
+                aria-label={`Preço anunciado: ${price || "não registrado"}`}
+              >
+                {price || "Preço não registrado"}
+              </span>
+              {coupon ? <span className="min-w-0 wrap-anywhere font-semibold text-primary dark:text-sidebar-primary">CUPOM: {coupon}</span> : null}
             </span>
             <span className="mt-1 block text-xs text-muted-foreground md:hidden">
               {sent}/{deliveries.length} envios confirmados · {destinationCount} {destinationCount === 1 ? "destino" : "destinos"}
@@ -114,6 +115,7 @@ export function PublicationRow({ publication }: { publication: Publication }) {
           <h3 className="wrap-anywhere text-sm/relaxed font-medium">{title}</h3>
           <p className="mt-1 wrap-anywhere text-sm font-semibold tabular-nums">
             Preço anunciado: {price || "não registrado"}
+            {coupon ? <span className="ml-3 text-primary dark:text-sidebar-primary">CUPOM: {coupon}</span> : null}
           </p>
           <AffiliateLinkActions key={affiliateUrl} url={affiliateUrl} />
           <p className="mt-1 text-xs/relaxed text-muted-foreground">
