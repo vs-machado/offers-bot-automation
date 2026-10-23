@@ -1,7 +1,7 @@
 import asyncio
 
 import httpx
-from offers_bot.awin import AwinClient
+from backend.app.core.awin import valid_credentials
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from typing import Literal
@@ -262,9 +262,9 @@ def _validate_config(
             if not isinstance(value, str):
                 raise HTTPException(status_code=400, detail=MESSAGES["invalid_format"])
             values[key] = value.strip()
-        if not AwinClient(
+        if not valid_credentials(
             values["awin_publisher_id"], values["awin_access_token"]
-        ).ready():
+        ):
             raise HTTPException(status_code=400, detail=MESSAGES["invalid_format"])
     if config_data.config_type == "amazon":
         reason = amazon_tag_reason(config_data.config_data.get("amazon_affiliate_tag"))

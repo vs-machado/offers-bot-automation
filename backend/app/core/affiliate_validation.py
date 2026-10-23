@@ -10,11 +10,11 @@ import time
 from urllib.parse import urlparse
 
 import httpx
-from offers_bot.awin import (
+from backend.app.core.awin import (
     KABUM_ADVERTISER_ID,
     is_tracking_link,
     link_endpoint,
-    valid_publisher_id,
+    valid_credentials,
 )
 
 from backend.app.schemas.affiliate_validation import (
@@ -360,10 +360,8 @@ async def validate_credentials(
     }
     if any(not values.get(key) for key in REQUIRED[provider]):
         return outcome(provider, "missing_fields", "invalid")
-    if provider == "awin" and (
-        not valid_publisher_id(values["awin_publisher_id"])
-        or not values["awin_access_token"].isascii()
-        or any(char.isspace() for char in values["awin_access_token"])
+    if provider == "awin" and not valid_credentials(
+        values["awin_publisher_id"], values["awin_access_token"]
     ):
         return outcome(provider, "invalid_format", "invalid")
     if any(
