@@ -114,6 +114,7 @@ export function PublicationHistory({
                 { value: "mercado_livre", label: "Mercado Livre" },
                 { value: "aliexpress", label: "AliExpress" },
                 { value: "kabum", label: "KaBuM" },
+                { value: "magalu", label: "Magalu" },
               ]}
               onValueChange={(value) => void history.loadHistory(1, history.status, value)}
             />

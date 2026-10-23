@@ -25,7 +25,7 @@ export async function Dashboard() {
   );
   const hasEnabledDestination = enabledDestinations.length > 0;
   const hasAffiliateConfig = configs.some((config) =>
-    ["amazon", "shopee", "mercado_livre", "aliexpress", "awin"].includes(
+    ["amazon", "shopee", "mercado_livre", "aliexpress", "awin", "magalu"].includes(
       config.config_type,
     ),
   );

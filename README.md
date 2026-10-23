@@ -12,7 +12,7 @@ publication controls per account and destination.
 ## Features
 
 - **Web dashboard:** guided setup, integrations, destinations, and searchable history.
-- **Five stores:** Amazon Brazil, Mercado Livre, Shopee Brazil, AliExpress, and KaBuM!.
+- **Six stores:** Amazon Brazil, Mercado Livre, Shopee Brazil, AliExpress, KaBuM!, and Magalu.
 - **Telegram:** publishing through a platform-owned bot to authorized groups and channels.
 - **WhatsApp:** QR pairing, multiple accounts, groups and administered channels,
   group creation, and publication controls.

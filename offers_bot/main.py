@@ -11,6 +11,7 @@ import httpx
 from .amazon import AmazonClient
 from .aliexpress import AliExpressClient
 from .awin import AwinClient
+from .magalu import MagaluClient, is_magalu_url
 from .config import load_settings
 from .browser_resolver import PlaywrightProductResolver
 from .mercado_livre import MercadoLivreClient, UnsupportedOfferError
@@ -619,6 +620,12 @@ async def run() -> None:
         tracking_id=settings.aliexpress_tracking_id,
     )
     awin = AwinClient(settings.awin_publisher_id, settings.awin_access_token)
+    magalu = MagaluClient(
+        settings.magalu_partner_id,
+        settings.magalu_promoter_id,
+        settings.magalu_store_name,
+        settings.magalu_utm_campaign,
+    )
     telegram = TelegramOfferBot(
         api_id=settings.telegram_api_id,
         api_hash=settings.telegram_api_hash,
@@ -661,6 +668,8 @@ async def run() -> None:
                     if is_ali
                     else awin
                     if is_kabum_url(offer.url)
+                    else magalu
+                    if is_magalu_url(offer.url)
                     else None
                 )
                 if affiliate_client is None:

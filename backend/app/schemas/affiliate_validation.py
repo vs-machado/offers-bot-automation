@@ -4,7 +4,9 @@ from datetime import datetime
 from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, SecretStr
 
-ProviderType = Literal["amazon", "mercado_livre", "shopee", "aliexpress", "awin"]
+ProviderType = Literal[
+    "amazon", "mercado_livre", "shopee", "aliexpress", "awin", "magalu"
+]
 
 
 class CredentialValidationRequest(BaseModel):

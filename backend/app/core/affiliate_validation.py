@@ -10,6 +10,12 @@ import time
 from urllib.parse import urlparse
 
 import httpx
+from offers_bot.magalu import (
+    MagaluClient,
+    MagaluError,
+    SAMPLE_PRODUCT_URL,
+    valid_config,
+)
 from backend.app.core.awin import (
     KABUM_ADVERTISER_ID,
     is_tracking_link,
@@ -28,6 +34,7 @@ REQUIRED = {
     "shopee": ("shopee_app_id", "shopee_app_secret"),
     "aliexpress": ("aliexpress_app_key", "aliexpress_app_secret"),
     "awin": ("awin_publisher_id", "awin_access_token"),
+    "magalu": ("magalu_partner_id", "magalu_promoter_id", "magalu_store_name"),
 }
 MESSAGES = {
     "locally_valid": "Configuração Amazon válida localmente: o formato da tag está correto. Esta verificação não autentica sua conta nem confirma a existência ou titularidade da tag. Salve a configuração para usar no bot.",
@@ -360,6 +367,12 @@ async def validate_credentials(
     }
     if any(not values.get(key) for key in REQUIRED[provider]):
         return outcome(provider, "missing_fields", "invalid")
+    if provider == "magalu" and not valid_config(
+        values["magalu_partner_id"],
+        values["magalu_promoter_id"],
+        values["magalu_store_name"],
+    ):
+        return outcome(provider, "invalid_format", "invalid")
     if provider == "awin" and not valid_credentials(
         values["awin_publisher_id"], values["awin_access_token"]
     ):
@@ -381,6 +394,15 @@ async def validate_credentials(
     _active_users.add(user_id)
     try:
         async with _slots, asyncio.timeout(20):
+            if provider == "magalu":
+                client = MagaluClient(
+                    values["magalu_partner_id"],
+                    values["magalu_promoter_id"],
+                    values["magalu_store_name"],
+                    values.get("magalu_utm_campaign", "divulgacao_influencer"),
+                )
+                await asyncio.to_thread(client.generate, SAMPLE_PRODUCT_URL)
+                return outcome(provider, "validated", "valid")
             async with httpx.AsyncClient(
                 timeout=15,
                 follow_redirects=False,
@@ -400,6 +422,16 @@ async def validate_credentials(
         return outcome(provider, "timeout")
     except httpx.RequestError:
         return outcome(provider, "connection")
+    except MagaluError as exc:
+        cause = exc.__cause__
+        if isinstance(cause, httpx.TimeoutException):
+            return outcome(provider, "timeout")
+        if isinstance(cause, httpx.RequestError):
+            return outcome(provider, "connection")
+        if isinstance(cause, httpx.HTTPStatusError):
+            code = cause.response.status_code
+            return outcome(provider, "rate_limit" if code == 429 else "api_unavailable")
+        return outcome(provider, "link_not_generated")
     except Exception:
         return outcome(provider, "api_unavailable")
     finally:

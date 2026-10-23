@@ -14,6 +14,7 @@ in PostgreSQL and associated with the user, not the shared runtime's `.env`.
 | Shopee Brazil | Affiliate Open Platform app ID and app secret |
 | AliExpress | Affiliate API app key, app secret, and optional tracking ID |
 | KaBuM through Awin | Numeric publisher ID and personal API access token; approval for the KaBuM program |
+| Magalu / Magazine Você | Partner ID, promoter ID and store name; optional UTM campaign |
 
 ### Amazon
 
@@ -83,6 +84,54 @@ Authentication uses `Authorization: Bearer <accessToken>`, never a query paramet
 
 References: [Generate link](https://help.awin.com/apidocs/generatelink) and
 [API authentication](https://help.awin.com/apidocs/api-authentication).
+
+### Magalu / Magazine Você
+
+Select **Magalu** in affiliate settings. Enter `magalu_partner_id`,
+`magalu_promoter_id` and `magalu_store_name` from your Magazine Você account.
+All three are account settings; no account IDs are embedded in the API endpoint.
+`magalu_utm_campaign` is optional and defaults to `divulgacao_influencer`.
+Settings use the existing encrypted per-user persistence and worker refresh.
+The validation button generates one reference product link without saving or posting.
+
+Before extraction, the bot expands approved HTTPS shorteners such as `cutt.ly`,
+`bit.ly`, `tinyurl.com`, `t.co`, `rb.gy` and Magalu OneLink links. Only chains
+ending on approved Magazine Luiza / Magazine Você hosts are accepted. Each URL
+has at most five redirect requests and a 15-second resolution budget; up to
+five unique short URLs are expanded before extraction. Redirects requiring JavaScript,
+interstitial interaction or other domains are unsupported. Direct product URLs
+do not require fetching the product page.
+
+The converter preserves seller/product parameters and replaces previous account
+IDs and default UTMs. Posting always uses `lucreator` / `link_afiliado`, including
+when publishing to WhatsApp. It uses the returned `affiliate_url`, not a manually
+constructed tracking fallback. Product identity plus seller drives deduplication.
+API prices are exposed as metadata but do not replace prices advertised by sources.
+
+Authenticated backend endpoint: `POST /affiliate/magalu`:
+
+```json
+{
+  "url": "https://www.magazineluiza.com.br/product/p/240466500/te/ga07/",
+  "channel": "lucreator"
+}
+```
+
+The optional channel also accepts `whatsapp` explicitly for
+`whatsapp` / `compartilhamento_social`. The endpoint loads only the caller's
+saved Magalu settings, rejects account/endpoint overrides, and returns validated
+links plus available product metadata. Limits per backend process: eight active
+requests, one active request per user and a five-second user interval.
+Provider failures return controlled errors; generation POSTs are not retried.
+
+The external endpoint is an observed, **unofficial/unverified API** and may change.
+A controlled HTTP test on 2026-10-23 succeeded outside a browser with Galaxy A07
+and iPhone URLs without affiliate IDs. That does not establish official support or
+guarantee commission attribution. Contract evidence: [implementation specification](../tasks/integracao_api_afiliados_magalu.md).
+
+For the legacy standalone bot only, configure `MAGALU_PARTNER_ID`,
+`MAGALU_PROMOTER_ID`, `MAGALU_STORE_NAME` and optionally `MAGALU_UTM_CAMPAIGN`
+in its environment. The multi-tenant worker uses dashboard settings instead.
 
 ## Credential validation
 

@@ -17,6 +17,7 @@ const platformLabels: Record<string, string> = {
   mercado_livre: "Mercado Livre",
   aliexpress: "AliExpress",
   kabum: "KaBuM",
+  magalu: "Magalu",
 };
 
 export function getPlatformLabel(platform: string | null) {
