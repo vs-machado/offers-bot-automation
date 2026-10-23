@@ -203,7 +203,7 @@ class UserBotInstance:
     ) -> None:
         """Parse, deduplicate, affiliate, format, and post one source message.
 
-        Prefer source media for Amazon, Mercado Livre, and AliExpress.
+        Prefer source media for Amazon, Mercado Livre, AliExpress, and Shopee.
         """
         if source_chat not in self._source_chats:
             return
@@ -336,6 +336,7 @@ class UserBotInstance:
                             PLATFORM_AMAZON,
                             PLATFORM_MERCADO_LIVRE,
                             PLATFORM_ALIEXPRESS,
+                            PLATFORM_SHOPEE,
                         )
                         else None,
                     )
