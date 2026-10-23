@@ -11,6 +11,8 @@ import {
   Hourglass,
   Inbox,
   RefreshCw,
+  Search,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -151,6 +153,45 @@ export function PublicationHistory({
               <span className="hidden sm:inline">Atualizar</span>
             </Button>
           </div>
+          <form
+            role="search"
+            aria-label="Pesquisar produtos no histórico"
+            className="relative w-full"
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (!history.isLoading) {
+                void history.loadHistory(1, history.status, history.platform, history.searchInput);
+              }
+            }}
+          >
+            <label htmlFor="publication-search" className="sr-only">Buscar produto</label>
+            <Search aria-hidden="true" className="pointer-events-none absolute top-3.5 left-3 size-4 text-muted-foreground" />
+            <input
+              id="publication-search"
+              type="search"
+              name="search"
+              maxLength={200}
+              placeholder="Buscar produto… pressione Enter"
+              aria-describedby="publication-search-hint"
+              value={history.searchInput}
+              disabled={history.isLoading}
+              onChange={(event) => history.setSearchInput(event.target.value)}
+              className="h-11 w-full rounded-lg border border-input bg-background pr-12 pl-10 text-base outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 sm:text-sm [&::-webkit-search-cancel-button]:appearance-none"
+            />
+            <span id="publication-search-hint" className="sr-only">Digite o nome do produto e pressione Enter para pesquisar em todo seu histórico.</span>
+            {history.search || history.searchInput ? (
+              <Button
+                type="button"
+                variant="ghost"
+                aria-label="Limpar pesquisa"
+                className="absolute top-0 right-0 size-11"
+                disabled={history.isLoading}
+                onClick={() => void history.loadHistory(1, history.status, history.platform, "")}
+              >
+                <X aria-hidden="true" className="size-4" />
+              </Button>
+            ) : null}
+          </form>
         </div>
 
         {history.error ? (
@@ -202,23 +243,23 @@ export function PublicationHistory({
               <h3 className="text-sm font-medium">
                 {!history.data
                   ? "Histórico indisponível"
-                   : history.status || history.platform
+                   : history.status || history.platform || history.search
                      ? "Nenhuma publicação com esses filtros"
                     : "Suas próximas ofertas aparecem aqui"}
               </h3>
               <p className="mt-2 max-w-sm text-sm/relaxed text-muted-foreground">
                 {!history.data
                   ? "Use Atualizar para tentar carregar seus envios novamente."
-                   : history.status || history.platform
-                     ? "Escolha outra loja ou resultado, ou volte para todas as publicações."
+                   : history.status || history.platform || history.search
+                     ? "Altere o nome do produto, a loja ou o resultado, ou volte para todas as publicações."
                     : "Quando uma oferta for processada, você poderá acompanhar cada destino e resultado por aqui."}
               </p>
-               {history.status || history.platform ? (
+               {history.status || history.platform || history.search ? (
                 <Button
                   variant="outline"
                   className="mt-4 min-h-11 motion-reduce:transition-none"
                   disabled={history.isLoading}
-                   onClick={() => void history.loadHistory(1, "", "")}
+                   onClick={() => void history.loadHistory(1, "", "", "")}
                 >
                   Ver todas as publicações
                 </Button>
@@ -310,7 +351,7 @@ export function PublicationHistory({
       </Card>
       <p className="hidden shrink-0 text-xs text-muted-foreground sm:block">
         Atualização automática a cada 30 segundos · Horários de Brasília ·
-        Totais por envio da loja selecionada · Lista agrupada por oferta
+        Totais por envio da pesquisa e loja selecionadas · Lista agrupada por oferta
       </p>
     </section>
   );

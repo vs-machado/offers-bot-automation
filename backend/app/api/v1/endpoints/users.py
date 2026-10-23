@@ -172,6 +172,7 @@ async def list_deliveries(
     platform: Literal["amazon", "shopee", "mercado_livre", "aliexpress"] | None = Query(
         None
     ),
+    search: str | None = Query(None, max_length=200),
     delivery_status: Literal[
         "queued",
         "retrying",
@@ -189,7 +190,14 @@ async def list_deliveries(
     """Return owned delivery outcomes, caching missing Telegram destination names."""
     await populate_destination_titles(db, current_user.id)
     return await get_delivery_history(
-        db, current_user.id, page, limit, delivery_status, group_by_offer, platform
+        db,
+        current_user.id,
+        page,
+        limit,
+        delivery_status,
+        group_by_offer,
+        platform,
+        search,
     )
 
 

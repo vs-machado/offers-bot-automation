@@ -16,8 +16,9 @@ async def get_delivery_history(
     status: str | None,
     group_by_offer: bool = False,
     platform: str | None = None,
+    search: str | None = None,
 ) -> dict:
-    """Return owned history, optionally paging whole offers with all their outcomes."""
+    """Search owned product titles and page complete publication episodes and outcomes."""
     effective_status = case(
         (
             Delivery.status.in_(("queued", "retrying"))
@@ -35,12 +36,6 @@ async def get_delivery_history(
         # Workers save display labels ("Mercado Livre"); API filters use slugs.
         stored_platform = func.lower(func.replace(Delivery.platform, " ", "_"))
         filters.append(stored_platform == platform)
-    counts_result = await db.execute(
-        select(effective_status.label("status"), func.count())
-        .where(*filters)
-        .group_by(effective_status)
-    )
-    counts = dict(counts_result.all())
     destination_title = (
         select(DestinationChannel.title)
         .where(
@@ -91,6 +86,33 @@ async def get_delivery_history(
         (episodes.c.episode == 1, episodes.c.product_id),
         else_=episodes.c.product_id + ":" + cast(episodes.c.episode, String),
     )
+    terms = (search or "").split()
+    if terms:
+        # Match whole episodes so destinations without a recorded title remain visible.
+        # Escape SQL wildcards: a product search for '%' or '_' is literal text.
+        matching_offers = (
+            select(offer_id)
+            .select_from(Delivery)
+            .join(episodes, Delivery.id == episodes.c.delivery_id)
+            .where(
+                *filters,
+                *(Delivery.title.icontains(term, autoescape=True) for term in terms),
+            )
+            .distinct()
+            .correlate(None)
+        )
+        filters.append(offer_id.in_(matching_offers))
+    counts_statement = (
+        select(effective_status.label("status"), func.count())
+        .where(*filters)
+        .group_by(effective_status)
+    )
+    if terms:
+        counts_statement = counts_statement.join(
+            episodes, Delivery.id == episodes.c.delivery_id
+        )
+    counts_result = await db.execute(counts_statement)
+    counts = dict(counts_result.all())
     statement = (
         select(
             Delivery,
