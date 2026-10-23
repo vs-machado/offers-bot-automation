@@ -283,7 +283,6 @@ export function PublicationHistory({
                   className="h-11 w-16 rounded-lg border bg-background px-2 text-center text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 />
                 <span>/ {countFormatter.format(pageCount)}</span>
-                <Button type="submit" variant="outline" disabled={history.isLoading}>Ir</Button>
               </form>
               <Button
                 variant="ghost"
