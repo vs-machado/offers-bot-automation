@@ -9,6 +9,7 @@ class DeliveryRead(BaseModel):
     offer_id: str
     title: str | None
     price: str | None
+    coupon: str | None = None
     affiliate_url: str | None = None
     platform: str | None
     chat_id: str
