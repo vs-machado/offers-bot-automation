@@ -210,6 +210,7 @@ class UserBotInstance:
                     {
                         "title": (offer.title or "Promoção sem título")[:200],
                         "advertised_price": offer.price[:200] if offer.price else None,
+                        "coupon": (offer.coupon or "").strip()[:200] or None,
                         "platform": PLATFORM_LABELS.get(offer.platform),
                         "identity": f"{source_chat}:{message_id}:{offer.url}",
                         "category": category,

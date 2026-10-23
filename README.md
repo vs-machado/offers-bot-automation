@@ -408,6 +408,13 @@ and expiration. Raw responses, cookies, tokens, and keys are not sent to the
 browser. When the response does not identify the cause, history shows a generic
 failure without assuming that the key is invalid.
 
+Migration `0018_delivery_coupon` retains each parsed offer's coupon alongside its
+price, including pre-queue failures. `GET /users/me/deliveries` returns `coupon`,
+and the dashboard displays `CUPOM: CODE` beside the price when available. Existing
+records remain without a coupon: the original coupon was not stored and cannot
+be reconstructed reliably. Apply the migration before starting the updated API
+and workers.
+
 Link conversion failures are recorded per destination before queueing.
 An LLM failure recovered through fallback is not treated as a failed post.
 A reader disconnection prevents new offers from being received and therefore
