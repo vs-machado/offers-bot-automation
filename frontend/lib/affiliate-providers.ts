@@ -1,6 +1,6 @@
 import type { ConfigSummary } from "@/shared/contracts/user-config";
 
-export type ProviderType = "amazon" | "shopee" | "mercado_livre" | "aliexpress" | "awin";
+export type ProviderType = "amazon" | "shopee" | "mercado_livre" | "aliexpress" | "awin" | "magalu";
 
 export type ProviderField = {
   key: string;
@@ -37,6 +37,17 @@ export function getProviderData(
 }
 
 export const affiliateProviders: Provider[] = [
+  {
+    type: "magalu",
+    name: "Magalu",
+    description: "Informe os identificadores da sua conta Magazine Você. Links encurtados são expandidos antes da conversão. Modalidade padrão: Lucreator / link direto.",
+    fields: [
+      { key: "magalu_partner_id", label: "Partner ID", placeholder: "ID do parceiro", required: true },
+      { key: "magalu_promoter_id", label: "Promoter ID", placeholder: "Seu ID de divulgador", required: true },
+      { key: "magalu_store_name", label: "Store name", placeholder: "Nome da sua loja, sem URL", required: true },
+      { key: "magalu_utm_campaign", label: "Campanha UTM", placeholder: "divulgacao_influencer" },
+    ],
+  },
   {
     type: "awin",
     name: "Awin (KaBuM)",

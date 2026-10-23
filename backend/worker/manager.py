@@ -20,6 +20,7 @@ from offers_bot.message_context import promotion_context
 from offers_bot.aliexpress import AliExpressClient
 from offers_bot.amazon import AmazonClient
 from offers_bot.awin import AwinClient
+from offers_bot.magalu import MagaluClient
 from offers_bot.browser_resolver import PlaywrightProductResolver
 from offers_bot.main import format_outgoing_offer
 from offers_bot.mercado_livre import MercadoLivreClient, UnsupportedOfferError
@@ -27,6 +28,7 @@ from offers_bot.parser import (
     PLATFORM_ALIEXPRESS,
     PLATFORM_AMAZON,
     PLATFORM_KABUM,
+    PLATFORM_MAGALU,
     PLATFORM_MERCADO_LIVRE,
     PLATFORM_SHOPEE,
     extract_offers_async,
@@ -41,6 +43,7 @@ PLATFORM_LABELS = {
     PLATFORM_MERCADO_LIVRE: "Mercado Livre",
     PLATFORM_SHOPEE: "Shopee",
     PLATFORM_KABUM: "KaBuM",
+    PLATFORM_MAGALU: "Magalu",
 }
 
 
@@ -64,6 +67,7 @@ class UserBotInstance:
         self._shopee: ShopeeClient | None = None
         self._aliexpress: AliExpressClient | None = None
         self._awin: AwinClient | None = None
+        self._magalu: MagaluClient | None = None
         self._config_signature: str | None = None
 
     @property
@@ -85,6 +89,7 @@ class UserBotInstance:
                     self._shopee,
                     self._aliexpress,
                     self._awin,
+                    self._magalu,
                 )
             )
         )
@@ -158,6 +163,14 @@ class UserBotInstance:
         self._awin = AwinClient(
             publisher_id=str(configs.get("awin_publisher_id", "")),
             access_token=str(configs.get("awin_access_token", "")),
+        )
+        self._magalu = MagaluClient(
+            partner_id=str(configs.get("magalu_partner_id", "")),
+            promoter_id=str(configs.get("magalu_promoter_id", "")),
+            store_name=str(configs.get("magalu_store_name", "")),
+            utm_campaign=str(
+                configs.get("magalu_utm_campaign", "divulgacao_influencer")
+            ),
         )
         self._config_signature = config_signature
 
@@ -499,4 +512,6 @@ class UserBotInstance:
             return self._aliexpress
         if platform == PLATFORM_KABUM:
             return self._awin
+        if platform == PLATFORM_MAGALU:
+            return self._magalu
         return None

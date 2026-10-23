@@ -40,6 +40,10 @@ class Settings:
     browser_debug_dir: Path | None
     awin_publisher_id: str = ""
     awin_access_token: str = ""
+    magalu_partner_id: str = ""
+    magalu_promoter_id: str = ""
+    magalu_store_name: str = ""
+    magalu_utm_campaign: str = "divulgacao_influencer"
 
     @property
     def target_chat(self) -> str:
@@ -84,6 +88,12 @@ def load_settings() -> Settings:
         amazon_affiliate_tag=os.getenv("AMAZON_AFFILIATE_TAG", "").strip(),
         awin_publisher_id=os.getenv("AWIN_PUBLISHER_ID", "").strip(),
         awin_access_token=os.getenv("AWIN_ACCESS_TOKEN", "").strip(),
+        magalu_partner_id=os.getenv("MAGALU_PARTNER_ID", "").strip(),
+        magalu_promoter_id=os.getenv("MAGALU_PROMOTER_ID", "").strip(),
+        magalu_store_name=os.getenv("MAGALU_STORE_NAME", "").strip(),
+        magalu_utm_campaign=os.getenv(
+            "MAGALU_UTM_CAMPAIGN", "divulgacao_influencer"
+        ).strip(),
         tech_chat=os.getenv("TECH_CHAT", "").strip() or None,
         home_chat=os.getenv("HOME_CHAT", "").strip() or None,
         clothes_chat=os.getenv("CLOTHES_CHAT", "").strip() or None,

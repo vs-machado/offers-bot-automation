@@ -1,12 +1,16 @@
 from __future__ import annotations
 
 import logging
+import asyncio
 import re
 from dataclasses import dataclass
 from urllib.parse import urlparse
 
+import httpx
+
 from .llm_parser import parse_with_llm, parse_with_llm_async
 from .source_cleanup import clean_source_advertising
+from .magalu import SHORT_HOSTS, is_magalu_url, resolve_product_url, valid_url
 
 
 MELI_SHORT_RE = re.compile(r"https?://meli\.la/[A-Za-z0-9]{7}", re.IGNORECASE)
@@ -29,6 +33,7 @@ PLATFORM_AMAZON = "amazon"
 PLATFORM_SHOPEE = "shopee"
 PLATFORM_ALIEXPRESS = "aliexpress"
 PLATFORM_KABUM = "kabum"
+PLATFORM_MAGALU = "magalu"
 ML_ID_RE = re.compile(r"\bMLB-?\d{6,13}\b", re.IGNORECASE)
 SHOPEE_ID_RE = re.compile(
     r"-i\.(\d+)\.(\d+)(?:[/?#]|$)|/opaanlp/(\d+)/(\d+)(?:[/?#]|$)|/product/(\d+)/(\d+)(?:[/?#]|$)",
@@ -105,11 +110,42 @@ class Offer:
 
 
 def extract_offers(text: str) -> list[Offer]:
+    """Resolve approved Magalu short links, then extract offers with LLM/regex fallback."""
+    text = expand_magalu_short_links(text)
     return _extract_offers(text, parse_with_llm(text))
 
 
 async def extract_offers_async(text: str) -> list[Offer]:
+    """Resolve short links off-loop before async LLM parsing and regex fallback."""
+    text = await asyncio.to_thread(expand_magalu_short_links, text)
     return _extract_offers(text, await parse_with_llm_async(text))
+
+
+def expand_magalu_short_links(text: str) -> str:
+    """Expand recognized shorteners before parsing; leave failed links unsupported.
+
+    Only approved HTTPS redirect chains ending at Magalu are accepted. Process
+    each unique URL once and cap network work to five URLs per source message.
+    """
+    urls = dict.fromkeys(clean_offer_url(url) for url in URL_RE.findall(text))
+    candidates = [url for url in urls if valid_url(url, SHORT_HOSTS)][:5]
+    replacements = {}
+    for url in candidates:
+        try:
+            resolved = resolve_product_url(url)
+        except (ValueError, RuntimeError, httpx.HTTPError):
+            logging.getLogger(__name__).warning("Could not resolve Magalu short link")
+            continue
+        replacements[url] = resolved
+
+    def replace_url(match: re.Match) -> str:
+        raw = match.group()
+        clean = clean_offer_url(raw)
+        return (
+            raw.replace(clean, replacements[clean], 1) if clean in replacements else raw
+        )
+
+    return URL_RE.sub(replace_url, text)
 
 
 def _extract_offers(text: str, llm_res: dict | None) -> list[Offer]:
@@ -398,6 +434,8 @@ def detect_platform(url: str) -> str | None:
         return PLATFORM_ALIEXPRESS
     if is_kabum_url(url):
         return PLATFORM_KABUM
+    if is_magalu_url(url):
+        return PLATFORM_MAGALU
     return None
 
 

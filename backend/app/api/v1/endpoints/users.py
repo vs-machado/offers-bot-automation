@@ -2,6 +2,7 @@ import asyncio
 
 import httpx
 from backend.app.core.awin import valid_credentials
+from offers_bot.magalu import MagaluClient
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from typing import Literal
@@ -170,7 +171,9 @@ async def list_deliveries(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     group_by_offer: bool = Query(False),
-    platform: Literal["amazon", "shopee", "mercado_livre", "aliexpress", "kabum"]
+    platform: Literal[
+        "amazon", "shopee", "mercado_livre", "aliexpress", "kabum", "magalu"
+    ]
     | None = Query(None),
     search: str | None = Query(None, max_length=200),
     delivery_status: Literal[
@@ -255,6 +258,23 @@ def _validate_config(
     config_data: UserConfigCreate, catalog: list[str] | None = None
 ) -> None:
     """Check required provider fields and Amazon tag syntax before persistence."""
+    if config_data.config_type == "magalu":
+        allowed = {*REQUIRED_CONFIG_KEYS["magalu"], "magalu_utm_campaign"}
+        values = config_data.config_data
+        if set(values) - allowed or any(
+            not isinstance(value, str) for value in values.values()
+        ):
+            raise HTTPException(status_code=400, detail=MESSAGES["invalid_format"])
+        values = {key: value.strip() for key, value in values.items()}
+        client = MagaluClient(
+            values.get("magalu_partner_id", ""),
+            values.get("magalu_promoter_id", ""),
+            values.get("magalu_store_name", ""),
+            values.get("magalu_utm_campaign", "divulgacao_influencer"),
+        )
+        if not client.ready():
+            raise HTTPException(status_code=400, detail=MESSAGES["invalid_format"])
+        config_data.config_data = values
     if config_data.config_type == "awin":
         values = config_data.config_data
         for key in REQUIRED_CONFIG_KEYS["awin"]:
@@ -305,6 +325,7 @@ def _validate_config(
             "shopee": "Shopee",
             "aliexpress": "AliExpress",
             "awin": "Awin (KaBuM)",
+            "magalu": "Magalu",
         }.get(config_data.config_type, "seu programa de afiliados")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

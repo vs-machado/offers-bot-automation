@@ -1,5 +1,5 @@
 export type CredentialValidationResult = {
-  provider: "amazon" | "mercado_livre" | "shopee" | "aliexpress" | "awin";
+  provider: "amazon" | "mercado_livre" | "shopee" | "aliexpress" | "awin" | "magalu";
   status: "valid" | "invalid" | "inconclusive";
   reason: string;
   message: string;
