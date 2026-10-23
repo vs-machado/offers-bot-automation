@@ -10,6 +10,7 @@ import httpx
 
 from .amazon import AmazonClient
 from .aliexpress import AliExpressClient
+from .awin import AwinClient
 from .config import load_settings
 from .browser_resolver import PlaywrightProductResolver
 from .mercado_livre import MercadoLivreClient, UnsupportedOfferError
@@ -22,6 +23,7 @@ from .parser import (
     is_mercado_livre_url,
     is_shopee_url,
     is_aliexpress_url,
+    is_kabum_url,
 )
 from .shopee import ShopeeClient
 from .store import OfferStore
@@ -616,6 +618,7 @@ async def run() -> None:
         app_secret=settings.aliexpress_app_secret,
         tracking_id=settings.aliexpress_tracking_id,
     )
+    awin = AwinClient(settings.awin_publisher_id, settings.awin_access_token)
     telegram = TelegramOfferBot(
         api_id=settings.telegram_api_id,
         api_hash=settings.telegram_api_hash,
@@ -656,6 +659,8 @@ async def run() -> None:
                     if is_shopee_url(offer.url)
                     else aliexpress
                     if is_ali
+                    else awin
+                    if is_kabum_url(offer.url)
                     else None
                 )
                 if affiliate_client is None:

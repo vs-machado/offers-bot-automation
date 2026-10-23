@@ -19,12 +19,14 @@ from backend.app.core.delivery_errors import classify_failure
 from offers_bot.message_context import promotion_context
 from offers_bot.aliexpress import AliExpressClient
 from offers_bot.amazon import AmazonClient
+from offers_bot.awin import AwinClient
 from offers_bot.browser_resolver import PlaywrightProductResolver
 from offers_bot.main import format_outgoing_offer
 from offers_bot.mercado_livre import MercadoLivreClient, UnsupportedOfferError
 from offers_bot.parser import (
     PLATFORM_ALIEXPRESS,
     PLATFORM_AMAZON,
+    PLATFORM_KABUM,
     PLATFORM_MERCADO_LIVRE,
     PLATFORM_SHOPEE,
     extract_offers_async,
@@ -38,6 +40,7 @@ PLATFORM_LABELS = {
     PLATFORM_AMAZON: "Amazon",
     PLATFORM_MERCADO_LIVRE: "Mercado Livre",
     PLATFORM_SHOPEE: "Shopee",
+    PLATFORM_KABUM: "KaBuM",
 }
 
 
@@ -60,6 +63,7 @@ class UserBotInstance:
         self._amazon: AmazonClient | None = None
         self._shopee: ShopeeClient | None = None
         self._aliexpress: AliExpressClient | None = None
+        self._awin: AwinClient | None = None
         self._config_signature: str | None = None
 
     @property
@@ -75,7 +79,13 @@ class UserBotInstance:
             and self._destination_chat_ids
             and any(
                 client and client.ready()
-                for client in (self._ml, self._amazon, self._shopee, self._aliexpress)
+                for client in (
+                    self._ml,
+                    self._amazon,
+                    self._shopee,
+                    self._aliexpress,
+                    self._awin,
+                )
             )
         )
 
@@ -144,6 +154,10 @@ class UserBotInstance:
             app_key=str(configs.get("aliexpress_app_key", "")),
             app_secret=str(configs.get("aliexpress_app_secret", "")),
             tracking_id=str(configs.get("aliexpress_tracking_id", "")),
+        )
+        self._awin = AwinClient(
+            publisher_id=str(configs.get("awin_publisher_id", "")),
+            access_token=str(configs.get("awin_access_token", "")),
         )
         self._config_signature = config_signature
 
@@ -483,4 +497,6 @@ class UserBotInstance:
             return self._shopee
         if platform == PLATFORM_ALIEXPRESS:
             return self._aliexpress
+        if platform == PLATFORM_KABUM:
+            return self._awin
         return None

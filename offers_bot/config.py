@@ -38,6 +38,8 @@ class Settings:
     browser_headless: bool
     browser_timeout_ms: int
     browser_debug_dir: Path | None
+    awin_publisher_id: str = ""
+    awin_access_token: str = ""
 
     @property
     def target_chat(self) -> str:
@@ -80,6 +82,8 @@ def load_settings() -> Settings:
         aliexpress_app_secret=os.getenv("ALIEXPRESS_APP_SECRET", "").strip(),
         aliexpress_tracking_id=os.getenv("ALIEXPRESS_TRACKING_ID", "").strip(),
         amazon_affiliate_tag=os.getenv("AMAZON_AFFILIATE_TAG", "").strip(),
+        awin_publisher_id=os.getenv("AWIN_PUBLISHER_ID", "").strip(),
+        awin_access_token=os.getenv("AWIN_ACCESS_TOKEN", "").strip(),
         tech_chat=os.getenv("TECH_CHAT", "").strip() or None,
         home_chat=os.getenv("HOME_CHAT", "").strip() or None,
         clothes_chat=os.getenv("CLOTHES_CHAT", "").strip() or None,

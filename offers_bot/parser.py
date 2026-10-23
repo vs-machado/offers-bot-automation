@@ -28,6 +28,7 @@ PLATFORM_MERCADO_LIVRE = "mercado_livre"
 PLATFORM_AMAZON = "amazon"
 PLATFORM_SHOPEE = "shopee"
 PLATFORM_ALIEXPRESS = "aliexpress"
+PLATFORM_KABUM = "kabum"
 ML_ID_RE = re.compile(r"\bMLB-?\d{6,13}\b", re.IGNORECASE)
 SHOPEE_ID_RE = re.compile(
     r"-i\.(\d+)\.(\d+)(?:[/?#]|$)|/opaanlp/(\d+)/(\d+)(?:[/?#]|$)|/product/(\d+)/(\d+)(?:[/?#]|$)",
@@ -370,6 +371,22 @@ def is_aliexpress_url(url: str) -> bool:
     return bool(parsed.netloc and ALIEXPRESS_HOST_RE.search(parsed.netloc))
 
 
+def is_kabum_url(url: str) -> bool:
+    """Recognize KaBuM destinations without accepting lookalike or credentialed URLs."""
+    try:
+        parsed = urlparse(url)
+        host = (parsed.hostname or "").lower()
+        return (
+            parsed.scheme in ("http", "https")
+            and (host == "kabum.com.br" or host.endswith(".kabum.com.br"))
+            and not parsed.username
+            and not parsed.password
+            and parsed.port in (None, 80, 443)
+        )
+    except ValueError:
+        return False
+
+
 def detect_platform(url: str) -> str | None:
     if is_mercado_livre_url(url):
         return PLATFORM_MERCADO_LIVRE
@@ -379,6 +396,8 @@ def detect_platform(url: str) -> str | None:
         return PLATFORM_SHOPEE
     if is_aliexpress_url(url):
         return PLATFORM_ALIEXPRESS
+    if is_kabum_url(url):
+        return PLATFORM_KABUM
     return None
 
 
