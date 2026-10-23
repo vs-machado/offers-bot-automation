@@ -1,6 +1,7 @@
 import asyncio
 
 import httpx
+from offers_bot.awin import AwinClient
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from typing import Literal
@@ -169,9 +170,8 @@ async def list_deliveries(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     group_by_offer: bool = Query(False),
-    platform: Literal["amazon", "shopee", "mercado_livre", "aliexpress"] | None = Query(
-        None
-    ),
+    platform: Literal["amazon", "shopee", "mercado_livre", "aliexpress", "kabum"]
+    | None = Query(None),
     search: str | None = Query(None, max_length=200),
     delivery_status: Literal[
         "queued",
@@ -255,6 +255,17 @@ def _validate_config(
     config_data: UserConfigCreate, catalog: list[str] | None = None
 ) -> None:
     """Check required provider fields and Amazon tag syntax before persistence."""
+    if config_data.config_type == "awin":
+        values = config_data.config_data
+        for key in REQUIRED_CONFIG_KEYS["awin"]:
+            value = values.get(key)
+            if not isinstance(value, str):
+                raise HTTPException(status_code=400, detail=MESSAGES["invalid_format"])
+            values[key] = value.strip()
+        if not AwinClient(
+            values["awin_publisher_id"], values["awin_access_token"]
+        ).ready():
+            raise HTTPException(status_code=400, detail=MESSAGES["invalid_format"])
     if config_data.config_type == "amazon":
         reason = amazon_tag_reason(config_data.config_data.get("amazon_affiliate_tag"))
         if reason != "locally_valid":
@@ -293,6 +304,7 @@ def _validate_config(
             "mercado_livre": "Mercado Livre",
             "shopee": "Shopee",
             "aliexpress": "AliExpress",
+            "awin": "Awin (KaBuM)",
         }.get(config_data.config_type, "seu programa de afiliados")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

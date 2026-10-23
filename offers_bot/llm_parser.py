@@ -47,7 +47,9 @@ class CouponItem(BaseModel):
 
 
 class CouponSection(BaseModel):
-    platform: Literal["Amazon", "Mercado Livre", "Shopee", "AliExpress", "Generic"]
+    platform: Literal[
+        "Amazon", "Mercado Livre", "Shopee", "AliExpress", "KaBuM", "Generic"
+    ]
     novo_ml_format: bool = Field(
         description="true if message mentions 'Novo Cupom Mercado Livre' or similar"
     )

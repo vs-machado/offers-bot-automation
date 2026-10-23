@@ -1,6 +1,6 @@
 import type { ConfigSummary } from "@/shared/contracts/user-config";
 
-export type ProviderType = "amazon" | "shopee" | "mercado_livre" | "aliexpress";
+export type ProviderType = "amazon" | "shopee" | "mercado_livre" | "aliexpress" | "awin";
 
 export type ProviderField = {
   key: string;
@@ -37,6 +37,15 @@ export function getProviderData(
 }
 
 export const affiliateProviders: Provider[] = [
+  {
+    type: "awin",
+    name: "Awin (KaBuM)",
+    description: "Informe suas credenciais Awin para converter links da KaBuM. Sua conta precisa estar aprovada no programa KaBuM (anunciante 17729).",
+    fields: [
+      { key: "awin_publisher_id", label: "publisherId", placeholder: "Seu ID de afiliado Awin", required: true },
+      { key: "awin_access_token", label: "accessToken", placeholder: "Seu token de API Awin", required: true },
+    ],
+  },
   {
     type: "amazon",
     name: "Amazon",

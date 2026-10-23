@@ -10,6 +10,12 @@ import time
 from urllib.parse import urlparse
 
 import httpx
+from offers_bot.awin import (
+    KABUM_ADVERTISER_ID,
+    is_tracking_link,
+    link_endpoint,
+    valid_publisher_id,
+)
 
 from backend.app.schemas.affiliate_validation import (
     CredentialValidationRequest,
@@ -21,6 +27,7 @@ REQUIRED = {
     "mercado_livre": ("ml_affiliate_tag", "ml_cookie_header", "ml_csrf_token"),
     "shopee": ("shopee_app_id", "shopee_app_secret"),
     "aliexpress": ("aliexpress_app_key", "aliexpress_app_secret"),
+    "awin": ("awin_publisher_id", "awin_access_token"),
 }
 MESSAGES = {
     "locally_valid": "Configuração Amazon válida localmente: o formato da tag está correto. Esta verificação não autentica sua conta nem confirma a existência ou titularidade da tag. Salve a configuração para usar no bot.",
@@ -246,6 +253,21 @@ async def probe(
                 "www.mercadolivre.com.br",
             ),
         )
+    elif provider == "awin":
+        response = await client.post(
+            link_endpoint(values["awin_publisher_id"]),
+            headers={"Authorization": f"Bearer {values['awin_access_token']}"},
+            json={
+                "advertiserId": KABUM_ADVERTISER_ID,
+                "destinationUrl": "https://www.kabum.com.br/",
+                "shorten": True,
+            },
+        )
+        data = check_response(response, provider)
+        if not is_tracking_link(data.get("url")) or (
+            data.get("shortUrl") and not is_tracking_link(data["shortUrl"])
+        ):
+            raise ProbeFailure("link_not_generated")
     elif provider == "shopee":
         query = "mutation generateShortLink($input: ShortLinkInput!) { generateShortLink(input: $input) { shortLink } }"
         body = json.dumps(
@@ -338,6 +360,12 @@ async def validate_credentials(
     }
     if any(not values.get(key) for key in REQUIRED[provider]):
         return outcome(provider, "missing_fields", "invalid")
+    if provider == "awin" and (
+        not valid_publisher_id(values["awin_publisher_id"])
+        or not values["awin_access_token"].isascii()
+        or any(char.isspace() for char in values["awin_access_token"])
+    ):
+        return outcome(provider, "invalid_format", "invalid")
     if any(
         len(value) > 65536 or "\r" in value or "\n" in value
         for value in values.values()
