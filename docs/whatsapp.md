@@ -7,17 +7,35 @@
 WhatsApp is a publication destination in the multi-tenant platform, alongside
 Telegram. Offers come from the same Telegram catalog with user-specific
 affiliate links. WAHA provides account connections, group/channel discovery and
-management, and text/image delivery. It is provisioned separately from the
+management, and text/link-preview delivery. It is provisioned separately from the
 Offers Bot Compose files.
 
 ## Operator setup
 
 1. Run WAHA with persistent storage, API-key authentication, and support for
-   multiple sessions, channels, and `sendImage`. WEBJS `2026.9.2` was the reference
-   for the documented installation; check your version/edition's capabilities.
+   multiple sessions, channels, and `POST /api/send/link-custom-preview` with
+   high-quality preview images. Use an engine supporting custom previews (for
+   example, NOWEB); WEBJS `2026.9.2`, the previous reference installation, does
+   not provide this endpoint. Validate the installed version/engine before rollout.
 2. Ensure backend, worker, and posting can reach WAHA.
 3. Configure `WAHA_BASE_URL` and `WAHA_API_KEY` server-side and deploy.
-4. Verify QR pairing, discovery, and real text/image delivery to test destinations.
+4. Verify QR pairing, discovery, and real clickable-preview delivery to test groups
+   and channels, including image rendering and the affiliate redirect.
+
+### Offer presentation
+
+Offers with a product image and purchase link use a single custom link-preview
+message instead of a photo attachment. The product image belongs to the clickable
+link card above the offer description; tapping the card opens the original
+affiliate URL, preserving its tracking parameters. The first HTTP(S) link in the
+offer is the preview target. The full formatted offer remains in the message body.
+Remote images and locally downloaded source images are supported.
+
+Without an image, text is sent with automatic high-quality link previews enabled.
+Without a link, only text is sent. Unsupported preview endpoints or upstream
+failures propagate through the existing delivery failure handling; no second send
+is attempted automatically. Validate card position, image quality, and click
+behavior on real WhatsApp clients after deployment.
 
 In Coolify, one option is to attach WAHA to the same external network declared
 as `DATABASE_NETWORK`, with alias `waha`. Example **in WAHA's Compose file**,
