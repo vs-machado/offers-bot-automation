@@ -144,3 +144,40 @@ class GroupedDeliveryHistoryTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(history["total"], 1)
         self.assertEqual(len(history["items"]), 2)
+
+    async def test_store_filters_match_saved_labels_and_canonical_names(self):
+        stores = {
+            "amazon": "Amazon",
+            "shopee": "Shopee",
+            "mercado_livre": "Mercado Livre",
+            "aliexpress": "AliExpress",
+        }
+        for platform, label in stores.items():
+            self.add_delivery(f"{platform}-label", f"{platform}-offer")
+            self.session.get(PromotionDelivery, f"{platform}-label").platform = label
+            self.add_delivery(
+                f"{platform}-canonical", f"{platform}-offer", status="failed"
+            )
+            self.session.get(
+                PromotionDelivery, f"{platform}-canonical"
+            ).platform = platform
+            self.add_delivery(f"{platform}-foreign", f"{platform}-offer", user_id=2)
+            self.session.get(PromotionDelivery, f"{platform}-foreign").platform = label
+        self.session.commit()
+
+        for platform in stores:
+            with self.subTest(platform=platform):
+                grouped = await get_delivery_history(
+                    self.db, 1, 1, 20, "failed", True, platform
+                )
+                self.assertEqual(grouped["total"], 1)
+                self.assertEqual(grouped["counts"], {"sent": 1, "failed": 1})
+                self.assertEqual(
+                    {row["id"] for row in grouped["items"]},
+                    {f"{platform}-label", f"{platform}-canonical"},
+                )
+                ungrouped = await get_delivery_history(
+                    self.db, 1, 1, 20, None, False, platform
+                )
+                self.assertEqual(ungrouped["total"], 2)
+                self.assertEqual(len(ungrouped["items"]), 2)

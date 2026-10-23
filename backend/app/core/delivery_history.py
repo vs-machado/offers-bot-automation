@@ -32,7 +32,9 @@ async def get_delivery_history(
     )
     filters = [Delivery.user_id == user_id]
     if platform:
-        filters.append(Delivery.platform == platform)
+        # Workers save display labels ("Mercado Livre"); API filters use slugs.
+        stored_platform = func.lower(func.replace(Delivery.platform, " ", "_"))
+        filters.append(stored_platform == platform)
     counts_result = await db.execute(
         select(effective_status.label("status"), func.count())
         .where(*filters)
