@@ -95,7 +95,7 @@ class AmazonClient:
             if (
                 parsed.scheme not in {"http", "https"}
                 or not (
-                    host in {"amzn.to", "link.amazon", "amazon.com.br"}
+                    host in {"amzn.to", "link.amazon", "amzlinks.in", "amazon.com.br"}
                     or host.endswith((".amazon.com.br", ".link.amazon"))
                 )
                 or parsed.username
