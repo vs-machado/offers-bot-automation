@@ -10,7 +10,7 @@ import time
 from urllib.parse import urlparse
 
 import httpx
-from offers_bot.magalu import (
+from backend.app.core.magalu import (
     MagaluClient,
     MagaluError,
     SAMPLE_PRODUCT_URL,

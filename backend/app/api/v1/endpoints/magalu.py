@@ -14,7 +14,7 @@ from backend.app.api.v1.endpoints.auth import get_current_user
 from backend.app.core.credentials import decrypt_config
 from backend.app.core.db.session import get_db
 from backend.app.models.user import User, UserConfig
-from offers_bot.magalu import MagaluClient, MagaluError
+from backend.app.core.magalu import MagaluClient, MagaluError
 
 router = APIRouter()
 _slots = asyncio.Semaphore(8)
