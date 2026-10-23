@@ -159,6 +159,56 @@ class AmazonClientTest(unittest.TestCase):
                 self.assertEqual(link.short_url, link.long_url)
                 self.assertEqual(link.product_key, "AMZN:B01JUSTFD0")
 
+    def test_link_amazon_expands_through_amzlinks_intermediate(self):
+        seen = []
+        short_url = "https://link.amazon/B03qIzCe1"
+        intermediate = "https://amzlinks.in/B03qIzCe1"
+        destination = "https://www.amazon.com.br/dp/B0H77DSP5P?psc=1&tag=old-20"
+
+        def handler(request):
+            url = str(request.url)
+            seen.append(url)
+            if url == short_url:
+                return httpx.Response(302, headers={"location": intermediate})
+            if url == intermediate:
+                return httpx.Response(302, headers={"location": destination})
+            self.assertEqual(url, destination)
+            return httpx.Response(200)
+
+        link = self.make_client(handler).create_link(short_url)
+        self.assertEqual(seen, [short_url, intermediate, destination])
+        self.assertEqual(link.origin_url, destination)
+        self.assertEqual(
+            link.long_url,
+            "https://www.amazon.com.br/dp/B0H77DSP5P?psc=1&tag=mytag-20",
+        )
+        self.assertEqual(link.product_key, "AMZN:B0H77DSP5P")
+
+    def test_amzlinks_intermediate_rejects_unsupported_destinations(self):
+        for destination in (
+            "https://example.com/dp/B0H77DSP5P",
+            "https://amzlinks.in.example.com/B03qIzCe1",
+            "https://www.amazon.com/dp/B0H77DSP5P",
+        ):
+            with self.subTest(destination=destination):
+                seen = []
+
+                def handler(request):
+                    seen.append(str(request.url))
+                    if request.url.host == "link.amazon":
+                        return httpx.Response(
+                            302,
+                            headers={"location": "https://amzlinks.in/B03qIzCe1"},
+                        )
+                    self.assertEqual(request.url.host, "amzlinks.in")
+                    return httpx.Response(302, headers={"location": destination})
+
+                with self.assertRaisesRegex(RuntimeError, "unsupported destination"):
+                    self.make_client(handler).create_link(
+                        "https://link.amazon/B03qIzCe1"
+                    )
+                self.assertEqual(len(seen), 2)
+
     def test_link_amazon_campaign_expands_over_http(self):
         seen = []
         destination = "https://www.amazon.com.br/b?node=123&tag=old"
