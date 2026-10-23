@@ -1,10 +1,9 @@
 """Tenant-scoped WAHA access; operator credentials never reach browser clients."""
 
 import base64
-import mimetypes
 import os
 import re
-from urllib.parse import quote, urlparse
+from urllib.parse import quote
 
 import httpx
 
@@ -190,37 +189,41 @@ class WahaClient:
                 raise
 
     async def send_offer(self, chat_id, text, image_file=None, request_timeout=20):
-        """Send prepared text/photo through the tenant's linked WhatsApp account."""
+        """Send an offer with a clickable product preview in the tenant's session.
+
+        Without a link or image, send text with automatic previews. Upstream errors
+        propagate without a second send, since delivery may already have occurred.
+        """
         if not (GROUP_ID.fullmatch(chat_id) or CHANNEL_ID.fullmatch(chat_id)):
             raise BotPosterError("Destino WhatsApp inválido.")
         text = format_whatsapp_offer(text)
-        body = {"session": self.session, "chatId": chat_id}
-        if image_file:
-            mimetype = "image/jpeg"
+        body = {
+            "session": self.session,
+            "chatId": chat_id,
+            "text": text,
+            "linkPreviewHighQuality": True,
+        }
+        link = re.search(r"https?://[^\s<>]+", text)
+        url = link.group().rstrip(".,!?;:") if link else None
+        if url:
+            # Markdown labels become `label (URL)`; keep balanced URL parentheses.
+            while url.endswith(")") and url.count(")") > url.count("("):
+                url = url[:-1]
+        if image_file and url:
             if image_file.startswith(("https://", "http://")):
-                file = {"url": image_file}
-                guessed, _ = mimetypes.guess_type(urlparse(image_file).path)
-                if guessed and guessed.startswith("image/"):
-                    mimetype = guessed
+                image = {"url": image_file}
             else:
                 with open(image_file, "rb") as stream:
-                    content = stream.read()
-                if content.startswith(b"\x89PNG\r\n\x1a\n"):
-                    mimetype = "image/png"
-                elif content.startswith(b"RIFF") and content[8:12] == b"WEBP":
-                    mimetype = "image/webp"
-                file = {"data": base64.b64encode(content).decode()}
-            body.update(
-                file={
-                    "mimetype": mimetype,
-                    "filename": "oferta"
-                    + (mimetypes.guess_extension(mimetype) or ".jpg"),
-                    **file,
-                },
-                caption=text,
-            )
-            path = "sendImage"
+                    image = {"data": base64.b64encode(stream.read()).decode()}
+            title = next(line.strip() for line in text.splitlines() if line.strip())
+            body["preview"] = {
+                "url": url,
+                "title": title.strip("*_~ "),
+                "description": "",
+                "image": image,
+            }
+            path = "send/link-custom-preview"
         else:
-            body["text"] = text
+            body["linkPreview"] = True
             path = "sendText"
         return (await self.request("POST", path, body, timeout=request_timeout)).json()

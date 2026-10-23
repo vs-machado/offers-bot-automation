@@ -196,19 +196,26 @@ class WhatsAppAPITests(unittest.TestCase):
 
 
 class WhatsAppDeliveryTests(unittest.IsolatedAsyncioTestCase):
-    async def test_channel_photo_targets_newsletter_in_tenants_session(self):
+    async def test_channel_preview_targets_newsletter_in_tenants_session(self):
         client = WahaClient(7)
         client.request = AsyncMock(
             return_value=httpx.Response(200, json={"id": "sent"})
         )
         await client.send_offer(
-            "123@newsletter", "Oferta", image_file="https://example.com/image.webp"
+            "123@newsletter",
+            "Oferta\nhttps://shop.example/item?tag=affiliate",
+            image_file="https://example.com/image.webp",
         )
         _, endpoint, payload = client.request.call_args.args
-        self.assertEqual(endpoint, "sendImage")
+        self.assertEqual(endpoint, "send/link-custom-preview")
         self.assertEqual(payload["chatId"], "123@newsletter")
         self.assertEqual(payload["session"], "offers-user-7")
-        self.assertEqual(payload["file"]["mimetype"], "image/webp")
+        self.assertEqual(
+            payload["preview"]["image"], {"url": "https://example.com/image.webp"}
+        )
+        self.assertEqual(
+            payload["preview"]["url"], "https://shop.example/item?tag=affiliate"
+        )
 
     async def test_whatsapp_delivery_never_uses_telegram_token(self):
         with (
@@ -249,18 +256,21 @@ class WhatsAppDeliveryTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(BotPosterError):
             await client.verify_group("123@g.us")
 
-    async def test_photo_uses_tenant_session_without_exposing_operator_key(self):
+    async def test_preview_uses_tenant_session_without_exposing_operator_key(self):
         client = WahaClient(7)
         client.request = AsyncMock(
             return_value=httpx.Response(200, json={"id": "sent"})
         )
         await client.send_offer(
-            "123@g.us", "Oferta", image_file="https://example.com/photo.jpg"
+            "123@g.us",
+            "Oferta\nhttps://shop.example/item",
+            image_file="https://example.com/photo.jpg",
         )
         _, endpoint, payload = client.request.call_args.args
-        self.assertEqual(endpoint, "sendImage")
+        self.assertEqual(endpoint, "send/link-custom-preview")
         self.assertEqual(payload["session"], "offers-user-7")
-        self.assertEqual(payload["caption"], "Oferta")
+        self.assertEqual(payload["text"], "Oferta\nhttps://shop.example/item")
+        self.assertNotIn("api_key", payload)
 
 
 class WhatsAppMigrationTests(unittest.TestCase):

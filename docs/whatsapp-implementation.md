@@ -94,6 +94,15 @@ protection from bans: WAHA is an unofficial client.
 
 ### Content and channel-specific behavior
 
+- Publish product images as custom high-quality link previews through
+  `POST /api/send/link-custom-preview`, not as photo attachments. The first
+  purchase URL in the offer is the clickable target; retain affiliate parameters
+  and the full formatted description. Support both image URLs and base64 images.
+- Require an engine/version supporting custom previews, such as NOWEB; the
+  previously documented WEBJS installation does not implement this endpoint.
+  Validate image rendering above the description and click-through in both groups
+  and channels on real clients. Missing images use automatic text previews;
+  missing links use text only. Do not retry a failed preview as a separate photo.
 - Prioritize relevant offers, trustworthy links, and affiliate-link disclosure.
 - Avoid misleading, repetitive, or expired content, and volume inconsistent with the channel's purpose.
 - Do not send private messages or bulk invitations to followers in this flow.
@@ -107,6 +116,8 @@ protection from bans: WAHA is an unofficial client.
 
 - User isolation and selection of administered channels only.
 - Real text and image delivery to a test channel.
+- Product previews display the supplied image above the description, and tapping
+  the card opens the original affiliate link in test groups and channels.
 - Limits maintained with concurrent jobs and multiple channels on the same account.
 - Deduplication across sources and reprocessing.
 - Bursts retain only the 5 most recent eligible offers per channel; verify ordering,

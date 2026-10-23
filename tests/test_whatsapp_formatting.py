@@ -1,5 +1,7 @@
-"""Formatting regressions at WhatsApp's outbound text and photo boundary."""
+"""Formatting regressions at WhatsApp's outbound text and preview boundary."""
 
+import base64
+import tempfile
 import unittest
 from unittest.mock import AsyncMock
 
@@ -7,6 +9,7 @@ import httpx
 
 from backend.app.core.whatsapp import WahaClient
 from backend.app.core.whatsapp_formatting import format_whatsapp_offer
+from backend.worker.poster import BotPosterError
 
 
 class WhatsAppFormattingTests(unittest.TestCase):
@@ -58,7 +61,7 @@ class WhatsAppFormattingTests(unittest.TestCase):
 
 
 class WhatsAppFormattingDeliveryTests(unittest.IsolatedAsyncioTestCase):
-    async def test_text_and_photo_use_same_formatter_for_groups_and_channels(self):
+    async def test_text_and_preview_use_same_formatter_for_groups_and_channels(self):
         for chat_id in ("123@g.us", "123@newsletter"):
             for image in (None, "https://example.com/photo.jpg"):
                 with self.subTest(chat_id=chat_id, image=image):
@@ -67,12 +70,74 @@ class WhatsAppFormattingDeliveryTests(unittest.IsolatedAsyncioTestCase):
                         return_value=httpx.Response(200, json={"id": "sent"})
                     )
                     await client.send_offer(
-                        chat_id, "**Oferta**\nCupom: ```SAVE10```", image_file=image
+                        chat_id,
+                        "**Oferta**\nCupom: ```SAVE10```\nhttps://shop.example/item?tag=a__b",
+                        image_file=image,
                     )
                     _, endpoint, payload = client.request.call_args.args
-                    self.assertEqual(endpoint, "sendImage" if image else "sendText")
                     self.assertEqual(
-                        payload["caption" if image else "text"],
-                        "*Oferta*\nCupom: SAVE10",
+                        endpoint, "send/link-custom-preview" if image else "sendText"
+                    )
+                    self.assertEqual(
+                        payload["text"],
+                        "*Oferta*\nCupom: SAVE10\nhttps://shop.example/item?tag=a__b",
                     )
                     self.assertEqual(payload["session"], "offers-user-7")
+                    self.assertTrue(payload["linkPreviewHighQuality"])
+                    if image:
+                        self.assertEqual(payload["preview"]["title"], "Oferta")
+                        self.assertEqual(
+                            payload["preview"]["url"],
+                            "https://shop.example/item?tag=a__b",
+                        )
+                        self.assertEqual(payload["preview"]["image"], {"url": image})
+                    else:
+                        self.assertTrue(payload["linkPreview"])
+
+    async def test_local_image_preview_preserves_markdown_link_and_connection(self):
+        client = WahaClient(7, 12)
+        client.request = AsyncMock(
+            return_value=httpx.Response(200, json={"id": "sent"})
+        )
+        url = "https://shop.example/item_(blue)?tag=a**b&coupon=SAVE~~20#fragment"
+        with tempfile.NamedTemporaryFile() as image:
+            image.write(b"product image")
+            image.flush()
+            await client.send_offer(
+                "123@g.us",
+                f"**Produto**\n[Comprar]({url})",
+                image.name,
+                request_timeout=8,
+            )
+        _, endpoint, payload = client.request.call_args.args
+        self.assertEqual(endpoint, "send/link-custom-preview")
+        self.assertEqual(payload["session"], "offers-user-7-connection-12")
+        self.assertEqual(payload["preview"]["url"], url)
+        self.assertEqual(
+            payload["preview"]["image"],
+            {"data": base64.b64encode(b"product image").decode()},
+        )
+        self.assertIn(url, payload["text"])
+        self.assertEqual(client.request.call_args.kwargs, {"timeout": 8})
+
+    async def test_offer_without_link_sends_text_without_opening_image(self):
+        client = WahaClient(7)
+        client.request = AsyncMock(
+            return_value=httpx.Response(200, json={"id": "sent"})
+        )
+        await client.send_offer("123@newsletter", "**Oferta**", "/missing/image.jpg")
+        _, endpoint, payload = client.request.call_args.args
+        self.assertEqual(endpoint, "sendText")
+        self.assertEqual(payload["text"], "*Oferta*")
+        self.assertNotIn("preview", payload)
+
+    async def test_preview_failure_does_not_send_another_message(self):
+        client = WahaClient(7)
+        client.request = AsyncMock(side_effect=BotPosterError("Preview failed"))
+        with self.assertRaises(BotPosterError):
+            await client.send_offer(
+                "123@newsletter",
+                "Oferta\nhttps://shop.example/item",
+                "https://example.com/photo.jpg",
+            )
+        client.request.assert_awaited_once()
