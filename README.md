@@ -390,7 +390,14 @@ eight concurrent validations per process and one per user.
 
 The dashboard calls `GET /users/me/deliveries`, which requires authentication and
 is limited to the user's own records. It includes pagination, filtering by
-result, and refreshes every 30 seconds. Displayed totals come from the database,
+store/result, and product title search, and refreshes every 30 seconds. Type a
+product name in the search bar and press Enter; clear it with the X button.
+The `search` query parameter (up to 200 characters) matches all supplied words
+case-insensitively across the user's entire history before pagination. SQL
+wildcards are treated as literal text. Matching publication episodes retain all
+destination outcomes, including rows without a title. Search combines with store
+and result filters and remains active when navigating or refreshing the list.
+Displayed totals come from the database,
 not sample data. History is also shown while setup is incomplete.
 
 The worker automatically deletes `promotion_deliveries` records older than

@@ -181,3 +181,90 @@ class GroupedDeliveryHistoryTests(unittest.IsolatedAsyncioTestCase):
                 )
                 self.assertEqual(ungrouped["total"], 2)
                 self.assertEqual(len(ungrouped["items"]), 2)
+
+    async def test_search_matches_all_words_and_pages_complete_owned_offers(self):
+        rows = [
+            ("a-sent", "a", "Samsung Galaxy A55 128GB", "sent", 1, 1),
+            ("a-failed", "a", None, "failed", 1, 2),
+            ("b", "b", "Galaxy S24 128GB", "sent", 1, 3),
+            ("different-capacity", "c", "Samsung Galaxy 256GB", "sent", 1, 0),
+            ("different-product", "d", "iPhone 128GB", "sent", 1, 0),
+            ("foreign", "a", "Galaxy 128GB", "sent", 2, 0),
+        ]
+        for identity, key, title, status, user_id, age in rows:
+            self.add_delivery(identity, key, status, user_id, age)
+            self.session.get(PromotionDelivery, identity).title = title
+        self.session.commit()
+
+        first = await get_delivery_history(
+            self.db, 1, 1, 1, None, True, search="  gALAxY   128  "
+        )
+        second = await get_delivery_history(
+            self.db, 1, 2, 1, None, True, search="galaxy 128"
+        )
+
+        self.assertEqual(first["total"], 2)
+        self.assertEqual(first["counts"], {"sent": 2, "failed": 1})
+        self.assertEqual({row["id"] for row in first["items"]}, {"a-sent", "a-failed"})
+        self.assertEqual([row["id"] for row in second["items"]], ["b"])
+
+    async def test_search_combines_with_store_and_status_filters(self):
+        for identity, title, platform, status in [
+            ("match", "Monitor LG 27", "Amazon", "failed"),
+            ("other-store", "Monitor LG 27", "Shopee", "failed"),
+            ("other-product", "Notebook LG", "Amazon", "failed"),
+            ("other-status", "Monitor LG 27", "Amazon", "sent"),
+        ]:
+            self.add_delivery(identity, identity, status=status)
+            delivery = self.session.get(PromotionDelivery, identity)
+            delivery.title = title
+            delivery.platform = platform
+        self.session.commit()
+
+        history = await get_delivery_history(
+            self.db, 1, 1, 20, "failed", True, "amazon", "monitor 27"
+        )
+
+        self.assertEqual(history["total"], 1)
+        self.assertEqual([row["id"] for row in history["items"]], ["match"])
+        self.assertEqual(history["counts"], {"failed": 1, "sent": 1})
+
+    async def test_search_treats_sql_wildcards_as_literal_product_text(self):
+        self.add_delivery("literal", "literal")
+        self.add_delivery("wildcard", "wildcard")
+        self.session.get(PromotionDelivery, "literal").title = "100% Whey_pro / Special"
+        self.session.get(PromotionDelivery, "wildcard").title = "1000 WheyXpro"
+        self.session.commit()
+
+        for search in ("100%", "Whey_pro", "/"):
+            with self.subTest(search=search):
+                history = await get_delivery_history(
+                    self.db, 1, 1, 20, None, True, search=search
+                )
+                self.assertEqual(history["total"], 1)
+                self.assertEqual([row["id"] for row in history["items"]], ["literal"])
+
+    async def test_search_keeps_repeated_product_episodes_separate(self):
+        self.add_delivery("old", "repeated", age=1440)
+        self.add_delivery("new", "repeated")
+        self.session.get(PromotionDelivery, "old").title = "Galaxy 128GB"
+        self.session.get(PromotionDelivery, "new").title = "Galaxy 256GB"
+        self.session.commit()
+
+        history = await get_delivery_history(
+            self.db, 1, 1, 20, None, True, search="128GB"
+        )
+
+        self.assertEqual(history["total"], 1)
+        self.assertEqual([row["id"] for row in history["items"]], ["old"])
+
+    async def test_blank_search_clears_filter_and_missing_search_returns_empty(self):
+        self.add_delivery("product", "offer")
+        for search, expected in ((" \t ", 1), ("not-in-history", 0)):
+            with self.subTest(search=search):
+                for grouped in (True, False):
+                    history = await get_delivery_history(
+                        self.db, 1, 1, 20, None, grouped, search=search
+                    )
+                    self.assertEqual(history["total"], expected)
+                    self.assertEqual(len(history["items"]), expected)

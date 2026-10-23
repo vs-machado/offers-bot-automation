@@ -9,22 +9,27 @@ export function useDeliveryHistory(initialData: DeliveryHistoryData | null) {
   const [page, setPage] = useState(1);
   const [status, setStatus] = useState<DeliveryStatus | "">("");
   const [platform, setPlatform] = useState("");
+  const [search, setSearch] = useState("");
+  const [searchInput, setSearchInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(initialData ? "" : "Não foi possível carregar o histórico. Clique em Atualizar para tentar novamente.");
   const activeRequest = useRef<AbortController | null>(null);
 
-  const loadHistory = useCallback(async (nextPage: number, nextStatus: DeliveryStatus | "", nextPlatform = platform) => {
+  const loadHistory = useCallback(async (nextPage: number, nextStatus: DeliveryStatus | "", nextPlatform = platform, nextSearch?: string) => {
     activeRequest.current?.abort();
     const controller = new AbortController();
     activeRequest.current = controller;
     setIsLoading(true);
     try {
-      const result = await getDeliveryHistory(nextPage, nextStatus, controller.signal, nextPlatform);
+      const normalizedSearch = (nextSearch ?? search).trim().replace(/\s+/g, " ");
+      const result = await getDeliveryHistory(nextPage, nextStatus, controller.signal, nextPlatform, normalizedSearch);
       if (controller.signal.aborted) return;
       setData(result);
       setPage(nextPage);
       setStatus(nextStatus);
       setPlatform(nextPlatform);
+      setSearch(normalizedSearch);
+      if (nextSearch !== undefined) setSearchInput(normalizedSearch);
       setError("");
     } catch (cause) {
       if (!controller.signal.aborted) {
@@ -33,7 +38,7 @@ export function useDeliveryHistory(initialData: DeliveryHistoryData | null) {
     } finally {
       if (!controller.signal.aborted) setIsLoading(false);
     }
-  }, [platform]);
+  }, [platform, search]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -45,5 +50,5 @@ export function useDeliveryHistory(initialData: DeliveryHistoryData | null) {
     };
   }, [loadHistory, page, status]);
 
-  return { data, page, status, platform, isLoading, error, loadHistory };
+  return { data, page, status, platform, search, searchInput, setSearchInput, isLoading, error, loadHistory };
 }
