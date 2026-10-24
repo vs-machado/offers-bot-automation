@@ -68,8 +68,10 @@ message instead of a photo attachment. The product image belongs to the clickabl
 link card above the offer description; tapping the card opens the original
 affiliate URL, preserving its tracking parameters. The first HTTP(S) link in the
 offer is the preview target. The full formatted offer remains in the message body.
-The preview title and description are empty so the product name appears only in
-the offer text, without repeating it inside the image card.
+The preview title uses an invisible zero-width space (`U+200B`) and its description
+is empty so the product name appears only in the offer text. A truly empty title
+can cause WhatsApp clients to hide the entire image card. Confirm rendering on
+real clients after deployment; API acceptance alone does not validate the card.
 Remote images and locally downloaded source images are supported.
 
 Without an image, text is sent with automatic high-quality link previews enabled.
