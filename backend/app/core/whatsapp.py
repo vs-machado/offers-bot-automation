@@ -215,10 +215,9 @@ class WahaClient:
             else:
                 with open(image_file, "rb") as stream:
                     image = {"data": base64.b64encode(stream.read()).decode()}
-            title = next(line.strip() for line in text.splitlines() if line.strip())
             body["preview"] = {
                 "url": url,
-                "title": title.strip("*_~ "),
+                "title": "",
                 "description": "",
                 "image": image,
             }
