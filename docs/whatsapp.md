@@ -68,6 +68,8 @@ message instead of a photo attachment. The product image belongs to the clickabl
 link card above the offer description; tapping the card opens the original
 affiliate URL, preserving its tracking parameters. The first HTTP(S) link in the
 offer is the preview target. The full formatted offer remains in the message body.
+The preview title and description are empty so the product name appears only in
+the offer text, without repeating it inside the image card.
 Remote images and locally downloaded source images are supported.
 
 Without an image, text is sent with automatic high-quality link previews enabled.

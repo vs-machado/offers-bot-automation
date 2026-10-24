@@ -85,7 +85,7 @@ class WhatsAppFormattingDeliveryTests(unittest.IsolatedAsyncioTestCase):
                     self.assertEqual(payload["session"], "offers-user-7")
                     self.assertTrue(payload["linkPreviewHighQuality"])
                     if image:
-                        self.assertEqual(payload["preview"]["title"], "Oferta")
+                        self.assertEqual(payload["preview"]["title"], "")
                         self.assertEqual(
                             payload["preview"]["url"],
                             "https://shop.example/item?tag=a__b",
