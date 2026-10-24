@@ -1,0 +1,6 @@
+# Merge with WAHA's own Compose file, not the Offers Bot application stack.
+# Preserve the existing image, credentials, networks, and persistent storage.
+services:
+  waha:
+    environment:
+      WHATSAPP_DEFAULT_ENGINE: NOWEB

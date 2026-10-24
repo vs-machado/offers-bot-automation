@@ -22,6 +22,45 @@ Offers Bot Compose files.
 4. Verify QR pairing, discovery, and real clickable-preview delivery to test groups
    and channels, including image rendering and the affiliate redirect.
 
+### Required engine configuration
+
+Set `WHATSAPP_DEFAULT_ENGINE=NOWEB` explicitly in **WAHA's** deployment. Setting
+it on the Offers Bot backend or workers does not change WAHA's engine.
+For Coolify, persist this setting in the WAHA service's Compose source and
+redeploy the service:
+
+```yaml
+services:
+  waha:
+    environment:
+      WHATSAPP_DEFAULT_ENGINE: NOWEB
+```
+
+For a standalone WAHA Compose deployment whose service is named `waha`, merge
+the supplied override with the existing deployment file:
+
+```bash
+docker compose -f docker-compose.yaml \
+  -f /path/to/offers-bot-automation/docker-compose.waha-noweb.yml up -d waha
+```
+
+Include the override on subsequent Compose operations. Keep the existing image,
+API credentials, network alias, and session/media mounts. Changing engines may
+require a new QR pairing: open **Settings → Destinations → WhatsApp** and scan
+the QR through WhatsApp's **Linked devices**. Do not delete the previous engine's
+session storage. Verify that `GET /api/server/version` reports `engine: NOWEB`
+and the user's session reaches `WORKING` before validating a real offer.
+
+If the previous engine caused repeated failures, clear the affected connection's
+automatic pause through its publication controls after reconnecting. Check that
+intended destinations are enabled. Resume with fresh offers; expired or uncertain
+deliveries must not be replayed.
+
+**Diagnostic signature:** a connected WEBJS session can still return
+HTTP `501 Not Implemented` for `/api/send/link-custom-preview`. Repeated failures pause
+the account, and offers expire while waiting. Restarting the bot or clearing the
+pause alone does not correct the engine mismatch.
+
 ### Offer presentation
 
 Offers with a product image and purchase link use a single custom link-preview
