@@ -85,7 +85,7 @@ class WhatsAppFormattingDeliveryTests(unittest.IsolatedAsyncioTestCase):
                     self.assertEqual(payload["session"], "offers-user-7")
                     self.assertTrue(payload["linkPreviewHighQuality"])
                     if image:
-                        self.assertEqual(payload["preview"]["title"], "")
+                        self.assertEqual(payload["preview"]["title"], "\u200b")
                         self.assertEqual(
                             payload["preview"]["url"],
                             "https://shop.example/item?tag=a__b",
@@ -113,6 +113,7 @@ class WhatsAppFormattingDeliveryTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(endpoint, "send/link-custom-preview")
         self.assertEqual(payload["session"], "offers-user-7-connection-12")
         self.assertEqual(payload["preview"]["url"], url)
+        self.assertEqual(payload["preview"]["title"], "\u200b")
         self.assertEqual(
             payload["preview"]["image"],
             {"data": base64.b64encode(b"product image").decode()},

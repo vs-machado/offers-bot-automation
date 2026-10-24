@@ -217,7 +217,9 @@ class WahaClient:
                     image = {"data": base64.b64encode(stream.read()).decode()}
             body["preview"] = {
                 "url": url,
-                "title": "",
+                # Empty titles can hide the entire card in WhatsApp clients.
+                # Keep a nonempty, invisible title without repeating the product.
+                "title": "\u200b",
                 "description": "",
                 "image": image,
             }
