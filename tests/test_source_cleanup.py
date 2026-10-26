@@ -153,10 +153,86 @@ class SourceAdvertisingTest(unittest.TestCase):
             "SSD R$ 50 | CUPOM: SSD20",
         )
 
-    def test_unavailable_llm_preserves_source_instead_of_guessing(self):
+    def test_unavailable_llm_removes_explicit_alert_advertising(self):
         with patch("offers_bot.parser.parse_with_llm", return_value=None):
             offer = extract_offers(self.source)[0]
-        self.assertEqual(offer.original_text, self.source)
+        outgoing = asyncio.run(
+            format_outgoing_offer(offer, "https://s.shopee.com.br/ourproduct")
+        )
+        self.assertNotIn("BOT DE ALERTAS", outgoing)
+        self.assertNotIn("alertadaspromobot", outgoing)
+        self.assertIn("💵 R$ 792", outgoing)
+        self.assertIn("Resgate todos os cupons desta página", outgoing)
+        self.assertIn("https://s.shopee.com.br/3Vl3w8QKCi", outgoing)
+        self.assertIn("https://s.shopee.com.br/ourproduct", outgoing)
+
+    def test_fallback_cleans_explicit_labels_with_missing_or_malformed_decisions(self):
+        for ad in (
+            "🔔 BOT DE ALERTAS: https://t.me/qualquer_nome?start=referral",
+            "**Bot de avisos:**\nhttps://telegram.me/novo_nome",
+            "🤖 Bot para alertas\n\n@servico_novo",
+            "[Bot de monitoramento](https://t.me/precos)",
+            "Robô de alertas:\n[Participar](https://t.me/avisos)",
+        ):
+            for spans in ([], None, "invalid"):
+                with self.subTest(ad=ad, spans=spans):
+                    text = f"SSD R$ 50 com moedas\n\n{ad}\n\nCUPOM: SSD20"
+                    self.assertEqual(
+                        clean_source_advertising(text, spans),
+                        "SSD R$ 50 com moedas\n\nCUPOM: SSD20",
+                    )
+
+    def test_fallback_preserves_offer_content_and_unpaired_labels(self):
+        for text in (
+            "Bot de alertas: R$ 50 https://t.me/loja",
+            "Bot de alertas: CUPOM: SSD20 https://t.me/loja",
+            "Bot de alertas: https://s.shopee.com.br/produto",
+            "Bot de alertas:\n\nResgate aqui:\nhttps://s.shopee.com.br/cupom",
+            "Bot de alertas:\nSuporte: https://t.me/loja_oficial",
+            "https://t.me/loja_oficial\nCUPOM: SSD20",
+            "Robô aspirador R$ 500 https://t.me/loja_oficial",
+        ):
+            with self.subTest(text=text):
+                self.assertEqual(clean_source_advertising(text, []), text)
+
+    def test_missed_llm_ad_selection_and_legacy_offers_use_fallback(self):
+        with patch(
+            "offers_bot.parser.parse_with_llm",
+            return_value={"classification": "product"},
+        ):
+            offer = extract_offers(self.source)[0]
+        offer = replace(offer, original_text=self.source)
+        outgoing = asyncio.run(
+            format_outgoing_offer(offer, "https://s.shopee.com.br/ourproduct")
+        )
+        self.assertNotIn("BOT DE ALERTAS", outgoing)
+        self.assertNotIn("alertadaspromobot", outgoing)
+        self.assertIn("Resgate todos os cupons desta página", outgoing)
+
+    def test_async_aliexpress_fallback_removes_repeated_ads_without_llm(self):
+        ad = "🔔 BOT DE ALERTAS: https://t.me/alertadaspromobot"
+        text = (
+            f"SSD R$ 50 com moedas no AliExpress\n{ad}\n"
+            "https://s.click.aliexpress.com/e/itemA\n"
+            "https://s.click.aliexpress.com/e/itemB\n"
+            f"{ad}\nCUPOM: SSD20"
+        )
+        with patch(
+            "offers_bot.parser.parse_with_llm_async", new_callable=AsyncMock
+        ) as parse:
+            parse.return_value = None
+            offer = asyncio.run(extract_offers_async(text))[0]
+        outgoing = asyncio.run(
+            format_outgoing_offer(
+                offer, "https://s.click.aliexpress.com/e/ours", is_ali=True
+            )
+        )
+        self.assertNotIn("BOT DE ALERTAS", outgoing)
+        self.assertNotIn("alertadaspromobot", outgoing)
+        self.assertIn("R$ 50 com moedas", outgoing)
+        self.assertIn("SSD20", outgoing)
+        self.assertIn("https://s.click.aliexpress.com/e/ours", outgoing)
+        self.assertIn("https://s.click.aliexpress.com/e/itemB", outgoing)
 
     def test_advertising_shopping_link_does_not_become_an_offer(self):
         ad = "Entre no grupo da loja: https://s.shopee.com.br/convite"
