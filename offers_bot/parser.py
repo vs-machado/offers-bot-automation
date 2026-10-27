@@ -87,6 +87,17 @@ PROMO_LINE_RE = re.compile(
 COUPON_STATUS_RE = re.compile(
     r"\b(?:esgot\w*|acab\w*|encerr\w*|expir\w*|ativo\w*)\b", re.IGNORECASE
 )
+PRICE_STOCK_NOTICE_RE = re.compile(
+    r"\b(?:"
+    r"(?:(?:ofertas?|promo[cç][aã]o|promo[cç][oõ]es|pre[cç]os?|valores?|estoques?)\s+)?"
+    r"sujeit[ao]s?\s+[àa]\s+(?:altera[cç][aã]o|disponibilidade|estoque)"
+    r"|(?:pre[cç]os?|valores?|estoques?)\s+(?:e\s+(?:pre[cç]os?|estoques?)\s+)?"
+    r"(?:podem?\s+(?:sofrer\s+altera[cç][oõ]es|variar|mudar)|"
+    r"(?:sujeit[ao]s?|sujeitos)\s+[àa]\s+altera[cç][aã]o)"
+    r"|(?:enquanto\s+durarem?|at[ée]\s+durarem?)\s+(?:os?\s+)?estoques?"
+    r")\b.*$",
+    re.IGNORECASE,
+)
 SHOPEE_PRODUCT_LABEL_RE = re.compile(
     r"\b(?:link\s+)?(?:produto|carrinho)\b", re.IGNORECASE
 )
@@ -246,7 +257,7 @@ def _extract_offers(text: str, llm_res: dict | None) -> list[Offer]:
             Offer(
                 original_text=text.strip(),
                 url=shopee_resgate_url,
-                title=_t if _t is not None else extract_title(text),
+                title=select_product_title(text, _t),
                 price=_p if _p is not None else extract_price(text),
                 card_price=_cp if _cp is not None else extract_card_price(text),
                 installment_info=_ins
@@ -288,7 +299,7 @@ def _extract_offers(text: str, llm_res: dict | None) -> list[Offer]:
                 Offer(
                     original_text=text.strip(),
                     url=found_urls[product_idx],
-                    title=_t if _t is not None else extract_title(text),
+                    title=select_product_title(text, _t),
                     price=_p if _p is not None else extract_price(text),
                     card_price=_cp if _cp is not None else extract_card_price(text),
                     installment_info=_ins
@@ -314,7 +325,7 @@ def _extract_offers(text: str, llm_res: dict | None) -> list[Offer]:
             Offer(
                 original_text=text.strip(),
                 url=found_urls[0],
-                title=_t if _t is not None else extract_title(text),
+                title=select_product_title(text, _t),
                 price=_p if _p is not None else extract_price(text),
                 card_price=_cp if _cp is not None else extract_card_price(text),
                 installment_info=_ins
@@ -337,7 +348,7 @@ def _extract_offers(text: str, llm_res: dict | None) -> list[Offer]:
             Offer(
                 original_text=text.strip(),
                 url=clean_url,
-                title=_t if _t is not None else extract_title(text),
+                title=select_product_title(text, _t),
                 price=_p if _p is not None else extract_price(text),
                 card_price=_cp if _cp is not None else extract_card_price(text),
                 installment_info=_ins
@@ -477,7 +488,21 @@ def extract_shopee_ids(text: str) -> tuple[str, str] | None:
     ) or match.group(4) or match.group(6)
 
 
+def select_product_title(text: str, *candidates: str | None) -> str | None:
+    """Validate preferred titles, falling back to source lines when only notices remain."""
+    for candidate in candidates:
+        if not candidate:
+            continue
+        title = URL_RE.sub("", candidate).strip()
+        if PRICE_STOCK_NOTICE_RE.search(title):
+            title = clean_title_candidate(title)
+        if title:
+            return title[:180]
+    return extract_title(text)
+
+
 def extract_title(text: str) -> str | None:
+    """Choose a product-like source line, excluding price and stock disclaimers."""
     best_title = None
     best_score = float("-inf")
     for raw_line in text.splitlines():
@@ -493,6 +518,7 @@ def extract_title(text: str) -> str | None:
 
 def clean_title_candidate(text: str) -> str:
     line = URL_RE.sub("", text)
+    line = PRICE_STOCK_NOTICE_RE.sub("", line)
     line = INLINE_COUPON_RE.sub("", line)
 
     # Also remove common promo noise that stays after regex
@@ -510,7 +536,10 @@ def clean_title_candidate(text: str) -> str:
         line = TRAILING_NOISE_RE.sub("", line).strip()
     line = re.sub(r"^[^\wÀ-ÿ(]+", "", line)
     line = re.sub(r"[^\wÀ-ÿ)]+$", "", line)
-    return re.sub(r"\s+", " ", line).strip()
+    line = re.sub(r"\s+", " ", line).strip()
+    if re.fullmatch(r"(?:de|por|link|no\s+pix|[àa]\s+vista)", line, re.IGNORECASE):
+        return ""
+    return line
 
 
 def score_title_candidate(line: str) -> int:
@@ -519,7 +548,7 @@ def score_title_candidate(line: str) -> int:
 
     if 25 <= length <= 180:
         score += 4
-    elif 12 <= length < 25:
+    elif 3 <= length < 25:
         score += 1
     else:
         score -= 3
@@ -533,7 +562,11 @@ def score_title_candidate(line: str) -> int:
     score += min(len(token_hits), 6) * 2
 
     uppercase_words = re.findall(r"\b[A-ZÁÀÂÃÉÊÍÓÔÕÚÇ]{4,}\b", line)
-    if uppercase_words and len(uppercase_words) >= max(2, len(line.split()) // 2):
+    if (
+        length >= 25
+        and uppercase_words
+        and len(uppercase_words) >= max(2, len(line.split()) // 2)
+    ):
         score -= 4
 
     if NOISE_LINE_RE.search(line):
