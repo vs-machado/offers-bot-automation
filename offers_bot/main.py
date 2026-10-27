@@ -25,6 +25,7 @@ from .parser import (
     is_shopee_url,
     is_aliexpress_url,
     is_kabum_url,
+    select_product_title,
 )
 from .shopee import ShopeeClient
 from .store import OfferStore
@@ -411,7 +412,10 @@ def format_llm_offer(offer: Offer, affiliate_url: str) -> str:
             if not isinstance(prod, dict) or not prod:
                 products = llm.get("products", [])
                 prod = products[0] if products and isinstance(products[0], dict) else {}
-        title = prod.get("title") or offer.title or ""
+        title = (
+            select_product_title(offer.original_text, offer.title, prod.get("title"))
+            or ""
+        )
         price = prod.get("price") or offer.price or ""
         card_price = prod.get("card_price") or offer.card_price or ""
         installment = prod.get("installment_info") or offer.installment_info or ""
@@ -473,8 +477,8 @@ def format_offer(offer: Offer, affiliate_url: str) -> str:
 
     parts = []
     resgate_anuncio_note = extract_resgate_anuncio_note(offer.original_text)
-    if offer.title:
-        title = URL_RE.sub("", offer.title).strip()
+    title = select_product_title(offer.original_text, offer.title)
+    if title:
         if offer.installment_info:
             title = f"[{offer.installment_info}] {title}"
         parts.append(f"{title}")

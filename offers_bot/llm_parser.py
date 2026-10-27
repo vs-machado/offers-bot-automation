@@ -172,6 +172,7 @@ SOURCE ADVERTISING REMOVAL RULES (apply to products AND coupon bulletins):
 - Each span must identify one unambiguous occurrence. Include enough advertising context to distinguish it from legitimate repeated text. Never mark a product name, price, discount condition, coupon code, shopping/redemption link or the required advertising disclosure (e.g. "- Anúncio") for removal. Return [] if none is present. These spans describe incoming source content only; platform-owned promotions may be added afterward.
 
 CRITICAL TITLE EXTRACTION RULE: You must extract a clean product title for each product. Do not leave it null or empty if there is a product name. Clean the title by removing all emojis, pricing details, discount percentages, coupon codes, and URLs.
+Price/stock disclaimers (e.g. "sujeita à alteração de preço e estoque do site", "preços podem variar", "enquanto durarem os estoques") are never product names. Exclude them from titles, including when appended to a product name. Preserve short or uppercase product names; if no product name is supplied, return an empty title rather than substituting a disclaimer.
 
 FIELD RULES:
 - product.coupon must contain ONLY real coupon code(s), e.g. "MAES10", "OFF20", "10MELIMAIS ou MELIMAISPROMO".
