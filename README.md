@@ -9,6 +9,16 @@ and distributes offers to enabled destinations, with expiration, deduplication,
 and delivery history. WhatsApp supports multiple accounts through WAHA, with
 publication controls per account and destination.
 
+## Screenshots
+
+### Telegram
+
+![Offers published to the VSM Ofertas Telegram channel](docs/offers-telegram.png)
+
+### Web dashboard
+
+![Offers Bot dashboard with publication status and delivery history](docs/offers-dashboard.png)
+
 ## Features
 
 - **Web dashboard:** guided setup, integrations, destinations, and searchable history.
