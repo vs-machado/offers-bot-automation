@@ -26,6 +26,7 @@ class WhatsAppPolicy(BaseModel):
     destination_max_per_day: int | None = Field(default=None, ge=1, le=10000)
     max_groups: int = Field(default=6, ge=1, le=6)
     burst_window_seconds: int = Field(default=60, ge=5, le=300)
+    collection_seconds: int = Field(default=10, ge=5, le=300)
     burst_threshold: int = Field(default=6, ge=6, le=100)
     start_hour_utc: int = Field(default=0, ge=0, le=23)
     end_hour_utc: int = Field(default=24, ge=1, le=24)
@@ -42,9 +43,12 @@ class WhatsAppPolicy(BaseModel):
             ZoneInfo(self.posting_timezone)
         except (ZoneInfoNotFoundError, ValueError) as exc:
             raise ValueError("Fuso horário inválido.") from exc
-        if self.ttl_seconds < self.burst_window_seconds + 30:
+        if (
+            self.ttl_seconds
+            < max(self.burst_window_seconds, self.collection_seconds) + 30
+        ):
             raise ValueError(
-                "A validade deve superar a janela de coleta em pelo menos 30 segundos."
+                "A validade deve superar as janelas de coleta e rajada em pelo menos 30 segundos."
             )
         if self.start_hour_utc >= self.end_hour_utc:
             raise ValueError(

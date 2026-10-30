@@ -54,8 +54,8 @@ export function useWhatsAppPolicy(connectionId?: number) {
 
   function save() {
     if (!draft) return;
-    if (draft.ttl_seconds < draft.burst_window_seconds + 30) {
-      setError("A validade deve superar a janela de coleta em pelo menos 30 segundos.");
+    if (draft.ttl_seconds < Math.max(draft.burst_window_seconds, draft.collection_seconds) + 30) {
+      setError("A validade deve superar as janelas de coleta e rajada em pelo menos 30 segundos.");
       return;
     }
     if (draft.start_hour_utc >= draft.end_hour_utc) {
