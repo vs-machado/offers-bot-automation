@@ -3,6 +3,7 @@
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal, InvalidOperation
 import hashlib
+import logging
 import re
 import secrets
 from zoneinfo import ZoneInfo
@@ -11,6 +12,7 @@ from backend.app.schemas.whatsapp_policy import WhatsAppPolicy, promotion_ttl
 from offers_bot.postgres_store import connect
 
 PENDING = ("queued", "retrying")
+LOGGER = logging.getLogger(__name__)
 
 
 def lock_account(
@@ -148,13 +150,37 @@ def next_slot(
     destination_attempts: list[datetime] | None = None,
 ) -> datetime:
     """Apply rolling quotas, spacing and the local posting window; return a UTC slot."""
+    slot, _ = next_slot_with_reason(
+        policy, now, attempts, chat_id, destination_attempts
+    )
+    return slot
+
+
+def next_slot_with_reason(
+    policy: WhatsAppPolicy,
+    now: datetime,
+    attempts: list[tuple],
+    chat_id: str,
+    destination_attempts: list[datetime] | None = None,
+) -> tuple[datetime, str | None]:
+    """Return the latest policy constraint and its reason without changing send limits."""
     slot = now
+    reason = None
+
+    def constrain(candidate: datetime, code: str) -> None:
+        nonlocal slot, reason
+        if candidate > slot:
+            slot, reason = candidate, code
+
     for period, limit in ((3600, policy.max_per_hour), (86400, policy.max_per_day)):
         recent = sorted(
             at for _, at in attempts if at > now - timedelta(seconds=period)
         )
         if len(recent) >= limit:
-            slot = max(slot, recent[-limit] + timedelta(seconds=period))
+            constrain(
+                recent[-limit] + timedelta(seconds=period),
+                "whatsapp_hourly_quota" if period == 3600 else "whatsapp_daily_quota",
+            )
     if policy.destination_max_per_day is not None:
         recent = sorted(
             at
@@ -166,26 +192,35 @@ def next_slot(
             if at > now - timedelta(days=1)
         )
         if len(recent) >= policy.destination_max_per_day:
-            slot = max(
-                slot, recent[-policy.destination_max_per_day] + timedelta(days=1)
+            constrain(
+                recent[-policy.destination_max_per_day] + timedelta(days=1),
+                "whatsapp_destination_quota",
             )
     for target, at in attempts:
-        interval = policy.account_interval_seconds
+        constrain(
+            at + timedelta(seconds=policy.account_interval_seconds),
+            "whatsapp_account_spacing",
+        )
         if target == chat_id:
-            interval = max(interval, policy.channel_interval_seconds)
-        slot = max(slot, at + timedelta(seconds=interval))
+            constrain(
+                at + timedelta(seconds=policy.channel_interval_seconds),
+                "whatsapp_destination_spacing",
+            )
     for at in destination_attempts or []:
-        slot = max(slot, at + timedelta(seconds=policy.channel_interval_seconds))
+        constrain(
+            at + timedelta(seconds=policy.channel_interval_seconds),
+            "whatsapp_destination_spacing",
+        )
     local = slot.astimezone(ZoneInfo(policy.posting_timezone))
     start = local.replace(hour=policy.start_hour_utc, minute=0, second=0, microsecond=0)
     end = local.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(
         hours=policy.end_hour_utc
     )
     if local < start:
-        slot = start
+        constrain(start, "whatsapp_posting_window")
     elif local >= end:
-        slot = start + timedelta(days=1)
-    return slot.astimezone(timezone.utc)
+        constrain(start + timedelta(days=1), "whatsapp_posting_window")
+    return slot.astimezone(timezone.utc), reason
 
 
 def reserve_delivery(
@@ -270,7 +305,7 @@ def reserve_delivery(
                 (user_id, chat_id, now - timedelta(days=1)),
             ).fetchall()
         ]
-        slot = next_slot(
+        slot, reason = next_slot_with_reason(
             policy,
             now,
             [(chat, at) for chat, at, _ in attempts],
@@ -278,32 +313,73 @@ def reserve_delivery(
             destination_attempts,
         )
         # The random gap belongs to an attempt, never to a polling/retry invocation.
-        slot = max([slot, *(at for _, _, at in attempts if at is not None)])
+        constraints = [(slot, reason)]
+        constraints.extend(
+            (at, "whatsapp_account_spacing") for _, _, at in attempts if at is not None
+        )
         # A short collection window allows burst selection before the first send.
         if allowed[0] == "channel":
-            slot = max(slot, row[2] + timedelta(seconds=policy.burst_window_seconds))
+            constraints.append(
+                (
+                    row[2] + timedelta(seconds=policy.collection_seconds),
+                    "whatsapp_collection",
+                )
+            )
         if pauses:
-            slot = max(slot, *(pause[0] for pause in pauses))
+            constraints.extend((pause[0], "whatsapp_paused") for pause in pauses)
         active = conn.execute(
             "SELECT max(updated_at) FROM promotion_deliveries WHERE user_id=%s AND status='sending' AND chat_id ~ '@(newsletter|g[.]us)$' AND updated_at>%s AND (connection_id=%s OR (%s AND connection_id IS NULL))",
             (user_id, now - timedelta(seconds=60), connection_id, primary),
         ).fetchone()[0]
         if active:
-            slot = max(slot, now + timedelta(seconds=5))
-        slot = next_slot(policy, slot, [], chat_id)
+            constraints.append((now + timedelta(seconds=5), "whatsapp_in_flight"))
+        slot, reason = max(constraints, key=lambda constraint: constraint[0])
+        slot, window_reason = next_slot_with_reason(policy, slot, [], chat_id)
+        reason = window_reason or reason
         if slot + timedelta(seconds=25) >= expiry:
+            LOGGER.info(
+                "WhatsApp delivery exceeds deadline: id=%s user_id=%s connection_id=%s "
+                "blocking_reason=%s wait_seconds=%.3f queued_seconds=%.3f",
+                identity,
+                user_id,
+                connection_id,
+                reason,
+                (slot - now).total_seconds(),
+                (now - row[2]).total_seconds(),
+            )
             conn.execute(
                 "UPDATE promotion_deliveries SET status='expired',reason='policy_deadline', updated_at=%s WHERE id=%s",
                 (now, identity),
             )
             return "stop", 0
         if slot > now:
-            reason = "whatsapp_paused" if pauses else "delivery_throttled"
             conn.execute(
                 "UPDATE promotion_deliveries SET reason=%s,updated_at=%s WHERE id=%s",
                 (reason, now, identity),
             )
+            LOGGER.info(
+                "WhatsApp delivery waiting: id=%s user_id=%s connection_id=%s "
+                "reason=%s wait_seconds=%.3f queued_seconds=%.3f source_age_seconds=%.3f "
+                "next_eligible_at=%s",
+                identity,
+                user_id,
+                connection_id,
+                reason,
+                (slot - now).total_seconds(),
+                (now - row[2]).total_seconds(),
+                (now - source).total_seconds(),
+                slot.isoformat(),
+            )
             return "wait", min((slot - now).total_seconds(), 60)
+        LOGGER.info(
+            "WhatsApp delivery admitted: id=%s user_id=%s connection_id=%s "
+            "queued_seconds=%.3f source_age_seconds=%.3f",
+            identity,
+            user_id,
+            connection_id,
+            (now - row[2]).total_seconds(),
+            (now - source).total_seconds(),
+        )
         conn.execute(
             "UPDATE promotion_deliveries SET status='sending', reason=NULL, attempts=attempts+1, updated_at=%s, expires_at=%s WHERE id=%s",
             (now, expiry, identity),

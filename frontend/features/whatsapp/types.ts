@@ -59,6 +59,7 @@ export type WhatsAppPolicy = {
   max_groups: number;
   posting_timezone: string;
   burst_window_seconds: number;
+  collection_seconds: number;
   burst_threshold: number;
   start_hour_utc: number;
   end_hour_utc: number;

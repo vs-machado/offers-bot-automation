@@ -180,7 +180,7 @@ rechecked before delivery.
 | Posting window | 07:00–23:00, `America/Sao_Paulo` |
 | Maximum lifetime | 600 seconds, also capped by the operator |
 | Channel burst | 6 eligible offers in 60 seconds; retain the 5 newest pending offers |
-| Initial channel offer collection | 60 seconds |
+| Initial channel offer collection | 10 seconds, independently configurable from burst detection |
 
 Channels share account quotas and have destination quotas, but do not count
 toward the six-group limit. Disabled groups do not consume that capacity.
@@ -190,6 +190,17 @@ Older primary-account policies preserve saved values. Legacy defaults include
 different fixed intervals and an all-day UTC window; the
 [technical specification](whatsapp-implementation.md) distinguishes these cases.
 Do not interpret the table as an automatic update to existing accounts.
+
+Exception: saved policies without `collection_seconds` now use the independent
+10-second collection default. The existing burst window and sending limits are
+preserved. Publication controls expose collection and burst detection separately;
+groups have no collection hold. A channel offer may send after collection before
+a later burst develops; only pending deliveries can be discarded.
+
+Delivery history identifies whether a pending offer is waiting for collection,
+connection/destination spacing, quotas, posting hours, another active send, or a
+temporary pause. Worker logs include wait duration, time already spent in the
+queue, source age and next eligible time to help diagnose slow delivery.
 
 The posting window uses an IANA timezone and cannot cross midnight; `0–24`
 allows all day. Deferral due to windows, limits, or collection does not extend

@@ -15,7 +15,8 @@ const fields: { key: Exclude<keyof WhatsAppPolicy, "posting_timezone">; label: s
   { key: "max_per_day", label: "Tentativas por 24h / conta", min: 1, max: 10000 },
   { key: "destination_max_per_day", label: "Tentativas por 24h / destino (vazio = sem cota adicional)", min: 1, max: 10000, optional: true },
   { key: "max_groups", label: "Grupos habilitados por conexão", min: 1, max: 6 },
-  { key: "burst_window_seconds", label: "Janela de rajada/coleta (segundos)", min: 5, max: 300 },
+  { key: "burst_window_seconds", label: "Janela de detecção de rajada (segundos)", min: 5, max: 300 },
+  { key: "collection_seconds", label: "Coleta inicial por oferta do canal (segundos)", min: 5, max: 300 },
   { key: "burst_threshold", label: "Quantidade que caracteriza rajada", min: 6, max: 100 },
   { key: "start_hour_utc", label: "Início da publicação (hora no fuso escolhido)", min: 0, max: 23 },
   { key: "end_hour_utc", label: "Fim da publicação (hora no fuso escolhido)", min: 1, max: 24 },
@@ -40,7 +41,7 @@ export function WhatsAppDeliveryControls({ compact = false, connectionId }: { co
       <div className="space-y-4 border-t pt-4">
         <p className="text-sm/6 text-muted-foreground">Ofertas do mesmo produto/variação e preço não se repetem no mesmo destino por 30 minutos, mesmo vindo de origens diferentes. Mudança de preço permite nova publicação.</p>
         {!settings && !policy.error ? <p role="status" className="text-sm text-muted-foreground">Consultando regras de publicação…</p> : null}
-        {settings ? <p className="text-sm/6 text-muted-foreground">Validade efetiva: {policy.data?.effective_ttl_seconds}s desde origem, sem renovar prazo. Rajadas mantêm as {policy.data?.burst_keep} ofertas mais recentes por canal; coleta de {settings.burst_window_seconds}s. Espaçamento entre envios desta conexão: {settings.account_interval_seconds}–{settings.account_interval_max_seconds ?? settings.account_interval_seconds}s; por destino: pelo menos {settings.channel_interval_seconds}s. Cotas compartilhadas pelos grupos/canais desta conexão: {settings.max_per_hour}/hora e {settings.max_per_day}/24h. Cota adicional por destino: {settings.destination_max_per_day ?? "não definida"}/24h. Até {settings.max_groups} grupos habilitados. Janela: {settings.start_hour_utc}h–{settings.end_hour_utc}h ({settings.posting_timezone}). Ofertas que não cabem no prazo são descartadas. Telegram recebe conforme chegam, sem estes controles.</p> : null}
+        {settings ? <p className="text-sm/6 text-muted-foreground">Validade efetiva: {policy.data?.effective_ttl_seconds}s desde origem, sem renovar prazo. Rajadas mantêm as {policy.data?.burst_keep} ofertas pendentes mais recentes por canal, em janela de {settings.burst_window_seconds}s; coleta inicial independente de {settings.collection_seconds}s por oferta do canal. Espaçamento entre envios desta conexão: {settings.account_interval_seconds}–{settings.account_interval_max_seconds ?? settings.account_interval_seconds}s; por destino: pelo menos {settings.channel_interval_seconds}s. Cotas compartilhadas pelos grupos/canais desta conexão: {settings.max_per_hour}/hora e {settings.max_per_day}/24h. Cota adicional por destino: {settings.destination_max_per_day ?? "não definida"}/24h. Até {settings.max_groups} grupos habilitados. Janela: {settings.start_hour_utc}h–{settings.end_hour_utc}h ({settings.posting_timezone}). Ofertas que não cabem no prazo são descartadas. Telegram recebe conforme chegam, sem estes controles.</p> : null}
         {compact ? (
           <Link className="text-sm font-medium text-primary underline" href="/settings/destinations#whatsapp">Gerenciar limites e pausas nas configurações</Link>
         ) : policy.draft ? (

@@ -158,7 +158,7 @@ Default values, defined as editorial policy rather than guarantees against bans:
 | Destination interval | 45 seconds |
 | Account attempts | 90/hour and 600/24h, in rolling windows |
 | Burst | 6 eligible offers in 60 seconds; retain the 5 most recent pending offers |
-| Initial collection period per channel offer | 60 seconds (matches the configured burst window) |
+| Initial collection period per channel offer | 10 seconds (`collection_seconds`, independent of burst detection) |
 | Posting window | 0–24h UTC (all day), configurable without crossing midnight |
 | Consecutive failures | 3 failures: pause the account for 15 minutes |
 | Authentication/permission/destination rejection | Immediate 15-minute pause |
@@ -241,7 +241,7 @@ health; the legacy health endpoint mode continues to inspect the primary account
 | Additional destination quota | 100 attempts/24h, rolling window |
 | Enabled groups | At most 6 per connection; configurable down to 1 |
 | Posting window | 07:00–23:00, `America/Sao_Paulo` |
-| Validity and channel burst collection | Existing 600-second ceiling and 60-second collection |
+| Validity and channel collection | Existing 600-second ceiling and independent 10-second collection; burst detection remains 60 seconds |
 
 The 100/destination quota is our editorial choice (600 aggregate attempts divided
 among six groups), **not a published Manda Boa quota**. Channels share account
@@ -260,6 +260,34 @@ defer only valid offers, without extending their original deadline.
 These WhatsApp controls do not apply to Telegram. The shared operator validity
 ceiling remains at most 600 seconds. Existing primary defaults in the earlier table
 describe legacy policies without saved values, not additional-connection defaults.
+
+### Channel latency and queue diagnostics
+
+`collection_seconds` controls the initial hold for each channel offer, counted
+from its original queue entry, independently of `burst_window_seconds`. It defaults
+to **10 seconds**, including saved JSON policies that omit this new field; no database
+migration is required. It is configurable from 5 to 300 seconds in publication
+controls. Both collection and burst windows must leave at least 30 seconds within
+the configured lifetime. Groups have no collection hold.
+Deploy API, posting workers and frontend together: older versions reject saved
+policies containing the new field.
+
+Burst detection still considers arrivals over 60 seconds by default and keeps the
+five newest eligible **pending** offers. A shorter collection may allow an early
+offer to send before a later burst develops; already-started/completed deliveries
+are never cancelled. Account/destination spacing, persisted random gaps, quotas,
+pauses, serialization and the ten-minute validity ceiling still take precedence.
+Reducing collection does not increase the configured maximum sending frequency.
+
+Pending delivery history now distinguishes collection, account/destination spacing,
+hourly/daily account quotas, destination quota, posting hours, active sends and
+automatic pauses. The reason is the constraint setting the latest eligible time;
+it can change on subsequent checks. Older `delivery_throttled` records remain readable.
+Worker logs record delivery/user/connection IDs, reason, `wait_seconds`,
+`queued_seconds`, `source_age_seconds` and `next_eligible_at` when deferring. Admission
+logs include total queue/source age. Deadline discards log the blocking reason and
+required wait. Durations are diagnostic logs, not new delivery-history columns.
+Broker scheduling and HTTP execution can still add time after eligibility.
 
 ### Operational references behind these choices
 
