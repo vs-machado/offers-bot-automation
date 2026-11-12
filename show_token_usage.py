@@ -7,7 +7,41 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
+def show_request_stats():
+    """Print daily UTC HTTP attempt counts by provider/model for the last 14 days."""
+    query = """SELECT CAST(timestamp AS DATE), provider, model, COUNT(*)
+        FROM llm_requests WHERE timestamp >= CURRENT_TIMESTAMP - INTERVAL '14 days'
+        GROUP BY 1, 2, 3 ORDER BY 1 DESC, 2, 3"""
+    try:
+        if os.getenv("DATABASE_URL"):
+            from offers_bot.postgres_store import connect
+
+            with connect() as conn:
+                conn.execute("SET TIME ZONE 'UTC'")
+                rows = conn.execute(query).fetchall()
+        else:
+            path = Path(os.getenv("DATABASE_PATH", "data/offers.sqlite3"))
+            if not path.exists():
+                return
+            with sqlite3.connect(path) as conn:
+                rows = conn.execute(
+                    query.replace(
+                        "CURRENT_TIMESTAMP - INTERVAL '14 days'",
+                        "datetime('now', '-14 days')",
+                    )
+                ).fetchall()
+        print("Daily LLM HTTP requests (UTC; includes failed attempts and retries)")
+        print("Date | Provider | Model | Requests")
+        for row in rows:
+            print(" | ".join(str(value) for value in row))
+        if not rows:
+            print("No requests recorded yet.")
+    except Exception as exc:
+        print(f"Request counts unavailable: {type(exc).__name__}")
+
+
 def show_stats():
+    show_request_stats()
     if os.getenv("DATABASE_URL"):
         from offers_bot.postgres_store import connect
 

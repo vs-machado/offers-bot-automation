@@ -55,6 +55,19 @@ class PlatformTelegramSession(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
 
+class LLMRequest(Base):
+    """Outgoing provider HTTP attempts, including retries and unsuccessful requests."""
+
+    __tablename__ = "llm_requests"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    timestamp: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), index=True
+    )
+    provider: Mapped[str] = mapped_column(String(32))
+    model: Mapped[str] = mapped_column(String(200))
+
+
 class TokenUsage(Base):
     """LLM accounting with an optional identity for idempotent legacy import."""
 

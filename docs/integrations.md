@@ -154,16 +154,36 @@ per process and one per user.
 
 The structured parsing chain is:
 
-1. **Ling 3.0 Flash** — `inclusionai/ling-3.0-flash`, through OpenRouter, pinned to Novita.
-2. **Qwen 3.7 Flash** — `qwen/qwen3.7-flash`, through OpenRouter.
-3. **Gemini 2.5 Flash Lite** — Google's direct API.
-4. **Regex** — fallback when credentials are missing or configured parsers fail.
+1. **MiniMax M3.1 Flash** — `minimaxai/minimax-m3.1-flash`, through NVIDIA's `https://integrate.api.nvidia.com/v1` endpoint.
+2. **Nemotron 3.5 Lightning** — `nvidia/nemotron-3.5-lightning-30b-a3b`, through NVIDIA, with thinking disabled and locally validated prompted JSON.
+3. **Ling 3.0 Flash** — `inclusionai/ling-3.0-flash`, through OpenRouter, pinned to Novita.
+4. **Qwen 3.7 Flash** — `qwen/qwen3.7-flash`, through OpenRouter.
+5. **Gemini 2.5 Flash Lite** — Google's direct API.
+6. **Regex** — fallback when credentials are missing or configured parsers fail.
 
-Set `OPENROUTER_API_KEY` and/or `GEMINI_API_KEY` in the worker environment.
+Set `NVIDIA_API_KEY`, `OPENROUTER_API_KEY`, and/or `GEMINI_API_KEY` in the worker environment.
+Set `NVIDIA_FALLBACK_MODEL=nvidia/nemotron-3.5-lightning-30b-a3b` to enable
+Lightning with the same NVIDIA key. Compose enables it by default; standalone
+mode skips it when this variable is absent or empty. Daily request counts distinguish
+both NVIDIA models. Provider-wide NVIDIA failures can affect both models.
+Missing keys skip their providers. NVIDIA requests use a 30-second timeout;
+OpenRouter requests use a 90-second timeout. SDK retries are disabled so errors
+advance to the next provider.
 A Novita route failure advances to Qwen rather than another Ling provider.
 DeepSeek is not part of the current chain. Provider prices may change.
 
 An AI failure recovered by fallback is not recorded as a publication failure.
+
+### Daily model request counts
+
+Run `python show_token_usage.py` inside the worker container. Its first table
+shows the last 14 days of HTTP request attempts grouped by UTC date, provider,
+and model. Counts include failed HTTP/network attempts and structured-output
+validation retries. These are actual outbound attempts, not counts of parsed offers.
+PostgreSQL persists them in `llm_requests`; standalone mode uses SQLite.
+Historical requests before this feature are not attributed to a model.
+Token totals remain in the existing separate report. Request logs also include
+`LLM request provider=... model=...` without credentials or message content.
 
 ## Text, coupons, and media
 

@@ -1,3 +1,5 @@
+import asyncio
+import json
 import logging
 import os
 from pathlib import Path
@@ -6,16 +8,19 @@ from typing import Dict, Any, Optional
 from pydantic import BaseModel, Field
 from typing import List, Literal
 
-from pydantic_ai import Agent
+from pydantic_ai import Agent, NativeOutput, PromptedOutput
 from pydantic_ai.models.google import GoogleModel
 from pydantic_ai.models.openai import OpenAIChatModel, OpenAIChatModelSettings
 from pydantic_ai.providers.google import GoogleProvider
 from pydantic_ai.providers.openai import OpenAIProvider
-from openai import AsyncOpenAI
+from openai import AsyncOpenAI, DefaultAsyncHttpxClient
 
 logger = logging.getLogger(__name__)
 
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
+NVIDIA_BASE_URL = "https://integrate.api.nvidia.com/v1"
+NVIDIA_LLM_MODEL = "minimaxai/minimax-m3.1-flash"
+NVIDIA_FALLBACK_LLM_MODEL = "nvidia/nemotron-3.5-lightning-30b-a3b"
 
 
 def _openrouter_headers() -> dict[str, str] | None:
@@ -250,9 +255,49 @@ def save_token_usage(prompt_tokens: int, completion_tokens: int) -> None:
         logger.warning("Failed to save token usage to db: %s", e)
 
 
+def save_llm_request(provider: str, model: str) -> None:
+    """Persist each outgoing HTTP attempt, including retries and failed requests (UTC)."""
+    try:
+        if os.getenv("DATABASE_URL"):
+            from offers_bot.postgres_store import connect
+
+            with connect() as conn:
+                conn.execute(
+                    "INSERT INTO llm_requests (provider, model) VALUES (%s, %s)",
+                    (provider, model),
+                )
+        else:
+            path = Path(os.getenv("DATABASE_PATH", "data/offers.sqlite3"))
+            path.parent.mkdir(parents=True, exist_ok=True)
+            with sqlite3.connect(path) as conn:
+                conn.execute(
+                    """CREATE TABLE IF NOT EXISTS llm_requests (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    timestamp TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    provider TEXT NOT NULL, model TEXT NOT NULL)"""
+                )
+                conn.execute(
+                    "INSERT INTO llm_requests (provider, model) VALUES (?, ?)",
+                    (provider, model),
+                )
+    except Exception as exc:
+        logger.warning("Failed to save LLM request count: %s", type(exc).__name__)
+    logger.info("LLM request provider=%s model=%s", provider, model)
+
+
+async def _record_llm_request(request) -> None:
+    body = json.loads(request.content)
+    provider = (
+        "nvidia" if request.url.host == "integrate.api.nvidia.com" else "openrouter"
+    )
+    await asyncio.to_thread(save_llm_request, provider, body["model"])
+
+
 def _build_agent(model_name: str, api_key: str) -> Agent:
-    """Build a structured parser; keep Ling on Novita and fall back at application level."""
+    """Build NVIDIA/OpenRouter parsers with HTTP request accounting and provider fallbacks."""
     if model_name not in {
+        NVIDIA_LLM_MODEL,
+        NVIDIA_FALLBACK_LLM_MODEL,
         PRIMARY_LLM_MODEL,
         FALLBACK_LLM_MODEL,
         FINAL_FALLBACK_LLM_MODEL,
@@ -260,11 +305,22 @@ def _build_agent(model_name: str, api_key: str) -> Agent:
         raise ValueError(f"Unsupported LLM model: {model_name}")
 
     settings: OpenAIChatModelSettings = {}
-    if model_name in {PRIMARY_LLM_MODEL, FALLBACK_LLM_MODEL}:
+    if model_name in {
+        NVIDIA_LLM_MODEL,
+        NVIDIA_FALLBACK_LLM_MODEL,
+        PRIMARY_LLM_MODEL,
+        FALLBACK_LLM_MODEL,
+    }:
+        nvidia = model_name in {NVIDIA_LLM_MODEL, NVIDIA_FALLBACK_LLM_MODEL}
         client = AsyncOpenAI(
-            base_url=OPENROUTER_BASE_URL,
+            base_url=NVIDIA_BASE_URL if nvidia else OPENROUTER_BASE_URL,
             api_key=api_key,
-            default_headers=_openrouter_headers(),
+            default_headers=None if nvidia else _openrouter_headers(),
+            max_retries=0,
+            timeout=30.0 if nvidia else 90.0,
+            http_client=DefaultAsyncHttpxClient(
+                event_hooks={"request": [_record_llm_request]},
+            ),
         )
         model = OpenAIChatModel(
             model_name,
@@ -274,15 +330,34 @@ def _build_agent(model_name: str, api_key: str) -> Agent:
             settings["extra_body"] = {
                 "provider": {"only": ["novita"], "allow_fallbacks": False}
             }
+        if nvidia:
+            settings.update(temperature=1.0, top_p=0.95, max_tokens=16384)
+        if model_name == NVIDIA_FALLBACK_LLM_MODEL:
+            settings.update(
+                temperature=0.6,
+                max_tokens=2048,
+                extra_body={
+                    "chat_template_kwargs": {"enable_thinking": False},
+                    "thinking": {"type": "disabled"},
+                },
+            )
     else:
         model = GoogleModel(
             "gemini-2.5-flash-lite",
             provider=GoogleProvider(api_key=api_key),
         )
 
+    output_type = DealParseResult
+    if model_name == NVIDIA_LLM_MODEL:
+        # NVIDIA otherwise omits optional arrays (including every product).
+        output_type = NativeOutput(DealParseResult, strict=True)
+    elif model_name == NVIDIA_FALLBACK_LLM_MODEL:
+        # Lightning stalls with native JSON schema; validate prompted JSON locally.
+        output_type = PromptedOutput(DealParseResult)
+
     return Agent(
         model=model,
-        output_type=DealParseResult,
+        output_type=output_type,
         system_prompt=SYSTEM_PROMPT,
         model_settings=settings,
     )
@@ -290,7 +365,7 @@ def _build_agent(model_name: str, api_key: str) -> Agent:
 
 def _llm_configs() -> list[tuple[str, str, str]]:
     """Return configured providers in priority order, without exposing keys."""
-    return [
+    configs = [
         ("primary", PRIMARY_LLM_MODEL, os.getenv("OPENROUTER_API_KEY", "")),
         ("fallback", FALLBACK_LLM_MODEL, os.getenv("OPENROUTER_API_KEY", "")),
         (
@@ -299,6 +374,18 @@ def _llm_configs() -> list[tuple[str, str, str]]:
             os.getenv("GEMINI_API_KEY", ""),
         ),
     ]
+    if os.getenv("NVIDIA_API_KEY"):
+        fallback_model = os.getenv("NVIDIA_FALLBACK_MODEL", "").strip()
+        if fallback_model:
+            if fallback_model != NVIDIA_FALLBACK_LLM_MODEL:
+                raise ValueError(f"Unsupported NVIDIA fallback model: {fallback_model}")
+            configs.insert(
+                0, ("fallback NVIDIA", fallback_model, os.environ["NVIDIA_API_KEY"])
+            )
+        configs.insert(
+            0, ("primary NVIDIA", NVIDIA_LLM_MODEL, os.environ["NVIDIA_API_KEY"])
+        )
+    return configs
 
 
 def _message_prompt(text: str) -> str:

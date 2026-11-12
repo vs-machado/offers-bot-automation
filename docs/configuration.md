@@ -80,7 +80,9 @@ or an arbitrary browser-supplied name. See [WhatsApp](whatsapp.md).
 
 | Variable | Purpose |
 | --- | --- |
-| `OPENROUTER_API_KEY` | Ling and Qwen structured extraction |
+| `NVIDIA_API_KEY` | Primary MiniMax M3.1 Flash structured extraction |
+| `NVIDIA_FALLBACK_MODEL` | Optional NVIDIA fallback: `nvidia/nemotron-3.5-lightning-30b-a3b`; enabled by default in Compose |
+| `OPENROUTER_API_KEY` | Ling and Qwen fallback structured extraction |
 | `GEMINI_API_KEY` | Gemini fallback through Google's API |
 | `OPENROUTER_CACHE_ENABLED` | Cache control; default `true` |
 | `OPENROUTER_CACHE_TTL` | Optional parser setting; not forwarded by the current Compose files |
