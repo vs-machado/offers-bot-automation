@@ -26,6 +26,7 @@ sources are selected from a catalog of public Telegram groups.
 | [Configuration](configuration.md) | Environment variables, limits, and infrastructure/user configuration boundaries |
 | [Integrations](integrations.md) | Store credentials, validation, and AI extraction |
 | [WhatsApp and WAHA](whatsapp.md) | WAHA setup, multiple accounts, groups, channels, and policies |
+| [WhatsApp websites](whatsapp-websites.md) | Per-user websites, automatic group creation/rotation, Pages updates, and recovery |
 | [Architecture](architecture.md) | Components, tenant isolation, and offer processing |
 | [Operations](operations.md) | Source administration, queue, history, logs, and troubleshooting |
 | [Security](security.md) | Better Auth, password recovery, encryption, and key rotation |

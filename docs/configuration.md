@@ -72,6 +72,7 @@ These variables are consumed by the Next.js server.
 | `TELEGRAM_PHONE` | Alternative for QR reader authentication |
 | `WAHA_BASE_URL` | WAHA address reachable by application services, such as `http://waha:3000` |
 | `WAHA_API_KEY` | Operator WAHA key, kept server-side |
+| `WEBSITE_ALLOWED_HOSTS` | Comma-separated exact public custom domains approved for website updates; `*.pages.dev` is accepted by default. API and continuous worker only. |
 
 WhatsApp sessions are derived from the user's connections, not a global variable
 or an arbitrary browser-supplied name. See [WhatsApp](whatsapp.md).
