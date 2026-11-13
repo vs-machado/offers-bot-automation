@@ -13,6 +13,7 @@ from backend.app.models.user import UserConfig
 from backend.app.models.worker import PromotionDelivery
 from backend.worker.manager import UserBotInstance
 from backend.worker.telegram_reader import TelegramSourceReader
+from backend.worker.website_rotation import website_monitor_loop
 from offers_bot.message_context import source_timestamp, promotion_context
 
 LOGGER = logging.getLogger(__name__)
@@ -39,12 +40,16 @@ class WorkerService:
         self._reader = reader
         sync_task = asyncio.create_task(self._sync_loop())
         cleanup_task = asyncio.create_task(self._retention_loop())
+        website_task = asyncio.create_task(website_monitor_loop())
         try:
             await reader.listen(self._receive_message)
         finally:
             sync_task.cancel()
             cleanup_task.cancel()
-            await asyncio.gather(sync_task, cleanup_task, return_exceptions=True)
+            website_task.cancel()
+            await asyncio.gather(
+                sync_task, cleanup_task, website_task, return_exceptions=True
+            )
 
     async def _retention_loop(self) -> None:
         """Clean history on startup and daily; retry failures without stopping ingestion."""

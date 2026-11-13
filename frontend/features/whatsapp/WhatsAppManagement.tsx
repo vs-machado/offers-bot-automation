@@ -5,6 +5,7 @@ import { Plus, Pencil, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { WhatsAppConnection } from "@/features/whatsapp/WhatsAppConnection";
 import { WhatsAppDeliveryControls } from "@/features/whatsapp/WhatsAppDeliveryControls";
+import { WhatsAppWebsite } from "@/features/whatsapp/WhatsAppWebsite";
 import { WhatsAppChatCard } from "@/features/whatsapp/components/WhatsAppChatCard";
 import { WhatsAppGroupForm } from "@/features/whatsapp/components/WhatsAppGroupForm";
 import { useWhatsAppManagement } from "@/features/whatsapp/hooks/use-whatsapp-management";
@@ -36,6 +37,7 @@ export function WhatsAppManagement() {
       <p className="text-xs text-muted-foreground">Novas contas: 30–90s entre envios, mínimo 60s por destino, até 6 grupos habilitados e janela 7h–23h (Brasília). Capacidade de múltiplas sessões depende da instalação WAHA.</p>
     </section>
     {selected ? <ConnectionManagement key={selected.id} connectionId={selected.id} name={selected.name} connections={connections.connections} /> : null}
+    <WhatsAppWebsite connections={connections.connections} />
   </>;
 }
 
