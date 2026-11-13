@@ -9,5 +9,6 @@ def load_models() -> None:
         "worker",
         "whatsapp_policy",
         "whatsapp_connection",
+        "whatsapp_website",
     ):
         import_module(f"{__name__}.{module_name}")

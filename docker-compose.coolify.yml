@@ -27,6 +27,7 @@ services:
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
       - WAHA_BASE_URL=${WAHA_BASE_URL:-}
       - WAHA_API_KEY=${WAHA_API_KEY:-}
+      - WEBSITE_ALLOWED_HOSTS=${WEBSITE_ALLOWED_HOSTS:-}
       - PROMOTION_TTL_SECONDS=${PROMOTION_TTL_SECONDS:-600}
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
@@ -47,6 +48,7 @@ services:
       - CREDENTIALS_ENCRYPTION_PREVIOUS_KEYS=${CREDENTIALS_ENCRYPTION_PREVIOUS_KEYS:-}
       - WAHA_BASE_URL=${WAHA_BASE_URL:-}
       - WAHA_API_KEY=${WAHA_API_KEY:-}
+      - WEBSITE_ALLOWED_HOSTS=${WEBSITE_ALLOWED_HOSTS:-}
       - PROMOTION_TTL_SECONDS=${PROMOTION_TTL_SECONDS:-600}
       - DATABASE_URL=${DATABASE_URL:?Set DATABASE_URL for the external PostgreSQL}
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
