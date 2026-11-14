@@ -60,6 +60,10 @@ class CouponSection(BaseModel):
 
 
 class ProductSection(BaseModel):
+    is_gaming: bool = Field(
+        False,
+        description="True for video games, consoles, gaming PCs/laptops, GPUs, and products specifically marketed for gaming. False for ordinary office computers, generic storage/RAM, phones, TVs, toys and board games unless explicitly gaming-specific.",
+    )
     title: str = Field(
         description="Cleaned product title without pricing, coupon codes, URLs or noise. (e.g. 'Smartphone Motorola Moto g35 5G - 128GB')"
     )
@@ -192,6 +196,7 @@ REQUIRED QUANTITY AND CART INSTRUCTIONS:
 - For multiple products, attach each instruction only to the relevant offer. Set purchase_instructions to null when no required quantity or cart instruction is given.
 
 CATEGORY CLASSIFICATION RULE: After classifying as "product" or "coupon", determine the product category:
+For each product also set is_gaming independently: true for video games, consoles, gaming PCs/laptops, GPUs and gaming-specific peripherals/furniture/components. Ordinary office computers, generic RAM/storage, phones, TVs, toys and board games are not gaming merely because they could be used to play. Do not let one gaming product classify unrelated products in a multi-offer message.
 - "tech": For electronic devices like smartphones, laptops, tablets, smart watches, headphones, etc.
 - "home": For home items like furniture, appliances, decor, kitchenware, etc.
 - "clothes": For clothing items, accessories, shoes, etc.

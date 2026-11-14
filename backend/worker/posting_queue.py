@@ -17,6 +17,12 @@ from backend.worker.celery_app import app
 from backend.worker.poster import BotPoster, BotPosterError
 from backend.app.core.delivery_errors import classify_failure
 from backend.app.core.offer_categories import accepts_category
+from backend.app.core.gaming_policy import (
+    accepts_gaming,
+    is_gaming_offer,
+    load_gaming_policy,
+    normalized_title,
+)
 from backend.app.schemas.whatsapp_policy import promotion_ttl
 from offers_bot.message_context import source_timestamp, promotion_context
 from offers_bot.postgres_store import connect
@@ -180,6 +186,26 @@ class QueuePoster:
                 timezone.utc,
             )
             key = offer_key(context, text)
+            gaming = context.get("is_gaming") is True or is_gaming_offer(
+                context.get("title") or ""
+            )
+            gaming_key = context.get("product_key") or normalized_title(
+                context.get("title") or text
+            )
+            if gaming and not accepts_gaming(
+                load_gaming_policy(conn, self.user_id),
+                self.user_id,
+                destination[0],
+                chat_id,
+                gaming_key,
+            ):
+                LOGGER.info(
+                    "Gaming offer filtered user=%s destination=%s platform=%s",
+                    self.user_id,
+                    chat_id,
+                    destination[0],
+                )
+                return {"status": "filtered", "reason": "gaming_reduced"}
             if is_whatsapp:
                 policy = load_policy(conn, self.user_id, connection_id)
                 deadline = min(
@@ -233,6 +259,7 @@ class QueuePoster:
                     "image_url": image_url,
                     "parse_mode": parse_mode,
                     "category": context.get("category", "other"),
+                    **({"is_gaming": True, "gaming_key": gaming_key} if gaming else {}),
                 },
                 task_id=identity,
                 expires=datetime.fromtimestamp(deadline, timezone.utc),
@@ -334,16 +361,22 @@ def post_promotion(
     image_url: str | None = None,
     parse_mode: str | None = None,
     category: str = "other",
+    is_gaming: bool = False,
+    gaming_key: str | None = None,
 ):
     """Claim once, revalidate destination ownership, retry only definite non-delivery."""
     # Recheck operator validity and the ten-minute ceiling for older queued tasks.
     with connect() as conn:
         audit = conn.execute(
-            "SELECT source_at,created_at,connection_id FROM promotion_deliveries WHERE id=%s AND user_id=%s AND chat_id=%s",
+            "SELECT source_at,created_at,connection_id,title,dedup_key FROM promotion_deliveries WHERE id=%s AND user_id=%s AND chat_id=%s",
             (identity, user_id, chat_id),
         ).fetchone()
     if not audit:
         return
+    # Older broker jobs lack classification metadata; use their persisted title.
+    if len(audit) >= 5 and is_gaming_offer(audit[3] or ""):
+        is_gaming = True
+        gaming_key = gaming_key or normalized_title(audit[3] or text)
     deadline = min(deadline, (audit[0] or audit[1]).timestamp() + promotion_ttl())
     if time.time() >= deadline:
         update_status(identity, "expired", pending_only=True)
@@ -356,6 +389,18 @@ def post_promotion(
     if allowed and not accepts_category(allowed[1], category):
         update_status(identity, "cancelled", "category_disabled", pending_only=True)
         return
+    if allowed and is_gaming:
+        with connect() as conn:
+            eligible = accepts_gaming(
+                load_gaming_policy(conn, user_id),
+                user_id,
+                allowed[0],
+                chat_id,
+                gaming_key or normalized_title(text),
+            )
+        if not eligible:
+            update_status(identity, "cancelled", "gaming_reduced", pending_only=True)
+            return
     is_whatsapp = allowed and allowed[0] == "whatsapp"
     connection_id = None
     if is_whatsapp:
@@ -382,6 +427,11 @@ def post_promotion(
                         "image_url": image_url,
                         "parse_mode": parse_mode,
                         "category": category,
+                        **(
+                            {"is_gaming": True, "gaming_key": gaming_key}
+                            if is_gaming
+                            else {}
+                        ),
                     },
                     task_id=identity,
                     countdown=delay,

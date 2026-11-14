@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from backend.app.models.user import DestinationChannel, UserConfig
 from backend.app.core.credentials import decrypt_config
 from backend.app.core.offer_categories import accepts_category, offer_category
+from backend.app.core.gaming_policy import is_gaming_offer
 from backend.app.core.source_groups import approved_source
 from backend.worker.poster import BotPoster
 from backend.worker.store import PgOfferStore
@@ -241,6 +242,9 @@ class UserBotInstance:
                         "platform": PLATFORM_LABELS.get(offer.platform),
                         "identity": f"{source_chat}:{message_id}:{offer.url}",
                         "category": category,
+                        "is_gaming": is_gaming_offer(
+                            offer.title or "", getattr(offer, "llm_product", None)
+                        ),
                     }
                 )
                 failure_stage = "affiliate"
