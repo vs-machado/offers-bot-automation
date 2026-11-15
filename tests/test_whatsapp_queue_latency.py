@@ -204,9 +204,7 @@ class QueueLatencyTests(unittest.TestCase):
     def test_manual_delivery_bypasses_quota_window_and_burst(self):
         action, reasons, trim, logger, conn = self.reserve(
             manual=True,
-            policy=WhatsAppPolicy(
-                max_per_hour=1, start_hour_utc=23, end_hour_utc=24
-            ),
+            policy=WhatsAppPolicy(max_per_hour=1, start_hour_utc=23, end_hour_utc=24),
             attempts=[("other", self.now, None)],
         )
         self.assertEqual(action, ("send", 0))
