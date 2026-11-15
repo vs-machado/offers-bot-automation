@@ -6,6 +6,7 @@ import os
 import unittest
 from unittest.mock import patch
 from uuid import uuid4
+from cryptography.fernet import Fernet
 
 from alembic.migration import MigrationContext
 from alembic.operations import Operations
@@ -13,6 +14,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from backend.app.core import website_rotation
+from backend.app.core.credentials import decrypt_config, encrypt_config
 
 DATABASE_URL = os.getenv("WAHA_POLICY_TEST_DATABASE_URL")
 
@@ -131,3 +133,127 @@ class WebsitePostgresTests(unittest.IsolatedAsyncioTestCase):
                 ).scalar()
             )
             await connection.execute(text(f"DROP SCHEMA {schema} CASCADE"))
+
+    async def test_public_entry_migration_preserves_campaign_and_removes_legacy_token(
+        self,
+    ):
+        legacy = importlib.import_module(
+            "backend.alembic.versions.0020_whatsapp_websites"
+        )
+        migration = importlib.import_module(
+            "backend.alembic.versions.0021_whatsapp_public_entry"
+        )
+        schema = "entry_test_" + uuid4().hex
+        with patch.dict(
+            os.environ, {"CREDENTIALS_ENCRYPTION_KEY": Fernet.generate_key().decode()}
+        ):
+            config = encrypt_config(
+                {
+                    "enabled": True,
+                    "connection_id": 1,
+                    "update_token": "obsolete-secret",
+                    "website_url": "https://site.example",
+                },
+                1,
+                "whatsapp_website",
+            )
+            async with self.engine.begin() as connection:
+                await connection.execute(text(f"CREATE SCHEMA {schema}"))
+                await connection.execute(text(f"SET LOCAL search_path={schema}"))
+                await connection.execute(
+                    text("CREATE TABLE users (id INTEGER PRIMARY KEY)")
+                )
+                await connection.execute(
+                    text("CREATE TABLE whatsapp_connections (id INTEGER PRIMARY KEY)")
+                )
+                await connection.execute(
+                    text(
+                        "CREATE TABLE destination_channels (id INTEGER PRIMARY KEY, enabled BOOLEAN NOT NULL)"
+                    )
+                )
+                await connection.execute(text("INSERT INTO users VALUES (1), (2)"))
+                await connection.execute(
+                    text("INSERT INTO whatsapp_connections VALUES (1)")
+                )
+                await connection.execute(
+                    text("INSERT INTO destination_channels VALUES (1, true)")
+                )
+
+                def upgrade(sync_connection):
+                    with Operations.context(
+                        MigrationContext.configure(sync_connection)
+                    ):
+                        legacy.upgrade()
+
+                await connection.run_sync(upgrade)
+                await connection.execute(
+                    text(
+                        "INSERT INTO whatsapp_websites (user_id, config_data, active_destination_id, pending_request_id) VALUES (1, :config, 1, 'uncertain-create')"
+                    ),
+                    {"config": config},
+                )
+
+                def migrate(sync_connection):
+                    with Operations.context(
+                        MigrationContext.configure(sync_connection)
+                    ):
+                        migration.upgrade()
+
+                await connection.run_sync(migrate)
+                row = (
+                    (
+                        await connection.execute(
+                            text("SELECT * FROM whatsapp_websites WHERE user_id=1")
+                        )
+                    )
+                    .mappings()
+                    .one()
+                )
+                self.assertTrue(row["enabled"])
+                self.assertEqual(row["connection_id"], 1)
+                self.assertEqual(row["active_destination_id"], 1)
+                self.assertEqual(row["pending_request_id"], "uncertain-create")
+                self.assertIsNone(row["invite_url"])
+                self.assertIsNone(row["next_check_at"])
+                self.assertNotIn(
+                    "update_token",
+                    decrypt_config(row["config_data"], 1, "whatsapp_website"),
+                )
+                self.assertNotIn("revision", row)
+                await connection.execute(
+                    text(
+                        "INSERT INTO whatsapp_websites (user_id, config_data) VALUES (2, 'new-settings')"
+                    )
+                )
+                second_id = (
+                    await connection.execute(
+                        text("SELECT public_id FROM whatsapp_websites WHERE user_id=2")
+                    )
+                ).scalar_one()
+                self.assertNotEqual(second_id, row["public_id"])
+
+                def downgrade(sync_connection):
+                    with Operations.context(
+                        MigrationContext.configure(sync_connection)
+                    ):
+                        migration.downgrade()
+
+                await connection.run_sync(downgrade)
+                self.assertEqual(
+                    (
+                        await connection.execute(
+                            text(
+                                "SELECT active_destination_id FROM whatsapp_websites WHERE user_id=1"
+                            )
+                        )
+                    ).scalar_one(),
+                    1,
+                )
+                self.assertTrue(
+                    (
+                        await connection.execute(
+                            text("SELECT enabled FROM destination_channels WHERE id=1")
+                        )
+                    ).scalar_one()
+                )
+                await connection.execute(text(f"DROP SCHEMA {schema} CASCADE"))

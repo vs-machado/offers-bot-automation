@@ -25,13 +25,16 @@ import type {
   DeliveryHistoryData,
   DeliveryStatus,
 } from "@/features/dashboard/types";
+import type { DestinationSummary } from "@/shared/contracts/user-config";
 
 const countFormatter = new Intl.NumberFormat("pt-BR");
 
 export function PublicationHistory({
   initialData,
+  destinations,
 }: {
   initialData: DeliveryHistoryData | null;
+  destinations: DestinationSummary[];
 }) {
   const history = useDeliveryHistory(initialData);
   const counts = history.data?.counts;
@@ -230,7 +233,14 @@ export function PublicationHistory({
               </div>
               <ul className="divide-y" aria-label="Histórico de publicações">
                 {publications.map((publication) => (
-                  <PublicationRow key={publication.id} publication={publication} />
+                  <PublicationRow
+                    key={publication.id}
+                    publication={publication}
+                    destinations={destinations}
+                    onPosted={() =>
+                      void history.loadHistory(history.page, history.status)
+                    }
+                  />
                 ))}
               </ul>
             </>

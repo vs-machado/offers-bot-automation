@@ -6,11 +6,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.app.api.v1.endpoints.auth import get_current_user
 from backend.app.api.v1.endpoints.whatsapp import call
-from backend.app.core.credentials import MASK, decrypt_config, encrypt_config
+from backend.app.core.credentials import decrypt_config, encrypt_config
 from backend.app.core.db.session import get_db
 from backend.app.core.website_rotation import website_lock
 from backend.app.core.whatsapp_connections import owned_connection
 from backend.app.core.whatsapp_management import WhatsAppManagement
+from backend.app.core.whatsapp_entry import clear_entry
 from backend.app.models.user import DestinationChannel, User
 from backend.app.models.whatsapp_website import WhatsAppWebsite
 from backend.app.schemas.whatsapp_website import WebsiteRecovery, WebsiteSettings
@@ -20,16 +21,18 @@ CONFIG_TYPE = "whatsapp_website"
 
 
 def stored_settings(row):
-    return (
+    settings = (
         decrypt_config(row.config_data, row.user_id, CONFIG_TYPE)
         if row
         else WebsiteSettings().model_dump()
     )
+    # Read campaigns written before the PostgreSQL migration without returning old secrets.
+    settings.pop("update_token", None)
+    return settings
 
 
 def representation(row):
     settings = stored_settings(row)
-    settings["update_token"] = MASK if settings["update_token"] else ""
     return {
         "settings": settings,
         "active_destination_id": row.active_destination_id if row else None,
@@ -39,7 +42,8 @@ def representation(row):
         ),
         "member_count": row.member_count if row else None,
         "observed_at": row.observed_at if row else None,
-        "last_synced_at": row.last_synced_at if row else None,
+        "entry_path": f"/join/whatsapp/{row.public_id}" if row else None,
+        "invite_expires_at": row.invite_expires_at if row else None,
         "last_error": row.last_error if row else None,
     }
 
@@ -69,7 +73,7 @@ async def get_website(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Read only this owner's configuration; never expose the stored update token."""
+    """Read this owner's rotation state and stable public entry path."""
     response.headers["Cache-Control"] = "no-store"
     row = (
         await db.execute(
@@ -102,14 +106,12 @@ async def save_website(
         ).scalar_one_or_none()
         previous = stored_settings(row)
         data = dict(body)
-        if data.get("update_token") == MASK:
-            data["update_token"] = previous["update_token"]
         try:
             settings = WebsiteSettings.model_validate(data)
         except ValidationError:
             raise HTTPException(
                 422,
-                "Verifique URL HTTPS aprovada, conexão, token, nome e limites do site.",
+                "Verifique URL HTTPS, conexão, nome e limites do site.",
             ) from None
         connection = (
             await owned_connection(db, user.id, settings.connection_id)
@@ -133,6 +135,11 @@ async def save_website(
             row = WhatsAppWebsite(user_id=user.id)
             db.add(row)
         row.config_data = encrypt_config(settings.model_dump(), user.id, CONFIG_TYPE)
+        row.enabled = settings.enabled
+        row.connection_id = settings.connection_id
+        # Changed policies/ownership require a new monitor observation before admission.
+        if settings.model_dump() != previous:
+            clear_entry(row)
         row.next_check_at = None
         row.failures = 0
         await db.commit()
@@ -173,6 +180,8 @@ async def recover_website(
                 "Conclua as configurações e habilite ofertas no grupo antes de adotá-lo.",
             )
         row.active_destination_id = destination.id
+        clear_entry(row)
+        row.observed_entry_limit = None
         row.pending_destination_id = None
         row.pending_request_id = None
         row.member_count = None

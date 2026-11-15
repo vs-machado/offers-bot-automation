@@ -1,7 +1,7 @@
 """User-scoped publication history with safe failure messages."""
 
 from datetime import datetime
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class DeliveryRead(BaseModel):
@@ -27,3 +27,18 @@ class DeliveryHistory(BaseModel):
     items: list[DeliveryRead]
     total: int
     counts: dict[str, int]
+
+
+class DeliveryRepost(BaseModel):
+    """Destination selected for an explicit owner-triggered repost."""
+
+    chat_id: str = Field(min_length=1, max_length=100)
+
+
+class DeliveryRepostResult(BaseModel):
+    """Accepted manual delivery that bypasses editorial post caps."""
+
+    id: str
+    status: str
+    chat_id: str
+    manual: bool = True

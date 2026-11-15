@@ -7,15 +7,25 @@ import {
 } from "lucide-react";
 import { DeliveryRow } from "@/features/dashboard/components/DeliveryRow";
 import { AffiliateLinkActions } from "@/features/dashboard/components/AffiliateLinkActions";
+import { ManualPostAction } from "@/features/dashboard/components/ManualPostAction";
 import {
   deliveryStatusLabels,
   formatDeliveryDate,
   getPlatformLabel,
 } from "@/features/dashboard/lib/delivery-presentation";
 import type { Publication } from "@/features/dashboard/types";
+import type { DestinationSummary } from "@/shared/contracts/user-config";
 import { cn } from "@/lib/utils";
 
-export function PublicationRow({ publication }: { publication: Publication }) {
+export function PublicationRow({
+  publication,
+  destinations,
+  onPosted,
+}: {
+  publication: Publication;
+  destinations: DestinationSummary[];
+  onPosted: () => void;
+}) {
   const { deliveries } = publication;
   const latest = deliveries[0];
   const title =
@@ -34,6 +44,15 @@ export function PublicationRow({ publication }: { publication: Publication }) {
   const destinationCount = new Set(
     deliveries.map((delivery) => delivery.chat_id),
   ).size;
+  const handledChatIds = new Set(
+    deliveries
+      .filter((delivery) =>
+        ["queued", "retrying", "sending", "sent", "uncertain"].includes(
+          delivery.status,
+        ),
+      )
+      .map((delivery) => delivery.chat_id),
+  );
   const isComplete = sent === deliveries.length;
   const hasMixedResults =
     new Set(deliveries.map((delivery) => delivery.status)).size > 1;
@@ -118,6 +137,12 @@ export function PublicationRow({ publication }: { publication: Publication }) {
             {coupon ? <span className="ml-3 text-primary dark:text-sidebar-primary">CUPOM: {coupon}</span> : null}
           </p>
           <AffiliateLinkActions key={affiliateUrl} url={affiliateUrl} />
+          <ManualPostAction
+            deliveryId={latest.id}
+            destinations={destinations}
+            handledChatIds={handledChatIds}
+            onPosted={onPosted}
+          />
           <p className="mt-1 text-xs/relaxed text-muted-foreground">
             Resultado por grupo ou canal. Abra um destino para ver tentativas e detalhes do envio.
           </p>
