@@ -114,7 +114,7 @@ def trim_burst(
     )
     arrivals = conn.execute(
         """SELECT count(*) FROM promotion_deliveries WHERE user_id=%s AND chat_id=%s
-        AND created_at>=%s AND expires_at>%s
+        AND created_at>=%s AND expires_at>%s AND manual=false
         AND COALESCE(source_at,created_at)+make_interval(secs => %s)>%s
         AND (status IN ('queued','retrying','sending','sent','uncertain')
         OR (status='cancelled' AND reason='burst_superseded'))""",
@@ -129,7 +129,7 @@ def trim_burst(
     ).fetchone()[0]
     pending = conn.execute(
         """SELECT id FROM promotion_deliveries WHERE user_id=%s AND chat_id=%s
-        AND status IN ('queued','retrying') AND expires_at>%s
+        AND status IN ('queued','retrying') AND expires_at>%s AND manual=false
         ORDER BY COALESCE(source_at,created_at) DESC, created_at DESC, id DESC""",
         (user_id, chat_id, now),
     ).fetchall()
@@ -137,7 +137,7 @@ def trim_burst(
         for (identity,) in pending[5:]:
             conn.execute(
                 """UPDATE promotion_deliveries SET status='cancelled', reason='burst_superseded',
-                updated_at=%s WHERE id=%s AND status IN ('queued','retrying')""",
+                updated_at=%s WHERE id=%s AND status IN ('queued','retrying') AND manual=false""",
                 (now, identity),
             )
 
@@ -243,11 +243,12 @@ def reserve_delivery(
         now = datetime.now(timezone.utc)
         policy = load_policy(conn, user_id, connection_id)
         row = conn.execute(
-            "SELECT status,source_at,created_at,expires_at,connection_id FROM promotion_deliveries WHERE id=%s AND user_id=%s AND chat_id=%s",
+            "SELECT status,source_at,created_at,expires_at,connection_id,manual FROM promotion_deliveries WHERE id=%s AND user_id=%s AND chat_id=%s",
             (identity, user_id, chat_id),
         ).fetchone()
         if not row or row[0] not in PENDING:
             return "stop", 0
+        manual = len(row) > 5 and bool(row[5])
         if row[4] != connection_id and not (row[4] is None and primary):
             conn.execute(
                 "UPDATE promotion_deliveries SET status='cancelled',reason='destination_connection_changed',updated_at=%s WHERE id=%s",
@@ -272,7 +273,7 @@ def reserve_delivery(
                 (now, identity),
             )
             return "stop", 0
-        if allowed[0] == "channel":
+        if allowed[0] == "channel" and not manual:
             trim_burst(conn, user_id, chat_id, policy, now)
             state = conn.execute(
                 "SELECT status FROM promotion_deliveries WHERE id=%s", (identity,)
@@ -285,6 +286,30 @@ def reserve_delivery(
                 (now, identity),
             )
             return "stop", 0
+        if manual:
+            # Explicit owner action: skip quotas, spacing, burst and posting window.
+            minimum = policy.account_interval_seconds
+            maximum = policy.account_interval_max_seconds or minimum
+            gap = minimum + secrets.randbelow(maximum - minimum + 1)
+            conn.execute(
+                "UPDATE promotion_deliveries SET status='sending', reason=NULL, attempts=attempts+1, updated_at=%s, expires_at=%s WHERE id=%s",
+                (now, expiry, identity),
+            )
+            conn.execute(
+                "INSERT INTO whatsapp_send_attempts(user_id,chat_id,attempted_at,connection_id,next_send_at) VALUES (%s,%s,%s,%s,%s)",
+                (user_id, chat_id, now, connection_id, now + timedelta(seconds=gap)),
+            )
+            conn.execute(
+                "DELETE FROM whatsapp_send_attempts WHERE user_id=%s AND attempted_at<%s",
+                (user_id, now - timedelta(days=2)),
+            )
+            LOGGER.info(
+                "WhatsApp manual delivery admitted: id=%s user_id=%s connection_id=%s",
+                identity,
+                user_id,
+                connection_id,
+            )
+            return "send", 0
         state_table = (
             "whatsapp_delivery_states" if primary else "whatsapp_connection_states"
         )

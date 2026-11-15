@@ -26,8 +26,13 @@ from backend.app.schemas.user import (
     UserRead,
 )
 from backend.app.schemas.offer import OfferCreate, OfferRead
-from backend.app.schemas.delivery import DeliveryHistory
+from backend.app.schemas.delivery import (
+    DeliveryHistory,
+    DeliveryRepost,
+    DeliveryRepostResult,
+)
 from backend.app.core.delivery_history import get_delivery_history
+from backend.app.core.manual_delivery import ManualRepostError, repost_delivery
 from backend.app.core.destination_titles import populate_destination_titles
 from backend.app.core.affiliate_validation import (
     MESSAGES,
@@ -44,8 +49,11 @@ from backend.app.core.source_groups import approved_source, enabled_source_group
 from backend.app.core.telegram_sources import fetch_source_messages
 from backend.worker.poster import BotPoster, BotPosterError
 from backend.app.core.integration_health import mercado_livre_health, whatsapp_health
+from backend.app.api.v1.endpoints.gaming_policy import router as gaming_policy_router
 
 router = APIRouter()
+
+router.include_router(gaming_policy_router)
 
 
 @router.get("/me/integration-health")
@@ -204,6 +212,24 @@ async def list_deliveries(
     )
 
 
+@router.post(
+    "/me/deliveries/{delivery_id}/repost",
+    response_model=DeliveryRepostResult,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+async def repost_owned_delivery(
+    delivery_id: str,
+    body: DeliveryRepost,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Publish a stored offer immediately to one destination, bypassing post caps."""
+    try:
+        return await repost_delivery(db, current_user.id, delivery_id, body.chat_id)
+    except ManualRepostError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from None
+
+
 def _config_response(config: UserConfig) -> dict[str, object]:
     """Return owned configuration with secret fields masked, never ciphertext."""
     return {
@@ -258,6 +284,19 @@ def _validate_config(
     config_data: UserConfigCreate, catalog: list[str] | None = None
 ) -> None:
     """Check required provider fields and Amazon tag syntax before persistence."""
+    if config_data.config_type == "gaming_policy":
+        from backend.app.core.gaming_policy import GamingPolicy
+        from pydantic import ValidationError
+
+        try:
+            config_data.config_data = GamingPolicy.model_validate(
+                config_data.config_data
+            ).model_dump()
+        except ValidationError:
+            raise HTTPException(
+                400,
+                "Informe percentuais gamer inteiros de 0 a 100 para plataformas e destinos válidos.",
+            ) from None
     if config_data.config_type == "magalu":
         allowed = {*REQUIRED_CONFIG_KEYS["magalu"], "magalu_utm_campaign"}
         values = config_data.config_data

@@ -1,4 +1,4 @@
-"""Periodic owner-isolated WhatsApp creation and authenticated website synchronization."""
+"""Periodic owner-isolated group rotation and PostgreSQL entry snapshots."""
 
 import asyncio
 import logging
@@ -6,7 +6,6 @@ import re
 from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
-import httpx
 from fastapi import HTTPException
 from sqlalchemy import or_, select
 
@@ -15,6 +14,7 @@ from backend.app.core.db.session import AsyncSessionLocal
 from backend.app.core.website_rotation import website_lock
 from backend.app.core.whatsapp_connections import owned_connection, validate_routing
 from backend.app.core.whatsapp_management import WhatsAppManagement, next_group_name
+from backend.app.core.whatsapp_entry import clear_entry, set_entry
 from backend.app.models.user import DestinationChannel, WhatsAppGroupCreation
 from backend.app.models.whatsapp_website import WhatsAppWebsite
 from backend.app.schemas.whatsapp_management import GroupSettings
@@ -23,7 +23,6 @@ from backend.worker.poster import BotPosterError
 
 LOGGER = logging.getLogger(__name__)
 MONITOR_SECONDS = 60
-OBSERVATION_SECONDS = 180
 
 
 def now():
@@ -94,29 +93,9 @@ async def destination_for(db, row, connection, destination_id):
     return destination
 
 
-async def push_website(db, row, settings, invite=None):
-    """Persist a monotonic revision before sending; retries cannot resurrect an older invite."""
-    row.revision += 1
-    await db.commit()
-    expires_at = int((now() + timedelta(seconds=OBSERVATION_SECONDS)).timestamp())
-    if invite:
-        expires_at = int(
-            (row.observed_at + timedelta(seconds=OBSERVATION_SECONDS)).timestamp()
-        )
-    payload = {"revision": row.revision, "invite_url": invite, "expires_at": expires_at}
-    async with httpx.AsyncClient(
-        timeout=15, follow_redirects=False, trust_env=False
-    ) as client:
-        response = await client.post(
-            f"{settings.website_url}/api/whatsapp",
-            headers={"Authorization": f"Bearer {settings.update_token}"},
-            json=payload,
-        )
-    if response.status_code != 200 or response.json().get("revision") != row.revision:
-        raise BotPosterError(
-            "Site não confirmou a atualização. Confira URL, token, Functions e banco D1."
-        )
-    row.last_synced_at = now()
+async def withdraw_entry(db, row):
+    """Commit admission withdrawal before slow or uncertain external group creation."""
+    clear_entry(row)
     await db.commit()
 
 
@@ -214,6 +193,8 @@ async def prepare_successor(db, row, settings, connection, manager):
     row.pending_destination_id = None
     row.member_count = count
     row.observed_at = observed_at
+    row.observed_entry_limit = entry_threshold(settings, capacity)
+    set_entry(row, invite)
     receipt = (
         (
             await db.execute(
@@ -247,10 +228,8 @@ async def prepare_successor(db, row, settings, connection, manager):
 
 async def reconcile(db, row, settings):
     """Keep publishing to prior groups while changing only the website's active entry group."""
-    if not settings.website_url or not settings.update_token:
-        return
     if not settings.enabled:
-        await push_website(db, row, settings)
+        await withdraw_entry(db, row)
         return
     connection = await owned_connection(db, row.user_id, settings.connection_id)
     if connection is None:
@@ -260,22 +239,22 @@ async def reconcile(db, row, settings):
         row.user_id, None if connection.is_default else connection.id
     )
     if (await manager.client.status())["status"] != "WORKING":
-        await push_website(db, row, settings)
+        await withdraw_entry(db, row)
         raise BotPosterError("Conexão WhatsApp indisponível. Reconecte a conta.")
     if row.pending_request_id:
         # Remove a full/uncertain previous entry before resuming any successor.
-        await push_website(db, row, settings)
-        invite = await prepare_successor(db, row, settings, connection, manager)
+        await withdraw_entry(db, row)
+        await prepare_successor(db, row, settings, connection, manager)
     elif row.active_destination_id:
         try:
             destination = await destination_for(
                 db, row, connection, row.active_destination_id
             )
         except BotPosterError:
-            await push_website(db, row, settings)
+            await withdraw_entry(db, row)
             raise
         if not destination.enabled:
-            await push_website(db, row, settings)
+            await withdraw_entry(db, row)
             raise BotPosterError(
                 "Ofertas desativadas no grupo ativo. Habilite o grupo ou adote outro."
             )
@@ -284,20 +263,22 @@ async def reconcile(db, row, settings):
         count, capacity = await group_observation(manager, destination.chat_id)
         row.member_count = count
         row.observed_at = observed_at
-        await db.commit()
+        row.observed_entry_limit = entry_threshold(settings, capacity)
         if count < entry_threshold(settings, capacity):
             invite = await group_invite(manager, destination.chat_id)
+            set_entry(row, invite)
+            await db.commit()
         else:
-            await push_website(db, row, settings)
-            invite = await prepare_successor(db, row, settings, connection, manager)
+            clear_entry(row)
+            await db.commit()
+            await prepare_successor(db, row, settings, connection, manager)
     else:
-        await push_website(db, row, settings)
+        await withdraw_entry(db, row)
         if row.observed_at is not None:
             raise BotPosterError(
                 "Grupo ativo removido. Adote um grupo desta conexão para continuar."
             )
-        invite = await prepare_successor(db, row, settings, connection, manager)
-    await push_website(db, row, settings, invite)
+        await prepare_successor(db, row, settings, connection, manager)
 
 
 async def monitor_once():
@@ -332,9 +313,11 @@ async def monitor_once():
                 if row is None or (row.next_check_at and row.next_check_at > now()):
                     continue
                 try:
-                    settings = WebsiteSettings.model_validate(
-                        decrypt_config(row.config_data, user_id, "whatsapp_website")
+                    stored = decrypt_config(
+                        row.config_data, user_id, "whatsapp_website"
                     )
+                    stored.pop("update_token", None)
+                    settings = WebsiteSettings.model_validate(stored)
                     await reconcile(db, row, settings)
                 except Exception as exc:
                     # Roll back activation/validation locks before recording failure.
@@ -352,16 +335,16 @@ async def monitor_once():
                         if isinstance(exc, HTTPException)
                         else str(exc)
                         if isinstance(exc, BotPosterError)
-                        else "Falha na sincronização. Confira conexão, site e permissões."
+                        else "Falha no monitoramento. Confira conexão e permissões."
                     )
                     row.next_check_at = now() + timedelta(
                         seconds=min(
                             900, MONITOR_SECONDS * 2 ** min(row.failures - 1, 4)
                         )
                     )
-                    # Do not renew a stale invite. Site expires it independently after 180s.
+                    # Public endpoint rejects observations after their original 180s deadline.
                     LOGGER.warning(
-                        "Website sync failed user=%s failure=%s",
+                        "Website monitor failed user=%s failure=%s",
                         user_id,
                         type(exc).__name__,
                     )

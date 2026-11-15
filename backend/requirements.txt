@@ -13,3 +13,4 @@ bcrypt
 python-dotenv
 httpx
 telethon==1.43.2
+celery[redis]>=5.6,<5.7

@@ -11,6 +11,7 @@ export function useWhatsAppWebsite() {
   const [isBusy, setIsBusy] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [entryUrl, setEntryUrl] = useState("");
 
   const refresh = useCallback(async () => {
     setIsBusy(true);
@@ -18,6 +19,7 @@ export function useWhatsAppWebsite() {
     try {
       const [next, groups] = await Promise.all([getWebsite(), getSavedWhatsAppDestinations()]);
       setData(next);
+      setEntryUrl(next.entry_path ? new URL(next.entry_path, window.location.origin).href : "");
       setDraft(next.settings);
       setDestinations(groups.filter((group) => group.chat_type === "group"));
     } catch (cause) {
@@ -42,12 +44,13 @@ export function useWhatsAppWebsite() {
     try {
       const next = recoveryId === undefined ? await saveWebsite(draft) : await recoverWebsite(recoveryId);
       setData(next);
+      setEntryUrl(next.entry_path ? new URL(next.entry_path, window.location.origin).href : "");
       setDraft(next.settings);
-      setMessage("Configuração salva. Monitor verifica o site em instantes; use Atualizar estado para acompanhar.");
+      setMessage("Configuração salva. Configure o link público no site uma vez; o monitor atualiza o grupo em instantes.");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Não foi possível salvar o site.");
     } finally { setIsBusy(false); }
   }
 
-  return { data, draft, destinations, isBusy, error, message, change, save, refresh };
+  return { data, draft, destinations, isBusy, error, message, entryUrl, change, save, refresh };
 }

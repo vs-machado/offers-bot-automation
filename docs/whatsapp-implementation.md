@@ -196,8 +196,8 @@ PostgreSQL databases and do not send real messages.
 
 Per-user website entry and automatic group rotation are documented in
 [WhatsApp websites](whatsapp-websites.md). This feature requires migration
-`0020_whatsapp_websites`, preserves older groups' publication, and uses
-authenticated Cloudflare Pages/D1 updates.
+`0020_whatsapp_websites` and `0021_whatsapp_public_entry`, preserves older groups'
+publication, and serves public entry redirects from PostgreSQL.
 
 Migration **`0016_whatsapp_connections`** adds owned connections and associates
 destinations, delivery audits, send attempts, and group-creation receipts with

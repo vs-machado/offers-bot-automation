@@ -1,7 +1,6 @@
 export type WebsiteSettings = {
   enabled: boolean;
   website_url: string;
-  update_token: string;
   connection_id: number | null;
   template_destination_id: number | null;
   group_name: string;
@@ -17,6 +16,7 @@ export type WebsiteData = {
   needs_recovery: boolean;
   member_count: number | null;
   observed_at: string | null;
-  last_synced_at: string | null;
+  entry_path: string | null;
+  invite_expires_at: string | null;
   last_error: string | null;
 };

@@ -1,6 +1,6 @@
-"""Website origins are restricted to Pages or explicitly approved custom domains."""
+"""Owner website metadata and rotation rules; no outbound website credentials."""
 
-import os
+import ipaddress
 import re
 from urllib.parse import urlsplit
 
@@ -12,11 +12,10 @@ def website_origin(value: str) -> str:
         return ""
     parsed = urlsplit(value)
     host = parsed.hostname or ""
-    approved = {
-        h.strip().lower()
-        for h in os.getenv("WEBSITE_ALLOWED_HOSTS", "").split(",")
-        if h.strip()
-    }
+    try:
+        is_public_host = ipaddress.ip_address(host).is_global
+    except ValueError:
+        is_public_host = "." in host and not host.endswith((".localhost", ".local"))
     if (
         parsed.scheme != "https"
         or parsed.username
@@ -26,10 +25,10 @@ def website_origin(value: str) -> str:
         or parsed.query
         or parsed.fragment
         or not re.fullmatch(r"[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?", host)
-        or not (host.endswith(".pages.dev") or host in approved)
+        or not is_public_host
     ):
         raise ValueError(
-            "Use a origem HTTPS do Cloudflare Pages ou um domínio aprovado pelo administrador."
+            "Use a origem HTTPS pública do seu site, sem caminho, usuário ou parâmetros."
         )
     return f"https://{host}"
 
@@ -39,7 +38,6 @@ class WebsiteSettings(BaseModel):
 
     enabled: bool = False
     website_url: str = Field(default="", max_length=255)
-    update_token: str = Field(default="", max_length=256)
     connection_id: int | None = Field(default=None, gt=0)
     template_destination_id: int | None = Field(default=None, gt=0)
     group_name: str = Field(default="Ofertas", min_length=1, max_length=90)
@@ -61,14 +59,8 @@ class WebsiteSettings(BaseModel):
 
     @model_validator(mode="after")
     def valid_enabled(self):
-        if self.enabled and (
-            not self.website_url
-            or not self.connection_id
-            or not re.fullmatch(r"[A-Za-z0-9_-]{32,256}", self.update_token)
-        ):
-            raise ValueError(
-                "Para habilitar, informe site, conexão e token de 32–256 caracteres (letras, números, _ ou -)."
-            )
+        if self.enabled and (not self.website_url or not self.connection_id):
+            raise ValueError("Para habilitar, informe site e conexão WhatsApp.")
         return self
 
 

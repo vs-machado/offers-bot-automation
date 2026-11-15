@@ -115,6 +115,7 @@ class QueueLatencyTests(unittest.TestCase):
         attempts=(),
         pauses=(),
         active=None,
+        manual=False,
     ):
         conn = MagicMock()
         created = self.now - timedelta(seconds=age)
@@ -125,7 +126,14 @@ class QueueLatencyTests(unittest.TestCase):
             if query.startswith("SELECT connection_id FROM destination_channels"):
                 result.fetchone.return_value = (7,)
             elif query.startswith("SELECT status,source_at"):
-                result.fetchone.return_value = ("queued", created, created, expiry, 7)
+                result.fetchone.return_value = (
+                    "queued",
+                    created,
+                    created,
+                    expiry,
+                    7,
+                    manual,
+                )
             elif query.startswith("SELECT chat_type"):
                 result.fetchone.return_value = (chat_type, 7)
             elif query.startswith("SELECT status FROM promotion_deliveries"):
@@ -192,6 +200,25 @@ class QueueLatencyTests(unittest.TestCase):
                 self.assertEqual(reasons, [])
                 self.assertEqual(trim.call_count, int(chat_type == "channel"))
                 self.assertIn("admitted", logger.info.call_args.args[0])
+
+    def test_manual_delivery_bypasses_quota_window_and_burst(self):
+        action, reasons, trim, logger, conn = self.reserve(
+            manual=True,
+            policy=WhatsAppPolicy(
+                max_per_hour=1, start_hour_utc=23, end_hour_utc=24
+            ),
+            attempts=[("other", self.now, None)],
+        )
+        self.assertEqual(action, ("send", 0))
+        self.assertEqual(reasons, [])
+        self.assertEqual(trim.call_count, 0)
+        self.assertIn("manual", logger.info.call_args.args[0])
+        self.assertTrue(
+            any(
+                "INSERT INTO whatsapp_send_attempts" in call.args[0]
+                for call in conn.execute.call_args_list
+            )
+        )
 
     def test_recheck_uses_original_queue_entry_instead_of_restarting_collection(self):
         action, reasons, _, _, _ = self.reserve(age=6)

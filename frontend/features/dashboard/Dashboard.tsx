@@ -97,7 +97,10 @@ export async function Dashboard() {
       </div>
       <IntegrationAlerts />
       {isConfigured ? (
-        <PublicationHistory initialData={deliveryHistory} />
+        <PublicationHistory
+          initialData={deliveryHistory}
+          destinations={destinations}
+        />
       ) : (
         <Card className="max-w-3xl gap-0 overflow-y-auto py-0 shadow-none ring-1 ring-border">
           <CardContent className="p-5 sm:p-6">

@@ -12,6 +12,7 @@ import type { SettingsData, SettingsSection } from "@/features/settings/types";
 import { affiliateProviders } from "@/lib/affiliate-providers";
 import { SourceGroups } from "@/features/source-groups/SourceGroups";
 import { DestinationRouting } from "@/features/offer-routing/DestinationRouting";
+import { GamingOfferSettings } from "@/features/offer-routing/GamingOfferSettings";
 
 export function SettingsEditor({
   initialData,
@@ -62,6 +63,7 @@ export function SettingsEditor({
             }}
           />
           <WhatsAppSettings />
+          <GamingOfferSettings />
         </div>
       ) : null}
       {section === "sources" ? (

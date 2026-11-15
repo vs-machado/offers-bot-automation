@@ -22,6 +22,7 @@ from backend.app.models.user import User, DestinationChannel, WhatsAppGroupCreat
 from backend.app.models.whatsapp_connection import WhatsAppConnection
 from backend.app.models.whatsapp_website import WhatsAppWebsite
 from backend.app.schemas.whatsapp_website import WebsiteSettings
+from backend.app.core.whatsapp_entry import set_entry
 from backend.worker import website_rotation as worker
 from backend.worker.poster import BotPosterError
 from tests.auth_fixtures import SQLiteAsyncSession, create_identity
@@ -30,7 +31,6 @@ load_models()
 TOKEN = "test_abcdefghijklmnopqrstuvwxyz_123456789"
 INVITE = "https://chat.whatsapp.com/ABCDEFGHIJKLMNOPQRSTUV"
 PREFIX = "/users/me/whatsapp/website"
-PUSH_WEBSITE = worker.push_website
 
 
 class Database(SQLiteAsyncSession):
@@ -94,7 +94,6 @@ class WebsiteAPITests(WebsiteFixture, unittest.TestCase):
         body = WebsiteSettings(
             enabled=True,
             website_url="https://my-site.pages.dev",
-            update_token=TOKEN,
             connection_id=self.connection.id,
         ).model_dump()
         return self.client.put(PREFIX, headers=self.headers, json={**body, **changes})
@@ -107,19 +106,22 @@ class WebsiteAPITests(WebsiteFixture, unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertFalse(response.json()["settings"]["enabled"])
 
-    def test_secret_is_encrypted_and_mask_survives_update(self):
+    def test_settings_encrypted_and_public_path_stable_without_token(self):
         response = self.save()
         self.assertEqual(response.status_code, 200, response.text)
         self.assertNotIn(TOKEN, response.text)
-        self.assertEqual(response.json()["settings"]["update_token"], "********")
+        self.assertNotIn("update_token", response.json()["settings"])
+        path = response.json()["entry_path"]
+        self.assertTrue(path.startswith("/join/whatsapp/"))
         stored = self.session.get(WhatsAppWebsite, self.user_id)
         self.assertTrue(stored.config_data.startswith("fernet:v1:"))
         self.assertNotIn(TOKEN, stored.config_data)
-        self.assertEqual(
-            self.save(update_token="********", entry_limit=900).status_code, 200
-        )
+        self.assertEqual(self.save(entry_limit=900).status_code, 200)
         data = decrypt_config(stored.config_data, self.user_id, "whatsapp_website")
-        self.assertEqual(data["update_token"], TOKEN)
+        self.assertNotIn("update_token", data)
+        self.assertEqual(
+            self.client.get(PREFIX, headers=self.headers).json()["entry_path"], path
+        )
         self.assertEqual(data["entry_limit"], 900)
         self.assertEqual(
             self.client.get(PREFIX, headers=self.headers).headers["cache-control"],
@@ -146,11 +148,13 @@ class WebsiteAPITests(WebsiteFixture, unittest.TestCase):
         for url in [
             "http://site.pages.dev",
             "https://127.0.0.1",
-            "https://site.pages.dev.evil.test",
             "https://user:pass@site.pages.dev",
             "https://site.pages.dev/api",
         ]:
             self.assertEqual(self.save(website_url=url).status_code, 422, url)
+        self.assertEqual(
+            self.save(website_url="https://my-own-domain.example").status_code, 200
+        )
 
     def test_another_user_cannot_read_or_recover_owners_campaign(self):
         self.assertEqual(self.save().status_code, 200)
@@ -204,6 +208,115 @@ class WebsiteAPITests(WebsiteFixture, unittest.TestCase):
             self.assertFalse(response.json()["needs_recovery"])
             self.assertIsNone(row.pending_request_id)
 
+    def active_campaign(self):
+        self.assertEqual(self.save().status_code, 200)
+        row = self.session.get(WhatsAppWebsite, self.user_id)
+        destination = DestinationChannel(
+            user_id=self.user_id,
+            connection_id=self.connection.id,
+            chat_id="123@g.us",
+            platform="whatsapp",
+            chat_type="group",
+            enabled=True,
+        )
+        self.session.add(destination)
+        self.session.flush()
+        row.active_destination_id = destination.id
+        row.member_count = 5
+        row.observed_entry_limit = 10
+        row.observed_at = worker.now()
+        set_entry(row, INVITE)
+        self.session.commit()
+        return row, destination, f"/public/whatsapp/{row.public_id}"
+
+    def test_public_redirect_and_head_need_no_login_or_waha(self):
+        row, _, path = self.active_campaign()
+        with patch(
+            "backend.app.core.whatsapp.WahaClient.request", new_callable=AsyncMock
+        ) as request:
+            for method in ("GET", "HEAD"):
+                response = self.client.request(
+                    method, path + "?url=https://evil.example", follow_redirects=False
+                )
+                self.assertEqual(response.status_code, 302)
+                self.assertEqual(response.headers["location"], INVITE)
+                self.assertIn("no-store", response.headers["cache-control"])
+                self.assertEqual(response.content, b"")
+            request.assert_not_awaited()
+        row.invite_url = "https://chat.whatsapp.com/ZYXWVUTSRQPONMLKJIHGFE"
+        self.session.commit()
+        self.assertEqual(
+            self.client.get(path, follow_redirects=False).headers["location"],
+            row.invite_url,
+        )
+
+    def test_public_redirect_rejects_unavailable_full_stale_and_invalid_snapshots(self):
+        row, destination, path = self.active_campaign()
+        for changes in (
+            {"enabled": False},
+            {"invite_url": None},
+            {"invite_url": "https://evil.example"},
+            {"member_count": None},
+            {"member_count": 10},
+            {"observed_entry_limit": None},
+            {"pending_request_id": "uncertain"},
+            {"active_destination_id": None},
+            {"invite_expires_at": worker.now() - timedelta(seconds=1)},
+            {"observed_at": worker.now() - timedelta(seconds=181)},
+        ):
+            with self.subTest(changes=changes):
+                previous = {key: getattr(row, key) for key in changes}
+                for key, value in changes.items():
+                    setattr(row, key, value)
+                self.session.commit()
+                for method in ("GET", "HEAD"):
+                    response = self.client.request(method, path, follow_redirects=False)
+                    self.assertEqual(response.status_code, 503)
+                    self.assertNotIn("location", response.headers)
+                    self.assertIn("no-store", response.headers["cache-control"])
+                    if method == "HEAD":
+                        self.assertEqual(response.content, b"")
+                for key, value in previous.items():
+                    setattr(row, key, value)
+                self.session.commit()
+        destination.enabled = False
+        self.session.commit()
+        self.assertEqual(self.client.get(path).status_code, 503)
+
+    def test_public_unknown_campaign_and_database_failure_are_controlled(self):
+        from sqlalchemy.exc import OperationalError
+        from uuid import uuid4
+
+        _, _, path = self.active_campaign()
+        self.assertEqual(
+            self.client.get(f"/public/whatsapp/{uuid4()}").status_code, 503
+        )
+        with patch.object(
+            self.db,
+            "execute",
+            side_effect=OperationalError("private SQL", {}, Exception("private host")),
+        ):
+            response = self.client.get(path)
+            self.assertEqual(response.status_code, 503)
+            self.assertNotIn("private", response.text)
+
+    def test_campaign_disable_withdraws_immediately_and_transfer_cannot_redirect(self):
+        row, destination, path = self.active_campaign()
+        self.assertEqual(self.save(enabled=False).status_code, 200)
+        self.assertIsNone(row.invite_url)
+        self.assertEqual(self.client.get(path).status_code, 503)
+        self.assertTrue(destination.enabled)
+        row.enabled = True
+        set_entry(row, INVITE)
+        other = WhatsAppConnection(
+            user_id=self.user_id, name="Secondary", is_default=False
+        )
+        self.session.add(other)
+        self.session.flush()
+        destination.connection_id = other.id
+        self.session.commit()
+        self.assertEqual(self.client.get(path).status_code, 503)
+
 
 class WebsiteRotationTests(WebsiteFixture, unittest.IsolatedAsyncioTestCase):
     def setUp(self):
@@ -219,7 +332,6 @@ class WebsiteRotationTests(WebsiteFixture, unittest.IsolatedAsyncioTestCase):
         self.settings = WebsiteSettings(
             enabled=True,
             website_url="https://my-site.pages.dev",
-            update_token=TOKEN,
             connection_id=self.connection.id,
             group_name="Deals",
             entry_limit=10,
@@ -227,6 +339,8 @@ class WebsiteRotationTests(WebsiteFixture, unittest.IsolatedAsyncioTestCase):
         )
         self.row = WhatsAppWebsite(
             user_id=user.id,
+            enabled=True,
+            connection_id=self.connection.id,
             config_data=encrypt_config(
                 self.settings.model_dump(), user.id, "whatsapp_website"
             ),
@@ -254,13 +368,12 @@ class WebsiteRotationTests(WebsiteFixture, unittest.IsolatedAsyncioTestCase):
         self.manager.apply_settings.return_value = []
         self.patches = [
             patch.object(worker, "WhatsAppManagement", return_value=self.manager),
-            patch.object(worker, "push_website", new_callable=AsyncMock),
             patch.object(worker, "group_observation", new_callable=AsyncMock),
             patch.object(
                 worker, "group_invite", new_callable=AsyncMock, return_value=INVITE
             ),
         ]
-        _, self.push, self.observe, self.invite = [p.start() for p in self.patches]
+        _, self.observe, self.invite = [p.start() for p in self.patches]
 
     def tearDown(self):
         for p in reversed(self.patches):
@@ -271,7 +384,10 @@ class WebsiteRotationTests(WebsiteFixture, unittest.IsolatedAsyncioTestCase):
         self.observe.return_value = (9, 100)
         await worker.reconcile(self.db, self.row, self.settings)
         self.manager.create.assert_not_awaited()
-        self.push.assert_awaited_once_with(self.db, self.row, self.settings, INVITE)
+        self.assertEqual(self.row.invite_url, INVITE)
+        self.assertEqual(
+            self.row.invite_expires_at, self.row.observed_at + timedelta(seconds=180)
+        )
         self.assertEqual(self.row.member_count, 9)
 
     async def test_full_creates_once_and_old_group_keeps_publication(self):
@@ -287,10 +403,7 @@ class WebsiteRotationTests(WebsiteFixture, unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(self.row.pending_destination_id)
         receipt = self.session.query(WhatsAppGroupCreation).one()
         self.assertEqual(receipt.result["warnings"], [])
-        self.assertEqual(
-            self.push.await_args_list[0].args, (self.db, self.row, self.settings)
-        )
-        self.assertEqual(self.push.await_args_list[-1].args[-1], INVITE)
+        self.assertEqual(self.row.invite_url, INVITE)
         self.observe.side_effect = None
         self.observe.return_value = (1, 100)
         await worker.reconcile(self.db, self.row, self.settings)
@@ -326,7 +439,7 @@ class WebsiteRotationTests(WebsiteFixture, unittest.IsolatedAsyncioTestCase):
         await worker.reconcile(
             self.db, self.row, self.settings.model_copy(update={"enabled": False})
         )
-        self.push.assert_awaited_once()
+        self.assertIsNone(self.row.invite_url)
         self.manager.client.status.assert_not_awaited()
         self.assertTrue(self.source.enabled)
 
@@ -335,7 +448,7 @@ class WebsiteRotationTests(WebsiteFixture, unittest.IsolatedAsyncioTestCase):
         self.session.commit()
         with self.assertRaisesRegex(BotPosterError, "desativadas"):
             await worker.reconcile(self.db, self.row, self.settings)
-        self.push.assert_awaited_once_with(self.db, self.row, self.settings)
+        self.assertIsNone(self.row.invite_url)
         self.manager.create.assert_not_awaited()
         self.assertFalse(self.source.enabled)
 
@@ -343,7 +456,7 @@ class WebsiteRotationTests(WebsiteFixture, unittest.IsolatedAsyncioTestCase):
         self.observe.side_effect = BotPosterError("unknown")
         with self.assertRaises(BotPosterError):
             await worker.reconcile(self.db, self.row, self.settings)
-        self.push.assert_not_awaited()
+        self.assertIsNone(self.row.invite_url)
         self.manager.create.assert_not_awaited()
         self.observe.side_effect = [(10, 100), (1, 100)]
         self.invite.side_effect = BotPosterError("invalid invite")
@@ -351,7 +464,7 @@ class WebsiteRotationTests(WebsiteFixture, unittest.IsolatedAsyncioTestCase):
             await worker.reconcile(self.db, self.row, self.settings)
         self.assertEqual(self.row.active_destination_id, self.source.id)
         self.assertIsNotNone(self.row.pending_destination_id)
-        self.assertEqual(len(self.push.await_args_list[0].args), 3)
+        self.assertIsNone(self.row.invite_url)
 
     async def test_group_quota_blocks_creation_without_disabling_old_group(self):
         self.observe.return_value = (10, 100)
@@ -363,50 +476,24 @@ class WebsiteRotationTests(WebsiteFixture, unittest.IsolatedAsyncioTestCase):
         self.manager.create.assert_not_awaited()
         self.assertTrue(self.source.enabled)
 
-    async def test_push_persists_revision_before_http_and_does_not_renew_observation(
-        self,
-    ):
+    async def test_snapshot_expiry_is_measured_from_observation_without_http(self):
         self.row.observed_at = worker.now() - timedelta(seconds=60)
         await self.db.commit()
-        with patch.object(worker.httpx, "AsyncClient") as client:
-            post = client.return_value.__aenter__.return_value.post
+        self.row.member_count = 1
+        self.row.observed_entry_limit = 10
+        set_entry(self.row, INVITE)
+        self.assertEqual(
+            self.row.invite_expires_at, self.row.observed_at + timedelta(seconds=180)
+        )
 
-            async def acknowledge(*_args, **_kwargs):
-                revision = self.session.execute(
-                    sa.select(WhatsAppWebsite.revision)
-                ).scalar_one()
-                self.assertEqual(revision, 1)
-                return httpx.Response(200, json={"revision": revision})
-
-            post.side_effect = acknowledge
-            await PUSH_WEBSITE(self.db, self.row, self.settings, INVITE)
-            payload = post.call_args.kwargs["json"]
-            self.assertEqual(
-                payload["expires_at"],
-                int((self.row.observed_at + timedelta(seconds=180)).timestamp()),
-            )
-            self.assertEqual(set(payload), {"revision", "invite_url", "expires_at"})
-            self.assertEqual(
-                post.call_args.kwargs["headers"], {"Authorization": f"Bearer {TOKEN}"}
-            )
-            self.assertFalse(client.call_args.kwargs["follow_redirects"])
-        self.assertIsNotNone(self.row.last_synced_at)
-
-    async def test_push_timeout_keeps_revision_durable_and_retry_advances(self):
-        with patch.object(worker.httpx, "AsyncClient") as client:
-            post = client.return_value.__aenter__.return_value.post
-            post.side_effect = httpx.ReadTimeout("site unavailable")
-            with self.assertRaises(httpx.ReadTimeout):
-                await PUSH_WEBSITE(self.db, self.row, self.settings)
-            self.assertEqual(
-                self.session.execute(sa.select(WhatsAppWebsite.revision)).scalar_one(),
-                1,
-            )
-            self.assertIsNone(self.row.last_synced_at)
-            post.side_effect = None
-            post.return_value = httpx.Response(200, json={"revision": 2})
-            await PUSH_WEBSITE(self.db, self.row, self.settings)
-            self.assertEqual(self.row.revision, 2)
+    async def test_rotation_does_not_call_external_website(self):
+        self.observe.side_effect = [(10, 100), (1, 100)]
+        with patch.object(httpx, "AsyncClient") as client:
+            await worker.reconcile(self.db, self.row, self.settings)
+            client.assert_not_called()
+        with Session(self.engine) as session:
+            persisted = session.get(WhatsAppWebsite, self.row.user_id)
+            self.assertEqual(persisted.invite_url, INVITE)
 
 
 class ObservationTests(unittest.IsolatedAsyncioTestCase):

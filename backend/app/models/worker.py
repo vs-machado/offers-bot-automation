@@ -92,6 +92,11 @@ class PromotionDelivery(Base):
     coupon: Mapped[str | None] = mapped_column(String(200))
     affiliate_url: Mapped[str | None] = mapped_column(String(1000))
     platform: Mapped[str | None] = mapped_column(String(50))
+    text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    image_url: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    manual: Mapped[bool] = mapped_column(
+        default=False, server_default="false", nullable=False
+    )
     stage: Mapped[str] = mapped_column(String(20), server_default="posting")
     __table_args__ = (
         Index("ix_delivery_user_created", "user_id", "created_at", "id"),
