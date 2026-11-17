@@ -542,3 +542,62 @@ class ObservationTests(unittest.IsolatedAsyncioTestCase):
             200, json={"code": "ABCDEFGHIJKLMNOPQRSTUV"}
         )
         self.assertEqual(await worker.group_invite(manager, "123@g.us"), INVITE)
+
+
+class MonitorBackoffTests(WebsiteFixture, unittest.IsolatedAsyncioTestCase):
+    def setUp(self):
+        self.setup_database()
+        user = User(email="monitor@example.com")
+        self.session.add(user)
+        self.session.flush()
+        connection = WhatsAppConnection(
+            user_id=user.id, name="Primary", is_default=True
+        )
+        self.session.add(connection)
+        self.session.flush()
+        settings = WebsiteSettings(
+            enabled=True,
+            website_url="https://my-site.pages.dev",
+            connection_id=connection.id,
+            group_name="Deals",
+        )
+        self.row = WhatsAppWebsite(
+            user_id=user.id,
+            enabled=True,
+            config_data=encrypt_config(
+                settings.model_dump(), user.id, "whatsapp_website"
+            ),
+            failures=4,
+            next_check_at=worker.now() - timedelta(seconds=1),
+        )
+        self.session.add(self.row)
+        self.session.commit()
+
+        @asynccontextmanager
+        async def session():
+            yield self.db
+
+        self.patches = [
+            patch.object(worker, "AsyncSessionLocal", side_effect=session),
+            patch.object(worker, "website_lock", unlocked),
+            patch.object(
+                worker,
+                "reconcile",
+                new_callable=AsyncMock,
+                side_effect=BotPosterError("boom"),
+            ),
+        ]
+        for patcher in self.patches:
+            patcher.start()
+
+    def tearDown(self):
+        for patcher in reversed(self.patches):
+            patcher.stop()
+        self.close_database()
+
+    async def test_failure_backoff_stays_within_invite_window(self):
+        before = worker.now()
+        await worker.monitor_once()
+        self.assertEqual(self.row.failures, 5)
+        self.assertEqual(self.row.last_error, "boom")
+        self.assertLessEqual((self.row.next_check_at - before).total_seconds(), 61)
