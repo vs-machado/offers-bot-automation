@@ -509,6 +509,16 @@ class WebsiteRotationTests(WebsiteFixture, unittest.IsolatedAsyncioTestCase):
 
 
 class ObservationTests(unittest.IsolatedAsyncioTestCase):
+    async def test_participants_fallback_on_transient_error(self):
+        manager = AsyncMock()
+        manager.path = lambda _: "session/groups/123%40g.us"
+        manager.client.request.side_effect = [
+            BotPosterError("unavailable", status_code=500),
+            httpx.Response(200, json=[{"id": "1", "role": "participant"}]),
+            httpx.Response(200, json={"groupMetadata": {"maxParticipants": 100}}),
+        ]
+        self.assertEqual(await worker.group_observation(manager, "123@g.us"), (1, 100))
+
     async def test_malformed_participants_not_treated_as_zero(self):
         manager = AsyncMock()
         manager.path = lambda _: "session/groups/123%40g.us"

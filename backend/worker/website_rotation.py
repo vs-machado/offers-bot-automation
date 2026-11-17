@@ -41,7 +41,10 @@ def entry_threshold(settings, capacity=None):
 async def group_observation(manager, chat_id):
     """Read only participant count and capacity; malformed/unknown data never means vacancies."""
     path = manager.path(chat_id)
-    data = (await manager.client.request("GET", f"{path}/participants")).json()
+    try:
+        data = (await manager.client.request("GET", f"{path}/participants")).json()
+    except (BotPosterError, ValueError):
+        data = (await manager.client.request("GET", f"{path}/participants/v2")).json()
     if (
         not isinstance(data, list)
         or not data
@@ -387,10 +390,11 @@ async def monitor_once():
                     )
                     row.next_check_at = now() + timedelta(
                         seconds=min(
-                            900, MONITOR_SECONDS * 2 ** min(row.failures - 1, 4)
+                            MONITOR_SECONDS,
+                            MONITOR_SECONDS * 2 ** min(row.failures - 1, 4),
                         )
                     )
-                    # Public endpoint rejects observations after their original 180s deadline.
+                    # Keep retry inside observation window so transient WAHA errors do not break public entry.
                     LOGGER.warning(
                         "Website monitor failed user=%s failure=%s",
                         user_id,
