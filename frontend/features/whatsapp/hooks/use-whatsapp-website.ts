@@ -36,6 +36,15 @@ export function useWhatsAppWebsite() {
     setDraft((previous) => previous ? { ...previous, [key]: value, ...(key === "connection_id" ? { template_destination_id: null } : {}) } : previous);
   }
 
+  function selectTemplate(templateDestinationId: number | null) {
+    setDraft((previous) => {
+      if (!previous) return previous;
+      const template = destinations.find((group) => group.id === templateDestinationId);
+      const name = template ? (template.title?.trim() || template.chat_id).slice(0, 90) : previous.group_name;
+      return { ...previous, template_destination_id: templateDestinationId, group_name: name };
+    });
+  }
+
   async function save(recoveryId?: number) {
     if (!draft) return;
     setIsBusy(true);
@@ -52,5 +61,5 @@ export function useWhatsAppWebsite() {
     } finally { setIsBusy(false); }
   }
 
-  return { data, draft, destinations, isBusy, error, message, entryUrl, change, save, refresh };
+  return { data, draft, destinations, isBusy, error, message, entryUrl, change, selectTemplate, save, refresh };
 }
