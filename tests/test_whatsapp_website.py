@@ -509,12 +509,29 @@ class WebsiteRotationTests(WebsiteFixture, unittest.IsolatedAsyncioTestCase):
 
 
 class ObservationTests(unittest.IsolatedAsyncioTestCase):
-    async def test_participants_fallback_on_transient_error(self):
+    async def test_cached_participants_endpoint_used_first(self):
+        manager = AsyncMock()
+        manager.path = lambda _: "session/groups/123%40g.us"
+        manager.client.request.side_effect = [
+            httpx.Response(200, json=[{"id": "1", "role": "participant"}]),
+            httpx.Response(200, json={"groupMetadata": {"maxParticipants": 100}}),
+        ]
+        self.assertEqual(await worker.group_observation(manager, "123@g.us"), (1, 100))
+        self.assertTrue(
+            manager.client.request.await_args_list[0]
+            .args[1]
+            .endswith("/participants/v2")
+        )
+        self.assertEqual(manager.client.request.await_count, 2)
+
+    async def test_legacy_participants_fallback_on_cached_error(self):
         manager = AsyncMock()
         manager.path = lambda _: "session/groups/123%40g.us"
         manager.client.request.side_effect = [
             BotPosterError("unavailable", status_code=500),
-            httpx.Response(200, json=[{"id": "1", "role": "participant"}]),
+            httpx.Response(
+                200, json=[{"id": "1", "phoneNumber": "5511999999999@s.whatsapp.net"}]
+            ),
             httpx.Response(200, json={"groupMetadata": {"maxParticipants": 100}}),
         ]
         self.assertEqual(await worker.group_observation(manager, "123@g.us"), (1, 100))

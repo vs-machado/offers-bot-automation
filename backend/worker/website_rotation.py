@@ -39,12 +39,12 @@ def entry_threshold(settings, capacity=None):
 
 
 async def group_observation(manager, chat_id):
-    """Read only participant count and capacity; malformed/unknown data never means vacancies."""
+    """Read cached participants first; legacy full-sync endpoint causes WhatsApp rate limits."""
     path = manager.path(chat_id)
     try:
-        data = (await manager.client.request("GET", f"{path}/participants")).json()
-    except (BotPosterError, ValueError):
         data = (await manager.client.request("GET", f"{path}/participants/v2")).json()
+    except (BotPosterError, ValueError):
+        data = (await manager.client.request("GET", f"{path}/participants")).json()
     if (
         not isinstance(data, list)
         or not data
