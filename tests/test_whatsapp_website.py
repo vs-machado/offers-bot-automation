@@ -390,6 +390,18 @@ class WebsiteRotationTests(WebsiteFixture, unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(self.row.member_count, 9)
 
+    async def test_initial_entry_uses_existing_running_group(self):
+        self.row.active_destination_id = None
+        self.session.commit()
+        self.observe.return_value = (3, 100)
+        await worker.reconcile(self.db, self.row, self.settings)
+        self.assertEqual(self.row.active_destination_id, self.source.id)
+        self.manager.create.assert_not_awaited()
+        self.manager.group.assert_awaited_once_with(
+            self.source.chat_id, require_admin=True
+        )
+        self.assertEqual(self.row.invite_url, INVITE)
+
     async def test_full_creates_once_and_old_group_keeps_publication(self):
         self.observe.side_effect = [(10, 100), (1, 100)]
         await worker.reconcile(self.db, self.row, self.settings)

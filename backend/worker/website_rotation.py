@@ -7,7 +7,7 @@ from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
 from fastapi import HTTPException
-from sqlalchemy import or_, select
+from sqlalchemy import and_, or_, select
 
 from backend.app.core.credentials import decrypt_config
 from backend.app.core.db.session import AsyncSessionLocal
@@ -97,6 +97,47 @@ async def withdraw_entry(db, row):
     """Commit admission withdrawal before slow or uncertain external group creation."""
     clear_entry(row)
     await db.commit()
+
+
+async def adopt_existing_group(db, row, settings, connection, manager):
+    """Use the sole eligible running group as initial entry instead of creating another."""
+    candidates = (
+        (
+            await db.execute(
+                select(DestinationChannel).where(
+                    DestinationChannel.user_id == row.user_id,
+                    DestinationChannel.platform == "whatsapp",
+                    DestinationChannel.chat_type == "group",
+                    DestinationChannel.enabled.is_(True),
+                    or_(
+                        DestinationChannel.connection_id == connection.id,
+                        and_(
+                            connection.is_default,
+                            DestinationChannel.connection_id.is_(None),
+                        ),
+                    ),
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    if len(candidates) != 1:
+        return False
+    destination = candidates[0]
+    await manager.group(destination.chat_id, require_admin=True)
+    count, capacity = await group_observation(manager, destination.chat_id)
+    threshold = entry_threshold(settings, capacity)
+    if count >= threshold:
+        return False
+    invite = await group_invite(manager, destination.chat_id)
+    row.active_destination_id = destination.id
+    row.member_count = count
+    row.observed_at = now()
+    row.observed_entry_limit = threshold
+    set_entry(row, invite)
+    await db.commit()
+    return True
 
 
 async def prepare_successor(db, row, settings, connection, manager):
@@ -278,7 +319,8 @@ async def reconcile(db, row, settings):
             raise BotPosterError(
                 "Grupo ativo removido. Adote um grupo desta conexão para continuar."
             )
-        await prepare_successor(db, row, settings, connection, manager)
+        if not await adopt_existing_group(db, row, settings, connection, manager):
+            await prepare_successor(db, row, settings, connection, manager)
 
 
 async def monitor_once():
