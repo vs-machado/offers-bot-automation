@@ -1,6 +1,6 @@
 """Public PostgreSQL-backed admission; a click never calls WAHA or decrypts user settings."""
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Request
@@ -10,7 +10,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.app.core.db.session import get_db
-from backend.app.core.whatsapp_entry import INVITE_PATTERN, OBSERVATION_SECONDS
+from backend.app.core.whatsapp_entry import INVITE_PATTERN
 from backend.app.models.user import DestinationChannel
 from backend.app.models.whatsapp_connection import WhatsAppConnection
 from backend.app.models.whatsapp_website import WhatsAppWebsite
@@ -53,9 +53,6 @@ async def enter_whatsapp(
                     WhatsAppWebsite.enabled.is_(True),
                     WhatsAppWebsite.pending_request_id.is_(None),
                     WhatsAppWebsite.invite_expires_at > now,
-                    WhatsAppWebsite.observed_at <= now,
-                    WhatsAppWebsite.observed_at
-                    > now - timedelta(seconds=OBSERVATION_SECONDS),
                     WhatsAppWebsite.member_count >= 0,
                     WhatsAppWebsite.member_count < WhatsAppWebsite.observed_entry_limit,
                     DestinationChannel.enabled.is_(True),

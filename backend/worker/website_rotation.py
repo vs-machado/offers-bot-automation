@@ -23,10 +23,17 @@ from backend.worker.poster import BotPosterError
 
 LOGGER = logging.getLogger(__name__)
 MONITOR_SECONDS = 60
+OBSERVATION_SECONDS = 600
+OBSERVATION_JITTER_SECONDS = 120
 
 
 def now():
     return datetime.now(timezone.utc)
+
+
+def observation_interval(user_id):
+    """Spread expensive group syncs across users instead of polling everyone together."""
+    return OBSERVATION_SECONDS + (user_id * 37 % OBSERVATION_JITTER_SECONDS)
 
 
 def entry_threshold(settings, capacity=None):
@@ -309,19 +316,31 @@ async def reconcile(db, row, settings):
                 "Ofertas desativadas no grupo ativo. Habilite o grupo ou adote outro."
             )
         await db.commit()
-        observed_at = now()
-        count, capacity = await group_observation(manager, destination.chat_id)
-        row.member_count = count
-        row.observed_at = observed_at
-        row.observed_entry_limit = entry_threshold(settings, capacity)
-        if count < entry_threshold(settings, capacity):
+        if row.observed_at is None or row.observed_at <= now() - timedelta(
+            seconds=observation_interval(row.user_id)
+        ):
+            try:
+                count, capacity = await group_observation(manager, destination.chat_id)
+            except BotPosterError:
+                count = None
+            if count is not None:
+                threshold = entry_threshold(settings, capacity)
+                row.member_count = count
+                row.observed_at = now()
+                row.observed_entry_limit = threshold
+                if count >= threshold:
+                    clear_entry(row)
+                    await db.commit()
+                    await prepare_successor(db, row, settings, connection, manager)
+                    return
+        if (
+            row.member_count is not None
+            and row.observed_entry_limit is not None
+            and row.member_count < row.observed_entry_limit
+        ):
             invite = await group_invite(manager, destination.chat_id)
             set_entry(row, invite)
-            await db.commit()
-        else:
-            clear_entry(row)
-            await db.commit()
-            await prepare_successor(db, row, settings, connection, manager)
+        await db.commit()
     else:
         await withdraw_entry(db, row)
         if row.observed_at is not None:

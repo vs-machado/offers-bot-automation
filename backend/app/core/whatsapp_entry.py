@@ -1,10 +1,10 @@
 """Persist validated entry snapshots shared by the monitor and public redirects."""
 
 import re
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 
 INVITE_PATTERN = re.compile(r"https://chat\.whatsapp\.com/[A-Za-z0-9]{20,32}\Z")
-OBSERVATION_SECONDS = 180
+INVITE_TTL_SECONDS = 180
 
 
 def clear_entry(row):
@@ -14,7 +14,7 @@ def clear_entry(row):
 
 
 def set_entry(row, invite):
-    """Publish only a recent vacancy observation; never renew its timestamp during retries."""
+    """Publish a validated invite and expire it from refresh time, not observation age."""
     if (
         not isinstance(invite, str)
         or not INVITE_PATTERN.fullmatch(invite)
@@ -25,4 +25,6 @@ def set_entry(row, invite):
     ):
         raise ValueError("A verified invite and vacancy observation are required")
     row.invite_url = invite
-    row.invite_expires_at = row.observed_at + timedelta(seconds=OBSERVATION_SECONDS)
+    row.invite_expires_at = datetime.now(timezone.utc) + timedelta(
+        seconds=INVITE_TTL_SECONDS
+    )
