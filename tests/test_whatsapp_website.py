@@ -262,7 +262,6 @@ class WebsiteAPITests(WebsiteFixture, unittest.TestCase):
             {"pending_request_id": "uncertain"},
             {"active_destination_id": None},
             {"invite_expires_at": worker.now() - timedelta(seconds=1)},
-            {"observed_at": worker.now() - timedelta(seconds=181)},
         ):
             with self.subTest(changes=changes):
                 previous = {key: getattr(row, key) for key in changes}
@@ -282,6 +281,14 @@ class WebsiteAPITests(WebsiteFixture, unittest.TestCase):
         destination.enabled = False
         self.session.commit()
         self.assertEqual(self.client.get(path).status_code, 503)
+
+    def test_public_redirect_survives_stale_observation_while_invite_fresh(self):
+        row, _, path = self.active_campaign()
+        row.observed_at = worker.now() - timedelta(seconds=3600)
+        self.session.commit()
+        response = self.client.get(path, follow_redirects=False)
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.headers["location"], row.invite_url)
 
     def test_public_unknown_campaign_and_database_failure_are_controlled(self):
         from sqlalchemy.exc import OperationalError
@@ -385,10 +392,31 @@ class WebsiteRotationTests(WebsiteFixture, unittest.IsolatedAsyncioTestCase):
         await worker.reconcile(self.db, self.row, self.settings)
         self.manager.create.assert_not_awaited()
         self.assertEqual(self.row.invite_url, INVITE)
-        self.assertEqual(
-            self.row.invite_expires_at, self.row.observed_at + timedelta(seconds=180)
+        self.assertGreater(
+            self.row.invite_expires_at, worker.now() + timedelta(seconds=170)
         )
         self.assertEqual(self.row.member_count, 9)
+
+    async def test_invite_refreshes_without_reobserving_every_cycle(self):
+        self.observe.return_value = (9, 100)
+        await worker.reconcile(self.db, self.row, self.settings)
+        await worker.reconcile(self.db, self.row, self.settings)
+        self.assertEqual(self.observe.await_count, 1)
+        self.assertEqual(self.invite.await_count, 2)
+
+    async def test_observation_failure_keeps_published_invite(self):
+        self.row.member_count = 9
+        self.row.observed_entry_limit = 100
+        self.row.observed_at = worker.now() - timedelta(seconds=900)
+        set_entry(self.row, INVITE)
+        self.session.commit()
+        self.observe.side_effect = BotPosterError("rate-overlimit", status_code=500)
+        await worker.reconcile(self.db, self.row, self.settings)
+        self.assertEqual(self.row.member_count, 9)
+        self.assertEqual(self.row.invite_url, INVITE)
+        self.assertGreater(
+            self.row.invite_expires_at, worker.now() + timedelta(seconds=170)
+        )
 
     async def test_initial_entry_uses_existing_running_group(self):
         self.row.active_destination_id = None
@@ -464,11 +492,11 @@ class WebsiteRotationTests(WebsiteFixture, unittest.IsolatedAsyncioTestCase):
         self.manager.create.assert_not_awaited()
         self.assertFalse(self.source.enabled)
 
-    async def test_unknown_count_and_failed_invite_never_publish_new_destination(self):
+    async def test_failed_observation_and_invite_never_publish_new_destination(self):
         self.observe.side_effect = BotPosterError("unknown")
-        with self.assertRaises(BotPosterError):
-            await worker.reconcile(self.db, self.row, self.settings)
+        await worker.reconcile(self.db, self.row, self.settings)
         self.assertIsNone(self.row.invite_url)
+        self.assertIsNone(self.row.observed_at)
         self.manager.create.assert_not_awaited()
         self.observe.side_effect = [(10, 100), (1, 100)]
         self.invite.side_effect = BotPosterError("invalid invite")
@@ -494,8 +522,8 @@ class WebsiteRotationTests(WebsiteFixture, unittest.IsolatedAsyncioTestCase):
         self.row.member_count = 1
         self.row.observed_entry_limit = 10
         set_entry(self.row, INVITE)
-        self.assertEqual(
-            self.row.invite_expires_at, self.row.observed_at + timedelta(seconds=180)
+        self.assertGreater(
+            self.row.invite_expires_at, worker.now() + timedelta(seconds=170)
         )
 
     async def test_rotation_does_not_call_external_website(self):
