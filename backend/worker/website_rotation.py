@@ -63,10 +63,16 @@ async def group_observation(manager, chat_id):
 
 async def group_invite(manager, chat_id):
     """Read, never regenerate, an invite code from WAHA and constrain its WhatsApp host."""
-    data = (
-        await manager.client.request("GET", f"{manager.path(chat_id)}/invite-code")
-    ).json()
+    response = await manager.client.request(
+        "GET", f"{manager.path(chat_id)}/invite-code"
+    )
+    try:
+        data = response.json()
+    except ValueError:
+        data = response.text.strip()
     code = data.get("code") if isinstance(data, dict) else data
+    if isinstance(code, str):
+        code = code.strip()
     if not isinstance(code, str) or not re.fullmatch(r"[A-Za-z0-9]{20,32}", code):
         raise BotPosterError("Não foi possível confirmar o convite do grupo.")
     return f"https://chat.whatsapp.com/{code}"
