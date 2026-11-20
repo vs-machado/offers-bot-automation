@@ -145,6 +145,47 @@ class ManualRepostAPITests(unittest.TestCase):
         )
         self.assertEqual(disabled.status_code, 404)
 
+    def test_manual_retry_stays_with_old_offer_and_preserves_other_statuses(self):
+        user_id, headers = self.login("owner@example.com")
+        self.add_source(user_id)
+        self.add_source(user_id, identity="stale")
+        self.add_destination(user_id)
+        original_at = self.now - timedelta(hours=1)
+        source = self.session.get(PromotionDelivery, "source")
+        stale = self.session.get(PromotionDelivery, "stale")
+        for record in (source, stale):
+            record.source_at = original_at
+            record.created_at = original_at
+            record.expires_at = self.now - timedelta(minutes=1)
+        stale.chat_id = "222@g.us"
+        stale.status = "queued"
+        self.session.commit()
+
+        with patch("backend.app.core.manual_delivery.enqueue_promotion") as enqueue:
+            response = self.client.post(
+                "/users/me/deliveries/source/repost",
+                headers=headers,
+                json={"chat_id": "222@g.us"},
+            )
+            self.assertEqual(response.status_code, 202, response.text)
+            duplicate = self.client.post(
+                "/users/me/deliveries/source/repost",
+                headers=headers,
+                json={"chat_id": "222@g.us"},
+            )
+            self.assertEqual(duplicate.status_code, 409)
+        enqueue.assert_called_once()
+
+        history = self.client.get("/users/me/deliveries", headers=headers).json()
+        records = {record["id"]: record for record in history["items"]}
+        retry_id = response.json()["id"]
+        self.assertEqual(
+            {record["offer_id"] for record in records.values()}, {"product-key"}
+        )
+        self.assertEqual(records["source"]["status"], "sent")
+        self.assertEqual(records["stale"]["status"], "expired")
+        self.assertEqual(records[retry_id]["status"], "queued")
+
     def test_foreign_delivery_is_not_reposted(self):
         owner_id, _ = self.login("owner@example.com")
         _, intruder = self.login("intruder@example.com")

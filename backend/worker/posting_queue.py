@@ -380,7 +380,8 @@ def post_promotion(
     if len(audit) >= 5 and is_gaming_offer(audit[3] or ""):
         is_gaming = True
         gaming_key = gaming_key or normalized_title(audit[3] or text)
-    deadline = min(deadline, (audit[0] or audit[1]).timestamp() + promotion_ttl())
+    ttl_start = audit[1] if manual else (audit[0] or audit[1])
+    deadline = min(deadline, ttl_start.timestamp() + promotion_ttl())
     if time.time() >= deadline:
         update_status(identity, "expired", pending_only=True)
         return

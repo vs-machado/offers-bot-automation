@@ -99,7 +99,7 @@ export function PublicationHistory({
             </h2>
             <p className="mt-1 hidden text-xs text-muted-foreground sm:block">
               {history.status
-                ? "Ofertas com esse resultado em pelo menos um destino. Abra para ver todos."
+                ? "Ofertas com esse resultado em pelo menos um envio, inclusive no histórico do canal."
                 : "Uma linha por oferta. Abra para acompanhar cada grupo ou canal."}
             </p>
           </div>

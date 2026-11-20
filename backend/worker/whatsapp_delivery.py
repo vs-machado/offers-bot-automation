@@ -102,7 +102,8 @@ def trim_burst(
     ttl = min(policy.ttl_seconds, promotion_ttl())
     conn.execute(
         """UPDATE promotion_deliveries SET expires_at=LEAST(expires_at,
-        COALESCE(source_at,created_at)+make_interval(secs => %s))
+         (CASE WHEN manual THEN created_at ELSE COALESCE(source_at,created_at) END)
+         +make_interval(secs => %s))
         WHERE user_id=%s AND chat_id=%s AND status IN ('queued','retrying')""",
         (ttl, user_id, chat_id),
     )
@@ -255,7 +256,7 @@ def reserve_delivery(
                 (now, identity),
             )
             return "stop", 0
-        source = row[1] or row[2]
+        source = row[2] if manual else (row[1] or row[2])
         expiry = min(
             row[3],
             source + timedelta(seconds=policy.ttl_seconds),
