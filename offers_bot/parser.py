@@ -98,9 +98,12 @@ PRICE_STOCK_NOTICE_RE = re.compile(
     r")\b.*$",
     re.IGNORECASE,
 )
-SHOPEE_PRODUCT_LABEL_RE = re.compile(
-    r"\b(?:link\s+)?(?:produto|carrinho)\b", re.IGNORECASE
+SHOPEE_EXPLICIT_PRODUCT_LABEL_RE = re.compile(
+    r"^[^\w\n]*(?:link[ \t]+(?:do[ \t]+)?(?:produto|carrinho)\b[ \t]*:?|"
+    r"(?:produto|carrinho)[ \t]*:)",
+    re.IGNORECASE | re.MULTILINE,
 )
+FINALIZATION_RE = re.compile(r"\bfinaliza(?:c|ç)[aã]o\b|\bfinalizacao\b", re.IGNORECASE)
 
 
 @dataclass(frozen=True)
@@ -118,6 +121,7 @@ class Offer:
     all_urls: tuple[str, ...] = ()
     llm_result: dict | None = None
     llm_product: dict | None = None
+    raw_text: str = ""
 
 
 def extract_offers(text: str) -> list[Offer]:
@@ -160,10 +164,28 @@ def expand_magalu_short_links(text: str) -> str:
 
 
 def _extract_offers(text: str, llm_res: dict | None) -> list[Offer]:
-    text = clean_source_advertising(
+    logger = logging.getLogger(__name__)
+    raw_text = text
+    cleaned_text = clean_source_advertising(
         text, (llm_res or {}).get("source_advertising_spans", [])
     )
-    logger = logging.getLogger(__name__)
+    raw_urls = {
+        clean_offer_url(url)
+        for url in URL_RE.findall(raw_text)
+        if is_supported_offer_url(clean_offer_url(url))
+    }
+    cleaned_urls = {
+        clean_offer_url(url)
+        for url in URL_RE.findall(cleaned_text)
+        if is_supported_offer_url(clean_offer_url(url))
+    }
+    removed_urls = raw_urls - cleaned_urls
+    if removed_urls:
+        logger.warning(
+            "Advertising cleanup removed supported offer URLs: %s",
+            ", ".join(sorted(removed_urls)),
+        )
+    text = cleaned_text
 
     if llm_res:
         logger.info(
@@ -173,6 +195,7 @@ def _extract_offers(text: str, llm_res: dict | None) -> list[Offer]:
         logger.info("LLM parsing failed or disabled. Using fallback regex parser.")
 
     llm_product_map: dict[str, dict] = {}
+    llm_product_key_map: dict[str, dict] = {}
     llm_title = None
     llm_price = None
     llm_card_price = None
@@ -190,6 +213,8 @@ def _extract_offers(text: str, llm_res: dict | None) -> list[Offer]:
                 for url in prod.get("urls", []):
                     if url and isinstance(url, str):
                         llm_product_map[url] = prod
+                        for key in product_match_keys(url):
+                            llm_product_key_map.setdefault(key, prod)
             if not llm_product_map:
                 first = (
                     products[0] if products and isinstance(products[0], dict) else {}
@@ -228,6 +253,11 @@ def _extract_offers(text: str, llm_res: dict | None) -> list[Offer]:
 
     def _offer_attrs(url: str):
         matched = llm_product_map.get(url)
+        if not matched:
+            for key in product_match_keys(url):
+                matched = llm_product_key_map.get(key)
+                if matched:
+                    break
         if matched:
             return (
                 matched.get("title") or None,
@@ -250,6 +280,19 @@ def _extract_offers(text: str, llm_res: dict | None) -> list[Offer]:
             None,
         )
 
+    if (
+        found_urls
+        and all(is_shopee_url(url) for url in found_urls)
+        and "resgate" in text.lower()
+        and SHOPEE_EXPLICIT_PRODUCT_LABEL_RE.search(text)
+        and _shopee_product_candidate(text, found_urls) is None
+    ):
+        logger.warning(
+            "Shopee message advertises a product link but no product URL was found; "
+            "skipping coupon-only fallback"
+        )
+        return []
+
     shopee_resgate_url = pick_shopee_resgate_offer_url(text, found_urls)
     if shopee_resgate_url:
         _t, _p, _cp, _ins, _sh, _co, _mp, _prod = _offer_attrs(shopee_resgate_url)
@@ -270,6 +313,7 @@ def _extract_offers(text: str, llm_res: dict | None) -> list[Offer]:
                 all_urls=tuple(found_urls),
                 llm_result=llm_res,
                 llm_product=_prod,
+                raw_text=raw_text.strip(),
             )
         )
         return offers
@@ -314,6 +358,7 @@ def _extract_offers(text: str, llm_res: dict | None) -> list[Offer]:
                     all_urls=tuple(found_urls),
                     llm_result=llm_res,
                     llm_product=_prod,
+                    raw_text=raw_text.strip(),
                 )
             )
             return offers
@@ -338,6 +383,7 @@ def _extract_offers(text: str, llm_res: dict | None) -> list[Offer]:
                 all_urls=tuple(found_urls),
                 llm_result=llm_res,
                 llm_product=_prod,
+                raw_text=raw_text.strip(),
             )
         )
         return offers
@@ -360,32 +406,47 @@ def _extract_offers(text: str, llm_res: dict | None) -> list[Offer]:
                 platform=detect_platform(clean_url) or "",
                 llm_result=llm_res,
                 llm_product=_prod,
+                raw_text=raw_text.strip(),
             )
         )
     return offers
 
 
+def _shopee_product_candidate(text: str, found_urls: list[str]) -> str | None:
+    product_urls = [u for u in found_urls if is_shopee_product_url(u)]
+    if product_urls:
+        return product_urls[0]
+
+    for label in SHOPEE_EXPLICIT_PRODUCT_LABEL_RE.finditer(text):
+        remainder = text[label.end() :]
+        same_line, _, following = remainder.partition("\n")
+        # A label may own a URL on its line or the next nonblank line, but
+        # never a URL from another labeled section such as "Resgate cupom".
+        candidate_line = same_line.strip(" \t\r*_:") or next(
+            (line for line in following.splitlines() if line.strip()), ""
+        )
+        match = URL_RE.search(candidate_line)
+        if match and not re.search(r"\w", candidate_line[: match.start()]):
+            url = clean_offer_url(match.group())
+            if url in found_urls:
+                return url
+    return None
+
+
 def pick_shopee_resgate_offer_url(text: str, found_urls: list[str]) -> str | None:
+    """Choose the product link when a Shopee message also carries a coupon link.
+
+    Short Shopee links do not expose product ids without a network redirect, so
+    explicit labels near each URL are the primary signal. Coupon-only bulletins
+    must keep returning multiple offers instead of being collapsed into the
+    coupon landing page.
+    """
     if len(found_urls) < 2 or not all(is_shopee_url(u) for u in found_urls):
         return None
     if "resgate" not in text.lower():
         return None
 
-    product_urls = [u for u in found_urls if is_shopee_product_url(u)]
-    if product_urls:
-        return product_urls[0]
-
-    label_match = SHOPEE_PRODUCT_LABEL_RE.search(text)
-    if label_match:
-        for url in found_urls:
-            url_pos = text.find(url)
-            if url_pos >= label_match.start():
-                return url
-
-    if "resgate aqui" in text.lower():
-        return found_urls[-1]
-
-    return None
+    return _shopee_product_candidate(text, found_urls)
 
 
 def clean_offer_url(url: str) -> str:
@@ -396,6 +457,22 @@ def clean_offer_url(url: str) -> str:
         if short_id_match:
             return f"{parsed.scheme}://{parsed.netloc}/{short_id_match.group(1)}"
     return clean_url
+
+
+def url_match_key(url: str) -> str:
+    """Normalize hosts and paths so LLM URL variants can match source URLs."""
+    candidate = clean_offer_url(url)
+    try:
+        parsed = urlparse(candidate if "://" in candidate else f"https://{candidate}")
+    except ValueError:
+        return candidate.lower()
+    host = (parsed.hostname or "").lower()
+    if host.startswith("www."):
+        host = host[4:]
+    if host == "s.shopee.com.br" or host.endswith(".shopee.com.br"):
+        host = "shopee.com.br"
+    path = re.sub(r"/+$", "", parsed.path or "").lower()
+    return f"{host}{path}"
 
 
 def is_mercado_livre_url(url: str) -> bool:
@@ -488,6 +565,52 @@ def extract_shopee_ids(text: str) -> tuple[str, str] | None:
     ) or match.group(4) or match.group(6)
 
 
+def product_match_keys(url: str) -> tuple[str, ...]:
+    """Return canonical and marketplace-id keys used to match LLM URL variants."""
+    keys = [url_match_key(url)]
+    asin_match = re.search(
+        r"/(?:dp|gp/product|gp/aw/d)/([A-Z0-9]{10})(?:[/?#]|$)",
+        url,
+        re.IGNORECASE,
+    )
+    if asin_match:
+        keys.append(f"amazon:{asin_match.group(1).upper()}")
+    shopee_ids = extract_shopee_ids(url)
+    if shopee_ids:
+        keys.append(f"shopee:{shopee_ids[0]}:{shopee_ids[1]}")
+    ml_match = ML_ID_RE.search(url)
+    if ml_match:
+        keys.append(f"ml:{ml_match.group(0).upper().replace('-', '')}")
+    aliexpress_id = extract_aliexpress_product_id(url)
+    if aliexpress_id:
+        keys.append(f"aliexpress:{aliexpress_id}")
+    return tuple(dict.fromkeys(keys))
+
+
+def truncate_title(text: str, limit: int = 180) -> str:
+    """Trim long titles at a word boundary instead of cutting words in half."""
+    title = re.sub(r"\s+", " ", text).strip()
+    if len(title) <= limit:
+        return title
+    cut = title[:limit].rsplit(" ", 1)[0].rstrip(" ,;:-")
+    if not cut:
+        cut = title[:limit].rstrip()
+    return f"{cut}..."
+
+
+def normalize_price_label(price: str | None) -> str | None:
+    """Make finalization prices explicit without changing ordinary price text."""
+    if not price:
+        return price
+    cleaned = re.sub(r"\s+", " ", price).strip()
+    if not FINALIZATION_RE.search(cleaned):
+        return cleaned
+    match = PRICE_RE.search(cleaned)
+    if not match:
+        return cleaned
+    return f"R$ {match.group(1)} (preço na finalização)"
+
+
 def select_product_title(text: str, *candidates: str | None) -> str | None:
     """Validate preferred titles, falling back to source lines when only notices remain."""
     for candidate in candidates:
@@ -497,7 +620,7 @@ def select_product_title(text: str, *candidates: str | None) -> str | None:
         if PRICE_STOCK_NOTICE_RE.search(title):
             title = clean_title_candidate(title)
         if title:
-            return title[:180]
+            return truncate_title(title)
     return extract_title(text)
 
 
@@ -512,7 +635,7 @@ def extract_title(text: str) -> str | None:
         score = score_title_candidate(line)
         if score > best_score:
             best_score = score
-            best_title = line[:180]
+            best_title = truncate_title(line)
     return best_title if best_score >= 0 else None
 
 
@@ -589,6 +712,8 @@ def extract_price(text: str) -> str | None:
         if "cartão" in line.lower() or "parcelado" in line.lower():
             continue
         price = f"R$ {promo_match.group(1)}"
+        if FINALIZATION_RE.search(line):
+            return f"{price} (preço na finalização)"
         if "pix" in line.lower():
             return f"{price} no PIX"
         return price
@@ -597,8 +722,15 @@ def extract_price(text: str) -> str | None:
     if not match:
         return None
 
+    price = f"R$ {match.group(1)}"
+    line_start = text.rfind("\n", 0, match.start()) + 1
+    line_end = text.find("\n", match.start())
+    if line_end == -1:
+        line_end = len(text)
+    if FINALIZATION_RE.search(text[line_start:line_end]):
+        return f"{price} (preço na finalização)"
     # Standardize spacing to "R$ XXX"
-    return f"R$ {match.group(1)}"
+    return price
 
 
 def extract_card_price(text: str) -> str | None:
