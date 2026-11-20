@@ -12,7 +12,7 @@ export async function getDeliveryHistory(page: number, status: DeliveryStatus | 
   return response.json() as Promise<DeliveryHistoryData>;
 }
 
-export async function repostDelivery(deliveryId: string, chatId: string): Promise<void> {
+export async function repostDelivery(deliveryId: string, chatId: string): Promise<{ id: string }> {
   const response = await fetch(
     `/api/backend/users/me/deliveries/${encodeURIComponent(deliveryId)}/repost`,
     {
@@ -31,4 +31,5 @@ export async function repostDelivery(deliveryId: string, chatId: string): Promis
         "Não foi possível publicar a oferta agora. Tente novamente.",
     );
   }
+  return response.json();
 }

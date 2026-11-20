@@ -11,13 +11,11 @@ import {
   deliveryStatusLabels,
   formatDeliveryDate,
   getDeliveryStage,
-  getPlatformLabel,
 } from "@/features/dashboard/lib/delivery-presentation";
 import type { Delivery } from "@/features/dashboard/types";
 import { cn } from "@/lib/utils";
 
-export function DeliveryRow({ delivery }: { delivery: Delivery }) {
-  const title = delivery.title || "Promoção sem título registrado";
+export function DeliveryRow({ delivery, previous }: { delivery: Delivery; previous: Delivery[] }) {
   const destination = delivery.destination_title || delivery.chat_id;
   const isFailure =
     delivery.status === "failed" || delivery.status === "uncertain";
@@ -38,10 +36,7 @@ export function DeliveryRow({ delivery }: { delivery: Delivery }) {
   const DestinationIcon =
     destinationPlatform === "WhatsApp" ? MessageCircle : Send;
   const details = [
-    { label: "Loja", value: getPlatformLabel(delivery.platform) },
-    { label: "Preço anunciado", value: delivery.price || "Não registrado" },
-    { label: "Destino", value: `${destinationPlatform} · ${destination}` },
-    { label: "Etapa", value: getDeliveryStage(delivery) },
+    ...(delivery.stage !== "posting" ? [{ label: "Etapa", value: getDeliveryStage(delivery) }] : []),
     {
       label: "Tentativas",
       value:
@@ -49,12 +44,12 @@ export function DeliveryRow({ delivery }: { delivery: Delivery }) {
           ? "Envio não iniciado"
           : String(delivery.attempts),
     },
-    { label: "Registrada em", value: formatDeliveryDate(delivery.created_at) },
     {
       label: "Última atualização",
       value: formatDeliveryDate(delivery.updated_at),
     },
   ];
+  const shownAt = delivery.status === "sent" ? delivery.updated_at : delivery.created_at;
 
   return (
     <li>
@@ -72,9 +67,9 @@ export function DeliveryRow({ delivery }: { delivery: Delivery }) {
               <span aria-hidden="true" className="md:hidden">·</span>
               <time
                 className="shrink-0 tabular-nums md:hidden"
-                dateTime={delivery.created_at}
+                dateTime={shownAt}
               >
-                {formatDeliveryDate(delivery.created_at, true)}
+                {formatDeliveryDate(shownAt, true)}
               </time>
             </span>
           </span>
@@ -92,11 +87,11 @@ export function DeliveryRow({ delivery }: { delivery: Delivery }) {
             {deliveryStatusLabels[delivery.status]}
           </span>
           <time
-            dateTime={delivery.created_at}
-            title={formatDeliveryDate(delivery.created_at)}
+            dateTime={shownAt}
+            title={formatDeliveryDate(shownAt)}
             className="hidden whitespace-nowrap text-xs text-muted-foreground tabular-nums md:block"
           >
-            {formatDeliveryDate(delivery.created_at, true)}
+            {formatDeliveryDate(shownAt, true)}
           </time>
           <ChevronDown
             aria-hidden="true"
@@ -104,11 +99,10 @@ export function DeliveryRow({ delivery }: { delivery: Delivery }) {
           />
         </summary>
         <div className="border-t border-dashed bg-muted/20 px-4 py-5 md:px-5">
-          <h3 className="wrap-anywhere text-sm/relaxed font-medium">{title}</h3>
           {delivery.reason_message ? (
             <p
               className={cn(
-                "mt-3 flex items-start gap-2 rounded-xl border p-3 text-sm/relaxed",
+                "mb-4 flex items-start gap-2 rounded-xl border p-3 text-sm/relaxed",
                 isFailure
                   ? "border-destructive/20 bg-destructive/5"
                   : "border-border bg-background",
@@ -126,7 +120,7 @@ export function DeliveryRow({ delivery }: { delivery: Delivery }) {
               </span>
             </p>
           ) : null}
-          <dl className="mt-4 grid gap-x-6 gap-y-4 sm:grid-cols-2 xl:grid-cols-3">
+          <dl className="grid gap-x-6 gap-y-4 sm:grid-cols-2 xl:grid-cols-3">
             {details.map((detail) => (
               <div className="min-w-0" key={detail.label}>
                 <dt className="text-xs text-muted-foreground">
@@ -136,6 +130,20 @@ export function DeliveryRow({ delivery }: { delivery: Delivery }) {
               </div>
             ))}
           </dl>
+          {previous.length > 0 ? (
+            <div className="mt-4 border-t pt-3">
+              <p className="text-xs font-medium">Histórico de envios</p>
+              <ul className="mt-1 space-y-1 text-xs text-muted-foreground">
+                {previous.map((record) => (
+                  <li key={record.id}>
+                    {deliveryStatusLabels[record.status]} ·{" "}
+                    <time dateTime={record.updated_at}>{formatDeliveryDate(record.updated_at)}</time>
+                    {record.reason_message ? ` — ${record.reason_message}` : null}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
         </div>
       </details>
     </li>

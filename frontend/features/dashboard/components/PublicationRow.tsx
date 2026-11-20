@@ -34,16 +34,27 @@ export function PublicationRow({
   const price = deliveries.find((delivery) => delivery.price)?.price;
   const coupon = deliveries.find((delivery) => delivery.coupon?.trim())?.coupon?.trim();
   const affiliateUrl = deliveries.find((delivery) => delivery.affiliate_url)?.affiliate_url ?? null;
-  const sent = deliveries.filter((delivery) => delivery.status === "sent").length;
-  const pending = deliveries.filter((delivery) =>
+  // History is newest first. A confirmed post remains confirmed even if a later
+  // record for the same destination was unsuccessful.
+  const byDestination = new Map<string, Publication["deliveries"]>();
+  for (const delivery of deliveries) {
+    const records = byDestination.get(delivery.chat_id);
+    if (records) records.push(delivery);
+    else byDestination.set(delivery.chat_id, [delivery]);
+  }
+  const destinationsWithHistory = [...byDestination.values()].map((records) => {
+    const current = records.find((record) => record.status === "sent") ?? records[0];
+    return { current, previous: records.filter((record) => record.id !== current.id) };
+  });
+  const currentDeliveries = destinationsWithHistory.map(({ current }) => current);
+  const sent = currentDeliveries.filter((delivery) => delivery.status === "sent").length;
+  const pending = currentDeliveries.filter((delivery) =>
     ["queued", "retrying", "sending"].includes(delivery.status),
   ).length;
-  const failures = deliveries.filter((delivery) =>
+  const failures = currentDeliveries.filter((delivery) =>
     ["failed", "uncertain"].includes(delivery.status),
   ).length;
-  const destinationCount = new Set(
-    deliveries.map((delivery) => delivery.chat_id),
-  ).size;
+  const destinationCount = currentDeliveries.length;
   const handledChatIds = new Set(
     deliveries
       .filter((delivery) =>
@@ -53,9 +64,9 @@ export function PublicationRow({
       )
       .map((delivery) => delivery.chat_id),
   );
-  const isComplete = sent === deliveries.length;
+  const isComplete = sent === destinationCount;
   const hasMixedResults =
-    new Set(deliveries.map((delivery) => delivery.status)).size > 1;
+    new Set(currentDeliveries.map((delivery) => delivery.status)).size > 1;
   const statusLabel = isComplete
     ? "Publicada"
     : hasMixedResults
@@ -64,7 +75,7 @@ export function PublicationRow({
         : pending > 0
           ? "Em andamento"
           : "Não publicada"
-      : deliveryStatusLabels[latest.status];
+      : deliveryStatusLabels[currentDeliveries[0].status];
   const StatusIcon = isComplete
     ? CheckCheck
     : failures > 0
@@ -78,7 +89,7 @@ export function PublicationRow({
       <details className="group/publication">
         <summary className="grid min-h-16 cursor-pointer list-none grid-cols-[minmax(0,1fr)_auto_16px] items-center gap-3 px-4 py-3 text-sm transition-colors hover:bg-muted/50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring group-open/publication:bg-primary/10 group-open/publication:inset-ring-1 group-open/publication:inset-ring-primary/30 motion-reduce:transition-none md:min-h-14 md:grid-cols-[minmax(0,1fr)_140px_132px_104px_16px] md:gap-4 md:px-5 md:py-2 xl:grid-cols-[minmax(0,1fr)_104px_160px_132px_104px_16px] [&::-webkit-details-marker]:hidden">
           <span className="min-w-0">
-            <span className="block truncate font-medium" title={title}>
+            <span className="block truncate font-medium group-open/publication:whitespace-normal group-open/publication:wrap-anywhere" title={title}>
               {title}
             </span>
             <span className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-xs tabular-nums">
@@ -92,7 +103,7 @@ export function PublicationRow({
               {coupon ? <span className="min-w-0 wrap-anywhere font-semibold text-primary dark:text-sidebar-primary">CUPOM: {coupon}</span> : null}
             </span>
             <span className="mt-1 block text-xs text-muted-foreground md:hidden">
-              {sent}/{deliveries.length} envios confirmados · {destinationCount} {destinationCount === 1 ? "destino" : "destinos"}
+              {sent}/{destinationCount} envios confirmados · {destinationCount} {destinationCount === 1 ? "destino" : "destinos"}
             </span>
           </span>
           <span
@@ -103,7 +114,7 @@ export function PublicationRow({
           </span>
           <span className="hidden text-xs text-muted-foreground md:block">
             <span className="block text-foreground">{destinationCount} {destinationCount === 1 ? "destino" : "destinos"}</span>
-            <span className="mt-0.5 block">{sent}/{deliveries.length} envios confirmados</span>
+            <span className="mt-0.5 block">{sent}/{destinationCount} envios confirmados</span>
           </span>
           <span
             className={cn(
@@ -131,26 +142,20 @@ export function PublicationRow({
           />
         </summary>
         <div className="border-t border-dashed bg-muted/20 px-3 py-4 sm:px-5">
-          <h3 className="wrap-anywhere text-sm/relaxed font-medium">{title}</h3>
-          <p className="mt-1 wrap-anywhere text-sm font-semibold tabular-nums">
-            Preço anunciado: {price || "não registrado"}
-            {coupon ? <span className="ml-3 text-primary dark:text-sidebar-primary">CUPOM: {coupon}</span> : null}
-          </p>
-          <AffiliateLinkActions key={affiliateUrl} url={affiliateUrl} />
-          <ManualPostAction
-            deliveryId={latest.id}
-            destinations={destinations}
-            handledChatIds={handledChatIds}
-            onPosted={onPosted}
-          />
-          <p className="mt-1 text-xs/relaxed text-muted-foreground">
-            Resultado por grupo ou canal. Abra um destino para ver tentativas e detalhes do envio.
-          </p>
-          <ul className="mt-3 divide-y overflow-hidden rounded-xl border bg-card" aria-label={`Destinos de ${title}`}>
-            {deliveries.map((delivery) => (
-              <DeliveryRow key={delivery.id} delivery={delivery} />
+          <h3 className="text-sm font-medium">Envios por canal</h3>
+          <ul className="mt-2 divide-y overflow-hidden rounded-xl border bg-card" aria-label="Envios por canal">
+            {destinationsWithHistory.map(({ current, previous }) => (
+              <DeliveryRow key={current.chat_id} delivery={current} previous={previous} />
             ))}
           </ul>
+          <AffiliateLinkActions key={affiliateUrl} url={affiliateUrl} />
+          <ManualPostAction
+            deliveryId={deliveries.find((delivery) => delivery.affiliate_url)?.id ?? latest.id}
+            destinations={destinations}
+            handledChatIds={handledChatIds}
+            deliveries={deliveries}
+            onPosted={onPosted}
+          />
         </div>
       </details>
     </li>

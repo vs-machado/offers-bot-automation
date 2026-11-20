@@ -5,15 +5,13 @@ from datetime import datetime, timedelta, timezone
 import hashlib
 from uuid import uuid4
 
-from sqlalchemy import select, update
+from sqlalchemy import or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.app.core.promotion_broker import enqueue_promotion
 from backend.app.models.user import DestinationChannel
 from backend.app.models.worker import PromotionDelivery
 from backend.app.schemas.whatsapp_policy import promotion_ttl
-
-ACTIVE_STATUSES = ("queued", "retrying", "sending", "sent", "uncertain")
 
 
 class ManualRepostError(Exception):
@@ -61,11 +59,15 @@ async def repost_delivery(
     destination = (
         (
             await db.execute(
-                select(DestinationChannel).where(
+                select(DestinationChannel)
+                .where(
                     DestinationChannel.user_id == user_id,
                     DestinationChannel.chat_id == chat_id,
                     DestinationChannel.enabled.is_(True),
                 )
+                .order_by(DestinationChannel.id)
+                .limit(1)
+                .with_for_update()
             )
         )
         .scalars()
@@ -74,25 +76,32 @@ async def repost_delivery(
     if destination is None:
         raise ManualRepostError("Grupo ou canal de destino não está habilitado.", 404)
 
-    if source.dedup_key:
-        existing = (
-            (
-                await db.execute(
-                    select(PromotionDelivery.id).where(
-                        PromotionDelivery.user_id == user_id,
-                        PromotionDelivery.chat_id == chat_id,
-                        PromotionDelivery.dedup_key == source.dedup_key,
-                        PromotionDelivery.status.in_(ACTIVE_STATUSES),
-                    )
-                )
+    now = datetime.now(timezone.utc)
+    offer_key = source.dedup_key or source.id
+    existing = (
+        await db.execute(
+            select(PromotionDelivery.id)
+            .where(
+                PromotionDelivery.user_id == user_id,
+                PromotionDelivery.chat_id == chat_id,
+                or_(
+                    PromotionDelivery.dedup_key == offer_key,
+                    PromotionDelivery.id == offer_key,
+                ),
+                or_(
+                    PromotionDelivery.status.in_(("sending", "sent", "uncertain")),
+                    PromotionDelivery.status.in_(("queued", "retrying"))
+                    & (PromotionDelivery.expires_at > now),
+                ),
             )
-            .scalars()
-            .first()
+            .limit(1)
         )
-        if existing:
-            raise ManualRepostError(
-                "Esta oferta já está publicada ou na fila nesse destino.", 409
-            )
+    ).scalar_one_or_none()
+    if existing:
+        raise ManualRepostError(
+            "Esta oferta já foi enviada ou tem um envio pendente ou incerto nesse destino.",
+            409,
+        )
 
     text = compose_manual_text(source)
     if not text:
@@ -100,7 +109,6 @@ async def repost_delivery(
             "A oferta não tem conteúdo suficiente para publicar.", 400
         )
 
-    now = datetime.now(timezone.utc)
     expires_at = now + timedelta(seconds=promotion_ttl())
     identity = hashlib.sha256(
         f"manual\0{user_id}\0{chat_id}\0{uuid4().hex}".encode()
@@ -112,8 +120,10 @@ async def repost_delivery(
         status="queued",
         stage="posting",
         expires_at=expires_at,
-        source_at=now,
-        dedup_key=source.dedup_key,
+        # Keep the publication episode; the manual job's TTL starts at creation.
+        source_at=source.source_at or source.created_at,
+        created_at=now,
+        dedup_key=offer_key,
         title=source.title,
         price=source.price,
         coupon=source.coupon,
