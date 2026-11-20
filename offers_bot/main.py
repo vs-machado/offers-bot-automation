@@ -25,6 +25,7 @@ from .parser import (
     is_shopee_url,
     is_aliexpress_url,
     is_kabum_url,
+    normalize_price_label,
     select_product_title,
 )
 from .shopee import ShopeeClient
@@ -49,6 +50,51 @@ RESGATE_ANUNCIO_RE = re.compile(
     r"\bresgate\s+(?:o\s+)?(?:cupom\s+)?(?:do|no)?\s*an[uú]ncio\b",
     re.IGNORECASE,
 )
+DISCLOSURE_LINE_RE = re.compile(
+    r"^\s*(?:🏷\ufe0f?\s*)?[-*•]?\s*\(?(?:an[uú]ncio|publicidade)\)?\s*$",
+    re.IGNORECASE,
+)
+TRAILING_DISCLOSURE_RE = re.compile(
+    r"(?is)(?:\s*[-*•]\s*(?:an[uú]ncio|publicidade)\s*)+$"
+)
+STRAY_LINE_RE = re.compile(r"^\s*[#*-]+\s*$")
+RAW_FINALIZATION_PRICE_RE = re.compile(
+    r"R\$[ \t]*\d[\d.,]*[ \t]*[-–—][ \t]*finaliza[cç][aã]o\b",
+    re.IGNORECASE,
+)
+
+
+def _clean_field(value: str | None) -> str | None:
+    """Remove disclosure-only lines from parsed fields without touching prose."""
+    if not isinstance(value, str):
+        return value
+    lines = [
+        line for line in value.splitlines() if not DISCLOSURE_LINE_RE.fullmatch(line)
+    ]
+    cleaned = "\n".join(lines)
+    cleaned = TRAILING_DISCLOSURE_RE.sub("", cleaned).strip()
+    return cleaned
+
+
+def _clean_formatted_text(text: str) -> str:
+    """Normalize copied price labels and keep a single disclosure footer."""
+    lines = [
+        line
+        for line in text.splitlines()
+        if not (STRAY_LINE_RE.fullmatch(line) or DISCLOSURE_LINE_RE.fullmatch(line))
+    ]
+    cleaned = "\n".join(lines).strip()
+    cleaned = re.sub(
+        r"(?im)^\s*-\s*(?=(?:resgate|link|cupom|compre|produto|carrinho)\b)",
+        "",
+        cleaned,
+    )
+    cleaned = RAW_FINALIZATION_PRICE_RE.sub(
+        lambda match: normalize_price_label(match.group()) or match.group(), cleaned
+    )
+    cleaned = re.sub(r"\n(?:[ \t]*\n){2,}", "\n\n", cleaned)
+    cleaned = TRAILING_DISCLOSURE_RE.sub("", cleaned).rstrip()
+    return f"{cleaned}\n\n- Anúncio" if cleaned else "- Anúncio"
 
 
 def _normalize_money_spacing(text: str) -> str:
@@ -413,16 +459,26 @@ def format_llm_offer(offer: Offer, affiliate_url: str) -> str:
                 products = llm.get("products", [])
                 prod = products[0] if products and isinstance(products[0], dict) else {}
         title = (
-            select_product_title(offer.original_text, offer.title, prod.get("title"))
+            _clean_field(
+                select_product_title(
+                    offer.original_text, offer.title, prod.get("title")
+                )
+                or ""
+            )
             or ""
         )
-        price = prod.get("price") or offer.price or ""
-        card_price = prod.get("card_price") or offer.card_price or ""
+        price = normalize_price_label(prod.get("price") or offer.price or "") or ""
+        card_price = (
+            normalize_price_label(prod.get("card_price") or offer.card_price or "")
+            or ""
+        )
         installment = prod.get("installment_info") or offer.installment_info or ""
         shipping = prod.get("shipping_info") or offer.shipping_info or ""
         coupon = prod.get("coupon") or offer.coupon or ""
-        resgate_note = prod.get("resgate_anuncio_note") or ""
-        purchase_instructions = prod.get("purchase_instructions") or ""
+        resgate_note = _clean_field(prod.get("resgate_anuncio_note") or "") or ""
+        purchase_instructions = (
+            _clean_field(prod.get("purchase_instructions") or "") or ""
+        )
         meli_plus = prod.get("meli_plus_only", False) or offer.meli_plus_only
 
         if coupon and _is_resgate_note_without_code(coupon):
@@ -476,16 +532,20 @@ def format_offer(offer: Offer, affiliate_url: str) -> str:
         return coupon_offer
 
     parts = []
-    resgate_anuncio_note = extract_resgate_anuncio_note(offer.original_text)
-    title = select_product_title(offer.original_text, offer.title)
+    resgate_anuncio_note = _clean_field(
+        extract_resgate_anuncio_note(offer.original_text)
+    )
+    title = _clean_field(select_product_title(offer.original_text, offer.title))
+    price = normalize_price_label(offer.price)
+    card_price = normalize_price_label(offer.card_price)
     if title:
         if offer.installment_info:
             title = f"[{offer.installment_info}] {title}"
         parts.append(f"{title}")
-    if offer.price:
-        price_block = f"💰 {offer.price}"
-        if offer.card_price:
-            price_block = f"{price_block}\n💳 {offer.card_price}"
+    if price:
+        price_block = f"💰 {price}"
+        if card_price:
+            price_block = f"{price_block}\n💳 {card_price}"
         if offer.shipping_info:
             price_block = f"{price_block}\n{offer.shipping_info}"
         parts.append(price_block)
@@ -522,8 +582,14 @@ async def _build_url_replacements(
             if aff:
                 replacements[url] = aff.short_url
             else:
+                logging.getLogger(__name__).warning(
+                    "No affiliate link generated for secondary URL; keeping source URL"
+                )
                 replacements[url] = url
-        except Exception:
+        except Exception as exc:
+            logging.getLogger(__name__).warning(
+                "Could not create affiliate link for secondary URL: %s", exc
+            )
             replacements[url] = url
 
     return replacements
@@ -577,9 +643,9 @@ async def format_outgoing_offer(
         new_text = re.sub(r"\s*\(?an[uú]ncio\)?\s*$", "", new_text, flags=re.IGNORECASE)
         new_text = re.sub(r"\s*-\s*$", "", new_text, flags=re.IGNORECASE)
         new_text = re.sub(r"\n{3,}", "\n\n", new_text).strip()
-        return f"{new_text}\n\n- Anúncio"
+        return _clean_formatted_text(new_text)
 
-    return f"{formatted_text}\n\n- Anúncio"
+    return _clean_formatted_text(formatted_text)
 
 
 async def run() -> None:

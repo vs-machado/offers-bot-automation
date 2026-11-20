@@ -336,7 +336,7 @@ def _build_agent(model_name: str, api_key: str) -> Agent:
                 "provider": {"only": ["novita"], "allow_fallbacks": False}
             }
         if nvidia:
-            settings.update(temperature=1.0, top_p=0.95, max_tokens=16384)
+            settings.update(temperature=0.2, top_p=0.95, max_tokens=16384)
         if model_name == NVIDIA_FALLBACK_LLM_MODEL:
             settings.update(
                 temperature=0.6,
