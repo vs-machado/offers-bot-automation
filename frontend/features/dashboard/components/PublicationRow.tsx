@@ -28,6 +28,8 @@ export function PublicationRow({
 }) {
   const { deliveries } = publication;
   const latest = deliveries[0];
+  const queueTimes = deliveries.flatMap(({ enqueue_ms }) => enqueue_ms == null ? [] : [enqueue_ms]);
+  const enqueueMs = queueTimes.length ? Math.min(...queueTimes) : null;
   const title =
     deliveries.find((delivery) => delivery.title)?.title ||
     "Promoção sem título registrado";
@@ -101,6 +103,7 @@ export function PublicationRow({
                 {price || "Preço não registrado"}
               </span>
               {coupon ? <span className="min-w-0 wrap-anywhere font-semibold text-primary dark:text-sidebar-primary">CUPOM: {coupon}</span> : null}
+              {enqueueMs !== null && <span className="text-muted-foreground" title="Do recebimento no Telegram até a entrada no primeiro destino da fila">{enqueueMs < 1000 ? `${enqueueMs} ms` : `${(enqueueMs / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} s`} até a fila</span>}
             </span>
             <span className="mt-1 block text-xs text-muted-foreground md:hidden">
               {sent}/{destinationCount} envios confirmados · {destinationCount} {destinationCount === 1 ? "destino" : "destinos"}

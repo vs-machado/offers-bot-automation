@@ -197,6 +197,7 @@ async def get_delivery_history(
                 "reason_message": reason_message,
                 "stage": delivery.stage,
                 "attempts": delivery.attempts,
+                "enqueue_ms": delivery.enqueue_ms,
                 "created_at": delivery.created_at,
                 "updated_at": delivery.updated_at,
             }

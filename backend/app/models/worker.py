@@ -112,6 +112,7 @@ class PromotionDelivery(Base):
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     source_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     dedup_key: Mapped[str | None] = mapped_column(String(64))
+    enqueue_ms: Mapped[int | None]
     connection_id: Mapped[int | None] = mapped_column(
         ForeignKey("whatsapp_connections.id", ondelete="RESTRICT"), index=True
     )

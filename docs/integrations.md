@@ -152,21 +152,20 @@ per process and one per user.
 
 ## AI extraction
 
-The structured parsing chain is:
+The multi-tenant worker's default structured parsing chain is:
 
-1. **MiniMax M3.1 Flash** — `minimaxai/minimax-m3.1-flash`, through NVIDIA's `https://integrate.api.nvidia.com/v1` endpoint.
-2. **Nemotron 3.5 Lightning** — `nvidia/nemotron-3.5-lightning-30b-a3b`, through NVIDIA, with thinking disabled and locally validated prompted JSON.
+1. **Nemotron 3.5 Lightning** — `nvidia/nemotron-3.5-lightning-30b-a3b`, through NVIDIA, with thinking disabled and locally validated prompted JSON.
+2. **Laguna XS 2.1** — `poolside/laguna-xs-2.1`, through NVIDIA, with locally validated prompted JSON.
 3. **Ling 3.0 Flash** — `inclusionai/ling-3.0-flash`, through OpenRouter, pinned to Novita.
 4. **Qwen 3.7 Flash** — `qwen/qwen3.7-flash`, through OpenRouter.
 5. **Gemini 2.5 Flash Lite** — Google's direct API.
 6. **Regex** — fallback when credentials are missing or configured parsers fail.
 
 Set `NVIDIA_API_KEY`, `OPENROUTER_API_KEY`, and/or `GEMINI_API_KEY` in the worker environment.
-Set `NVIDIA_FALLBACK_MODEL=nvidia/nemotron-3.5-lightning-30b-a3b` to enable
-Lightning with the same NVIDIA key. Compose enables it by default; standalone
-mode skips it when this variable is absent or empty. Daily request counts distinguish
-both NVIDIA models. Provider-wide NVIDIA failures can affect both models.
-Missing keys skip their providers. NVIDIA requests use a 30-second timeout;
+Dashboard preferences can replace either NVIDIA model. Daily request counts
+distinguish each model. Provider-wide NVIDIA failures can affect both models.
+Missing keys skip their providers. The multi-tenant worker budgets six seconds
+per NVIDIA model. The legacy standalone parser still uses `NVIDIA_FALLBACK_MODEL`;
 OpenRouter requests use a 90-second timeout. SDK retries are disabled so errors
 advance to the next provider.
 A Novita route failure advances to Qwen rather than another Ling provider.

@@ -9,3 +9,6 @@ promotion_context: ContextVar[dict[str, str | None]] = ContextVar(
 source_timestamp: ContextVar[float | None] = ContextVar(
     "source_timestamp", default=None
 )
+received_monotonic: ContextVar[float | None] = ContextVar(
+    "received_monotonic", default=None
+)

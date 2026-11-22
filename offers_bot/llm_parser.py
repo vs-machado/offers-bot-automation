@@ -300,7 +300,10 @@ async def _record_llm_request(request) -> None:
 
 def _build_agent(model_name: str, api_key: str) -> Agent:
     """Build NVIDIA/OpenRouter parsers with HTTP request accounting and provider fallbacks."""
-    if model_name not in {
+    from .nvidia_models import MODELS
+
+    nvidia = model_name in MODELS or model_name == NVIDIA_LLM_MODEL
+    if not nvidia and model_name not in {
         NVIDIA_LLM_MODEL,
         NVIDIA_FALLBACK_LLM_MODEL,
         PRIMARY_LLM_MODEL,
@@ -310,13 +313,12 @@ def _build_agent(model_name: str, api_key: str) -> Agent:
         raise ValueError(f"Unsupported LLM model: {model_name}")
 
     settings: OpenAIChatModelSettings = {}
-    if model_name in {
+    if nvidia or model_name in {
         NVIDIA_LLM_MODEL,
         NVIDIA_FALLBACK_LLM_MODEL,
         PRIMARY_LLM_MODEL,
         FALLBACK_LLM_MODEL,
     }:
-        nvidia = model_name in {NVIDIA_LLM_MODEL, NVIDIA_FALLBACK_LLM_MODEL}
         client = AsyncOpenAI(
             base_url=NVIDIA_BASE_URL if nvidia else OPENROUTER_BASE_URL,
             api_key=api_key,
@@ -346,6 +348,12 @@ def _build_agent(model_name: str, api_key: str) -> Agent:
                     "thinking": {"type": "disabled"},
                 },
             )
+        elif model_name in MODELS:
+            settings.update(max_tokens=2048)
+            if model_name.startswith("nvidia/nemotron-3.5-"):
+                settings["extra_body"] = {
+                    "chat_template_kwargs": {"enable_thinking": False}
+                }
     else:
         model = GoogleModel(
             "gemini-2.5-flash-lite",
@@ -356,7 +364,7 @@ def _build_agent(model_name: str, api_key: str) -> Agent:
     if model_name == NVIDIA_LLM_MODEL:
         # NVIDIA otherwise omits optional arrays (including every product).
         output_type = NativeOutput(DealParseResult, strict=True)
-    elif model_name == NVIDIA_FALLBACK_LLM_MODEL:
+    elif model_name in MODELS:
         # Lightning stalls with native JSON schema; validate prompted JSON locally.
         output_type = PromptedOutput(DealParseResult)
 
@@ -368,7 +376,9 @@ def _build_agent(model_name: str, api_key: str) -> Agent:
     )
 
 
-def _llm_configs() -> list[tuple[str, str, str]]:
+def _llm_configs(
+    nvidia_models: tuple[str, str] | None = None,
+) -> list[tuple[str, str, str]]:
     """Return configured providers in priority order, without exposing keys."""
     configs = [
         ("primary", PRIMARY_LLM_MODEL, os.getenv("OPENROUTER_API_KEY", "")),
@@ -379,6 +389,14 @@ def _llm_configs() -> list[tuple[str, str, str]]:
             os.getenv("GEMINI_API_KEY", ""),
         ),
     ]
+    if nvidia_models is not None:
+        if key := os.getenv("NVIDIA_API_KEY"):
+            return [
+                ("primary NVIDIA", nvidia_models[0], key),
+                ("secondary NVIDIA", nvidia_models[1], key),
+                *configs,
+            ]
+        return configs
     if os.getenv("NVIDIA_API_KEY"):
         fallback_model = os.getenv("NVIDIA_FALLBACK_MODEL", "").strip()
         if fallback_model:
@@ -451,11 +469,13 @@ def parse_with_llm(text: str) -> Optional[Dict[str, Any]]:
     return None
 
 
-async def parse_with_llm_async(text: str) -> Optional[Dict[str, Any]]:
+async def parse_with_llm_async(
+    text: str, *, nvidia_models: tuple[str, str] | None = None
+) -> Optional[Dict[str, Any]]:
     """Parse deals and source ads asynchronously with the same provider fallbacks."""
     if os.getenv("DISABLE_LLM") == "true":
         return None
-    for label, model_name, api_key in _llm_configs():
+    for label, model_name, api_key in _llm_configs(nvidia_models):
         if not api_key:
             logger.warning(
                 "%s API key for %s is not set", label.capitalize(), model_name
@@ -463,7 +483,13 @@ async def parse_with_llm_async(text: str) -> Optional[Dict[str, Any]]:
             continue
         try:
             agent = _build_agent(model_name, api_key)
-            result = await agent.run(_message_prompt(text))
+            run = agent.run(_message_prompt(text))
+            if nvidia_models is not None and label.endswith(" NVIDIA"):
+                import asyncio
+
+                result = await asyncio.wait_for(run, timeout=6)
+            else:
+                result = await run
             return _dump_result(result, text)
         except Exception as exc:
             logger.warning(

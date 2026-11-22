@@ -130,10 +130,17 @@ def extract_offers(text: str) -> list[Offer]:
     return _extract_offers(text, parse_with_llm(text))
 
 
-async def extract_offers_async(text: str) -> list[Offer]:
+async def extract_offers_async(
+    text: str, *, nvidia_models: tuple[str, str] | None = None
+) -> list[Offer]:
     """Resolve short links off-loop before async LLM parsing and regex fallback."""
     text = await asyncio.to_thread(expand_magalu_short_links, text)
-    return _extract_offers(text, await parse_with_llm_async(text))
+    result = (
+        await parse_with_llm_async(text)
+        if nvidia_models is None
+        else await parse_with_llm_async(text, nvidia_models=nvidia_models)
+    )
+    return _extract_offers(text, result)
 
 
 def expand_magalu_short_links(text: str) -> str:
