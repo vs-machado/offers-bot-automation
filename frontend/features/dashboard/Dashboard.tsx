@@ -6,22 +6,19 @@ import { getSession } from "@/lib/auth-session";
 import {
   getDeliveryHistory,
   getDestinations,
-  getNvidiaCatalog,
   getUserConfigs,
 } from "@/features/dashboard/api/dashboard-server";
 import { PublicationHistory } from "@/features/dashboard/components/PublicationHistory";
 import { IntegrationAlerts } from "@/features/dashboard/components/IntegrationAlerts";
-import { NvidiaModels } from "@/features/dashboard/components/NvidiaModels";
 import { SetupDialog } from "@/features/setup/SetupDialog";
 
 export async function Dashboard() {
   const session = await getSession();
   if (!session) redirect("/");
 
-  const [destinations, configs, nvidiaCatalog] = await Promise.all([
+  const [destinations, configs] = await Promise.all([
     getDestinations(session.sessionToken),
     getUserConfigs(session.sessionToken),
-    getNvidiaCatalog(session.sessionToken),
   ]);
   const enabledDestinations = destinations.filter(
     (destination) => destination.enabled,
@@ -99,12 +96,6 @@ export async function Dashboard() {
         ) : null}
       </div>
       <IntegrationAlerts />
-      {nvidiaCatalog && (
-        <NvidiaModels
-          catalog={nvidiaCatalog}
-          config={configs.find((config) => config.config_type === "nvidia_models")}
-        />
-      )}
       {isConfigured ? (
         <PublicationHistory
           initialData={deliveryHistory}

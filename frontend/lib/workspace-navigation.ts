@@ -1,4 +1,4 @@
-import { LayoutDashboard, Link2, Radio, UsersRound } from "lucide-react";
+import { LayoutDashboard, Link2, Radio, Sparkles, UsersRound } from "lucide-react";
 
 export const workspaceNavigation = [
   {
@@ -20,5 +20,10 @@ export const workspaceNavigation = [
     icon: Link2,
     label: "Afiliados",
     href: "/settings/affiliates",
+  },
+  {
+    icon: Sparkles,
+    label: "Modelos de IA",
+    href: "/settings/models",
   },
 ];

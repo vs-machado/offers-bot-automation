@@ -6,8 +6,6 @@ export type DashboardUser = {
 
 export type DeliveryStatus = "queued" | "retrying" | "sending" | "sent" | "failed" | "expired" | "cancelled" | "uncertain";
 
-export type NvidiaCatalog = { models: Record<string, string>; primary: string; secondary: string };
-
 export type Delivery = {
   enqueue_ms?: number | null;
   id: string;

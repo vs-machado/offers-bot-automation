@@ -1,6 +1,6 @@
 import "server-only";
 
-import type { DashboardUser, DeliveryHistoryData, NvidiaCatalog } from "@/features/dashboard/types";
+import type { DashboardUser, DeliveryHistoryData } from "@/features/dashboard/types";
 import type { ConfigSummary, DestinationSummary } from "@/shared/contracts/user-config";
 
 const apiBaseUrl =
@@ -46,8 +46,4 @@ export async function getDestinations(accessToken?: string) {
 
 export async function getUserConfigs(accessToken?: string) {
   return (await getAuthenticated<ConfigSummary[]>("/users/me/configs", accessToken)) ?? [];
-}
-
-export async function getNvidiaCatalog(accessToken?: string) {
-  return getAuthenticated<NvidiaCatalog>("/users/me/nvidia-models", accessToken);
 }
