@@ -12,8 +12,17 @@ export function useSettings(initialData: SettingsData) {
   const router = useRouter();
   const [configs, setConfigs] = useState(initialData.configs);
   const [destinations, setDestinations] = useState(initialData.destinations);
-  const savedSources = initialData.configs.find((config) => config.config_type === "source_chats")?.config_data?.source_chats;
+  const sourceConfig = initialData.configs.find((config) => config.config_type === "source_chats")?.config_data;
+  const savedSources = sourceConfig?.source_chats;
   const [selectedSources, setSelectedSources] = useState<string[]>(Array.isArray(savedSources) ? savedSources.filter((url): url is string => typeof url === "string" && initialData.sources.some((source) => source.url === url)) : []);
+  const [sourceBlacklists, setSourceBlacklists] = useState<Record<string, string>>(() => {
+    const entries = sourceConfig?.source_blacklists;
+    if (!Array.isArray(entries)) return {};
+    return Object.fromEntries(entries.flatMap((entry) => {
+      if (typeof entry?.source !== "string" || !Array.isArray(entry.terms)) return [];
+      return [[entry.source, entry.terms.filter((term: unknown) => typeof term === "string").join("\n")]];
+    }));
+  });
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
@@ -65,12 +74,21 @@ export function useSettings(initialData: SettingsData) {
     });
   }
 
+  function changeSourceBlacklist(source: string, draft: string) {
+    setSourceBlacklists((current) => ({ ...current, [source]: draft }));
+  }
+
   function saveSources() {
     return run("sources", "Grupos de origem atualizados.", async () => {
+      const sourceBlacklistsPayload = initialData.sources.flatMap(({ url }) => {
+        const terms = (sourceBlacklists[url] ?? "").split("\n").map((term) => term.trim()).filter(Boolean);
+        return terms.length ? [{ source: url, terms }] : [];
+      });
+      const data = { source_chats: selectedSources, source_blacklists: sourceBlacklistsPayload };
       const matches = configs.filter((config) => config.config_type === "source_chats");
-      if (!matches.length) replaceConfig(await api.saveConfig("source_chats", { source_chats: selectedSources }));
+      if (!matches.length) replaceConfig(await api.saveConfig("source_chats", data));
       for (const existing of matches) {
-        replaceConfig(await api.saveConfig("source_chats", { source_chats: selectedSources }, existing.id));
+        replaceConfig(await api.saveConfig("source_chats", data, existing.id));
       }
     });
   }
@@ -103,7 +121,7 @@ export function useSettings(initialData: SettingsData) {
     router.refresh();
   }
 
-  return { configs, destinations, selectedSources, setSelectedSources, busy, error, message, saveProvider, disconnectProvider, saveSources, saveDestination, toggleDestination, removeDestination, handleWhatsAppDisconnect };
+  return { configs, destinations, selectedSources, setSelectedSources, sourceBlacklists, changeSourceBlacklist, busy, error, message, saveProvider, disconnectProvider, saveSources, saveDestination, toggleDestination, removeDestination, handleWhatsAppDisconnect };
 }
 
 export type SettingsState = ReturnType<typeof useSettings>;

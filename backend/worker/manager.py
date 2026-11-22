@@ -14,6 +14,11 @@ from backend.app.models.user import DestinationChannel, UserConfig
 from backend.app.core.credentials import decrypt_config
 from backend.app.core.offer_categories import accepts_category, offer_category
 from backend.app.core.gaming_policy import is_gaming_offer
+from backend.app.core.source_blacklist import (
+    SOURCE_BLACKLISTS,
+    compile_source_blacklists,
+    matches_source_blacklist,
+)
 from backend.app.core.source_groups import approved_source
 from backend.worker.poster import BotPoster
 from backend.worker.store import PgOfferStore
@@ -63,6 +68,7 @@ class UserBotInstance:
         self._db_factory = db_factory
         self._poster = poster or BotPoster()
         self._source_chats: tuple[str, ...] = ()
+        self._source_blacklists: dict[str, tuple[str, ...]] = {}
         self._destination_chat_ids: tuple[str, ...] = ()
         self._destination_categories: dict[str, list[str] | None] = {}
         self._ml: MercadoLivreClient | None = None
@@ -130,6 +136,9 @@ class UserBotInstance:
 
         self.close()
         self._source_chats = source_chats
+        self._source_blacklists = compile_source_blacklists(
+            configs.get(SOURCE_BLACKLISTS), source_chats
+        )
         self._destination_chat_ids = destination_chat_ids
 
         browser_enabled = self._as_bool(configs.get("browser_resolver_enabled", True))
@@ -211,10 +220,12 @@ class UserBotInstance:
     ) -> None:
         """Parse, deduplicate, affiliate, format, and post one source message.
 
+        Skip titles blacklisted for this source before touching delivery state.
         Prefer source media for Amazon, Mercado Livre, AliExpress, and Shopee.
         """
         if source_chat not in self._source_chats:
             return
+        blacklist = self._source_blacklists.get(source_chat, ())
 
         try:
             started = time.monotonic()
@@ -237,6 +248,8 @@ class UserBotInstance:
         async with self._db_factory() as db:
             store = PgOfferStore(db, self.user_id)
             for offer in offers:
+                if matches_source_blacklist(offer.title, blacklist):
+                    continue
                 if await store.seen(source_chat, message_id, offer.url):
                     continue
                 category = offer_category(offer.llm_result)
@@ -479,11 +492,13 @@ class UserBotInstance:
             if row.config_type == CONFIG_TYPE:
                 configs[CONFIG_TYPE] = data
             elif isinstance(data, dict):
+                if row.config_type == "source_chats":
+                    configs[SOURCE_BLACKLISTS] = data.get(SOURCE_BLACKLISTS)
                 configs.update(
                     {
                         key: value
                         for key, value in data.items()
-                        if key != CONFIG_TYPE
+                        if key not in {CONFIG_TYPE, SOURCE_BLACKLISTS}
                         and (key != "source_chats" or row.config_type == "source_chats")
                     }
                 )

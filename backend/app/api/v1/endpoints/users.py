@@ -46,6 +46,10 @@ from backend.app.schemas.affiliate_validation import (
     CredentialValidationResult,
 )
 from backend.app.api.v1.endpoints.auth import get_current_user
+from backend.app.core.source_blacklist import (
+    SOURCE_BLACKLISTS,
+    validate_source_blacklists,
+)
 from backend.app.core.source_groups import approved_source, enabled_source_groups
 from backend.app.core.telegram_sources import fetch_source_messages
 from backend.worker.poster import BotPoster, BotPosterError
@@ -350,11 +354,18 @@ def _validate_config(
                 not isinstance(chat, str) for chat in chats
             ):
                 raise ValueError("Selecione os grupos de origem na lista disponível.")
-            config_data.config_data = {
+            source_data = {
                 "source_chats": list(
                     dict.fromkeys(approved_source(chat, catalog) for chat in chats)
                 )
             }
+            if SOURCE_BLACKLISTS in config_data.config_data:
+                blacklists = validate_source_blacklists(
+                    config_data.config_data[SOURCE_BLACKLISTS], catalog
+                )
+                if blacklists:
+                    source_data[SOURCE_BLACKLISTS] = blacklists
+            config_data.config_data = source_data
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
     required_keys = REQUIRED_CONFIG_KEYS.get(config_data.config_type)
@@ -557,6 +568,18 @@ async def update_config(
         else None
     )
     config_data.config_data = _restore_secrets(config_data.config_data, stored)
+    # Older clients update the selection alone; only an explicit list replaces the filters.
+    if (
+        config_data.config_type == "source_chats"
+        and SOURCE_BLACKLISTS not in config_data.config_data
+    ):
+        blacklists = stored.get(SOURCE_BLACKLISTS) if isinstance(stored, dict) else None
+        if isinstance(blacklists, list):
+            config_data.config_data[SOURCE_BLACKLISTS] = [
+                entry
+                for entry in blacklists
+                if isinstance(entry, dict) and entry.get("source") in (catalog or [])
+            ]
     _validate_config(config_data, catalog)
     config.config_type = config_data.config_type
     config.config_data = encrypt_config(
