@@ -105,9 +105,9 @@ class ProductSection(BaseModel):
     purchase_instructions: Optional[str] = Field(
         None,
         description=(
-            "Required purchase quantity or cart instructions in Portuguese, e.g. "
-            "'Adicionar 6 unidades ao carrinho'. Preserve quantity prefixes such as "
-            "'6x Produto' and instructions such as 'add 6x'. Never use installments here."
+            "Cart instructions explicitly required to obtain the advertised price, "
+            "e.g. 'Adicionar 6 unidades ao carrinho' from 'add 6x'. Return null for "
+            "product title numbers, packaged quantities, and installments."
         ),
     )
     meli_plus_only: bool
@@ -194,9 +194,11 @@ FIELD RULES:
 
 REQUIRED QUANTITY AND CART INSTRUCTIONS:
 - Preserve any quantity required to obtain the offer in product.purchase_instructions. This is essential deal content, never advertising or noise.
-- A quantity prefix before the product name, e.g. "6x Sabonete" or "5x Detergente", means units to purchase, not payment installments. Keep a clean product title and output "Adicionar 6 unidades ao carrinho" or "Adicionar 5 unidades ao carrinho" respectively.
-- Instructions anywhere in the offer such as "add 6x", "adicione 6", "adicionar 6 unidades" or "leve 5 unidades" must appear in purchase_instructions for the corresponding product, preserving the exact quantity and any explicit minimum or required combination.
-- Do not confuse "6x Produto" or "add 6x" with "em 6x sem juros" or "6 parcelas". Only explicit payment context belongs in installment_info. Both purchase quantity and installments may coexist and must be preserved separately.
+- A number or Nx prefix in a product title does not by itself mean units to add. Preserve counts that describe the item in title, e.g. "5 Potes Herméticos", "5x Potes Herméticos", or "Kit com 6 peças", with purchase_instructions = null when there is no separate purchase condition.
+- Decide from the meaning of the whole offer whether the shopper must buy multiple sellable units to get the stated price. A unit price does not establish a minimum purchase by itself. If the quantity could simply describe the package, keep it in title and leave purchase_instructions null.
+- Contrast: "5 Potes Herméticos — R$ 29,90" describes one product and has no cart instruction. If the same offer says "Para chegar nesse preço, adicione 2 kits ao carrinho", keep the 5 in title and set purchase_instructions to "Adicionar 2 kits ao carrinho".
+- Recognize purchase conditions anywhere in the offer, however they are phrased. For the corresponding product, preserve the exact quantity, minimum, and any required combination in purchase_instructions when the source says they are needed to get the deal.
+- Do not confuse cart instructions like "add 6x" with "em 6x sem juros" or "6 parcelas". Only explicit payment context belongs in installment_info. Both purchase quantity and installments may coexist and must be preserved separately.
 - Keep unit prices and bundle prices as stated; do not multiply, divide or invent a total. Do not infer a cart instruction from a product's packaged contents alone, e.g. "kit com 6 peças".
 - For multiple products, attach each instruction only to the relevant offer. Set purchase_instructions to null when no required quantity or cart instruction is given.
 
