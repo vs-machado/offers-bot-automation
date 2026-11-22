@@ -1,4 +1,4 @@
-"""NVIDIA Build models verified to return valid offer JSON with the platform key."""
+"""Shared catalog of NVIDIA Build models verified for offer parsing."""
 
 LIGHTNING = "nvidia/nemotron-3.5-lightning-30b-a3b"
 LAGUNA = "poolside/laguna-xs-2.1"

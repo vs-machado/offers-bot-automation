@@ -7,7 +7,7 @@ from fastapi import HTTPException
 from backend.app.api.v1.endpoints.users import _validate_config
 from backend.app.schemas.user import UserConfigCreate
 from offers_bot import llm_parser
-from offers_bot.nvidia_models import DEFAULT_MODELS, validate_models
+from backend.app.core.nvidia_models import DEFAULT_MODELS, validate_models
 
 
 class NvidiaPreferenceTests(unittest.IsolatedAsyncioTestCase):

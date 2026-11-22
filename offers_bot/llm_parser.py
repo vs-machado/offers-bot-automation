@@ -300,7 +300,7 @@ async def _record_llm_request(request) -> None:
 
 def _build_agent(model_name: str, api_key: str) -> Agent:
     """Build NVIDIA/OpenRouter parsers with HTTP request accounting and provider fallbacks."""
-    from .nvidia_models import MODELS
+    from backend.app.core.nvidia_models import MODELS
 
     nvidia = model_name in MODELS or model_name == NVIDIA_LLM_MODEL
     if not nvidia and model_name not in {
