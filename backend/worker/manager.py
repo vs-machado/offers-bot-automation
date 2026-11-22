@@ -26,7 +26,7 @@ from offers_bot.magalu import MagaluClient
 from offers_bot.browser_resolver import PlaywrightProductResolver
 from offers_bot.main import format_outgoing_offer
 from offers_bot.mercado_livre import MercadoLivreClient, UnsupportedOfferError
-from offers_bot.nvidia_models import CONFIG_TYPE, DEFAULT_MODELS, validate_models
+from backend.app.core.nvidia_models import CONFIG_TYPE, DEFAULT_MODELS, validate_models
 from offers_bot.parser import (
     PLATFORM_ALIEXPRESS,
     PLATFORM_AMAZON,

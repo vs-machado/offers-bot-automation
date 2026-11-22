@@ -5,7 +5,7 @@ from backend.app.core.awin import valid_credentials
 from backend.app.core.magalu import MagaluClient
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
-from offers_bot.nvidia_models import DEFAULT_MODELS, MODELS, validate_models
+from backend.app.core.nvidia_models import DEFAULT_MODELS, MODELS, validate_models
 from typing import Literal
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
