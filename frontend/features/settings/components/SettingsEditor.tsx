@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DestinationSettings } from "@/features/settings/components/DestinationSettings";
 import { WhatsAppSettings } from "@/features/settings/components/WhatsAppSettings";
 import { ProviderSettings } from "@/features/settings/components/ProviderSettings";
+import { SourceBlacklistEditor } from "@/features/settings/components/SourceBlacklistEditor";
 import { useSettings } from "@/features/settings/hooks/use-settings";
 import type { SettingsData, SettingsSection } from "@/features/settings/types";
 import { affiliateProviders } from "@/lib/affiliate-providers";
@@ -89,6 +90,12 @@ export function SettingsEditor({
               onSelectionChange={settings.setSelectedSources}
               disabled={Boolean(settings.busy)}
             />
+            <SourceBlacklistEditor
+              sources={initialData.sources.filter(({ url }) => settings.selectedSources.includes(url))}
+              drafts={settings.sourceBlacklists}
+              onChange={settings.changeSourceBlacklist}
+              disabled={Boolean(settings.busy)}
+            />
             <div className="flex flex-wrap items-center justify-between gap-3 border-t pt-4">
               <p className="text-xs text-muted-foreground">
                 {settings.selectedSources.length} grupos selecionados
@@ -99,7 +106,7 @@ export function SettingsEditor({
               >
                 {settings.busy === "sources"
                   ? "Salvando…"
-                  : "Salvar grupos de origem"}
+                  : "Salvar origens e blacklist"}
               </Button>
             </div>
           </CardContent>
