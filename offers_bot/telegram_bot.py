@@ -13,6 +13,7 @@ import logging
 import re
 import sys
 import tempfile
+import time
 from collections.abc import Awaitable, Callable
 
 from telethon import TelegramClient, events
@@ -178,15 +179,20 @@ class TelegramOfferBot:
                 len(text),
             )
             if text:
-                from offers_bot.message_context import source_timestamp
+                from offers_bot.message_context import (
+                    received_monotonic,
+                    source_timestamp,
+                )
 
                 context_token = source_timestamp.set(event.message.date.timestamp())
+                received_token = received_monotonic.set(time.monotonic())
                 try:
                     media_path = await self._download_media(event.message)
                     await handler(
                         str(event.chat_id), event.message.id, text, media_path
                     )
                 finally:
+                    received_monotonic.reset(received_token)
                     source_timestamp.reset(context_token)
 
         LOGGER.info("Listening to %s source chats", len(source_entities))

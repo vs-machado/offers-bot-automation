@@ -5,6 +5,7 @@ from backend.app.core.awin import valid_credentials
 from backend.app.core.magalu import MagaluClient
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from offers_bot.nvidia_models import DEFAULT_MODELS, MODELS, validate_models
 from typing import Literal
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -336,6 +337,12 @@ def _validate_config(
             "amazon_affiliate_tag"
         ].strip()
         return
+    if config_data.config_type == "nvidia_models":
+        try:
+            primary, secondary = validate_models(config_data.config_data)
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from exc
+        config_data.config_data = {"primary": primary, "secondary": secondary}
     if config_data.config_type == "source_chats":
         chats = config_data.config_data.get("source_chats")
         try:
@@ -480,6 +487,16 @@ async def preview_source_group(
     if groups:
         groups[0]["label"] = "Catalog source"
     return response
+
+
+@router.get("/me/nvidia-models")
+async def nvidia_model_catalog(current_user: User = Depends(get_current_user)):
+    """Return verified parser models and their default order."""
+    return {
+        "models": MODELS,
+        "primary": DEFAULT_MODELS[0],
+        "secondary": DEFAULT_MODELS[1],
+    }
 
 
 @router.post(

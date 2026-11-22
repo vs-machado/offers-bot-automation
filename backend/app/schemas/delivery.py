@@ -21,6 +21,7 @@ class DeliveryRead(BaseModel):
     attempts: int
     created_at: datetime
     updated_at: datetime
+    enqueue_ms: int | None = None
 
 
 class DeliveryHistory(BaseModel):

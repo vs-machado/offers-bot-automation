@@ -80,8 +80,8 @@ or an arbitrary browser-supplied name. See [WhatsApp](whatsapp.md).
 
 | Variable | Purpose |
 | --- | --- |
-| `NVIDIA_API_KEY` | Primary MiniMax M3.1 Flash structured extraction |
-| `NVIDIA_FALLBACK_MODEL` | Optional NVIDIA fallback: `nvidia/nemotron-3.5-lightning-30b-a3b`; enabled by default in Compose |
+| `NVIDIA_API_KEY` | Shared key for NVIDIA offer parsing models |
+| `NVIDIA_FALLBACK_MODEL` | Legacy parser fallback setting; the multi-tenant worker uses dashboard preferences |
 | `OPENROUTER_API_KEY` | Ling and Qwen fallback structured extraction |
 | `GEMINI_API_KEY` | Gemini fallback through Google's API |
 | `OPENROUTER_CACHE_ENABLED` | Cache control; default `true` |
@@ -97,3 +97,16 @@ and limit sends without exceeding the operator's ceiling.
 `DATABASE_PATH`, `SOURCE_CHATS`, `TARGET_CHAT`, and older affiliate environment
 variables belong to the standalone/SQLite runtime. They do not configure the
 multi-tenant runtime. See [Migrations and legacy](migrations.md).
+
+## NVIDIA parser selection
+
+The dashboard saves two distinct NVIDIA models per user, applied to all their
+sources after the worker refreshes configuration. The default is Nemotron 3.5
+Lightning, then Laguna XS 2.1. Each NVIDIA model has a six-second parsing budget;
+if both fail, the existing OpenRouter and Gemini fallback chain continues.
+The shared key stays on the worker. The catalog lists models verified with offer
+JSON using the deployment's NVIDIA Build access; availability can change.
+
+Apply migration `0023_delivery_enqueue_ms` before updating the worker and API.
+History reports elapsed time from live Telethon receipt to first destination
+queue admission, including media and affiliate handling. Older rows have no timing.

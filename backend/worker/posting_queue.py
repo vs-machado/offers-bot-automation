@@ -24,7 +24,11 @@ from backend.app.core.gaming_policy import (
     normalized_title,
 )
 from backend.app.schemas.whatsapp_policy import promotion_ttl
-from offers_bot.message_context import source_timestamp, promotion_context
+from offers_bot.message_context import (
+    source_timestamp,
+    promotion_context,
+    received_monotonic,
+)
 from offers_bot.postgres_store import connect
 
 LOGGER = logging.getLogger(__name__)
@@ -223,8 +227,8 @@ class QueuePoster:
             if duplicate and not expired:
                 return {"status": "duplicate"}
             inserted = conn.execute(
-                """INSERT INTO promotion_deliveries (id, user_id, chat_id, status, expires_at, title, platform,source_at,dedup_key,price,connection_id,affiliate_url,coupon,text,image_url)
-                VALUES (%s, %s, %s, %s, %s, %s, %s,%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT (id) DO NOTHING RETURNING id""",
+                """INSERT INTO promotion_deliveries (id, user_id, chat_id, status, expires_at, title, platform,source_at,dedup_key,price,connection_id,affiliate_url,coupon,text,image_url,enqueue_ms)
+                VALUES (%s, %s, %s, %s, %s, %s, %s,%s,%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT (id) DO NOTHING RETURNING id""",
                 (
                     identity,
                     self.user_id,
@@ -241,6 +245,10 @@ class QueuePoster:
                     context.get("coupon"),
                     text,
                     image_url,
+                    round((time.monotonic() - received) * 1000)
+                    if not expired
+                    and (received := received_monotonic.get()) is not None
+                    else None,
                 ),
             ).fetchone()
             if inserted and is_whatsapp and destination[1] == "channel" and not expired:
@@ -469,6 +477,13 @@ def post_promotion(
         update_status(identity, "expired")
         return
     try:
+        if is_whatsapp and not manual:
+            LOGGER.info(
+                "whatsapp_send_start id=%s source_to_ready_ms=%.0f ready_to_send_ms=%.0f",
+                identity,
+                (audit[1] - ttl_start).total_seconds() * 1000,
+                (time.time() - audit[1].timestamp()) * 1000,
+            )
         asyncio.run(
             deliver(
                 chat_id,

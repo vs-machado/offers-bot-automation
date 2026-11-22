@@ -3,6 +3,7 @@ import json
 import logging
 import os
 import tempfile
+import time
 from pathlib import Path
 
 import httpx
@@ -25,6 +26,7 @@ from offers_bot.magalu import MagaluClient
 from offers_bot.browser_resolver import PlaywrightProductResolver
 from offers_bot.main import format_outgoing_offer
 from offers_bot.mercado_livre import MercadoLivreClient, UnsupportedOfferError
+from offers_bot.nvidia_models import CONFIG_TYPE, DEFAULT_MODELS, validate_models
 from offers_bot.parser import (
     PLATFORM_ALIEXPRESS,
     PLATFORM_AMAZON,
@@ -70,6 +72,7 @@ class UserBotInstance:
         self._awin: AwinClient | None = None
         self._magalu: MagaluClient | None = None
         self._config_signature: str | None = None
+        self._nvidia_models = DEFAULT_MODELS
 
     @property
     def source_chats(self) -> tuple[str, ...]:
@@ -100,6 +103,10 @@ class UserBotInstance:
     ) -> None:
         """Reload persisted routing and provider clients when configuration changes."""
         configs = await self._load_configs(db)
+        try:
+            self._nvidia_models = validate_models(configs.get(CONFIG_TYPE))
+        except ValueError:
+            self._nvidia_models = DEFAULT_MODELS
         approved = []
         for chat in self._parse_chats(configs.get("source_chats", [])):
             try:
@@ -210,18 +217,20 @@ class UserBotInstance:
             return
 
         try:
-            offers = await extract_offers_async(text)
+            started = time.monotonic()
+            offers = await extract_offers_async(text, nvidia_models=self._nvidia_models)
         except Exception as exc:
             await self._record_failure(
                 classify_failure(exc, "processing"), "processing"
             )
             raise
         LOGGER.info(
-            "User %s: parsed chat=%s message=%s offers=%s",
+            "User %s: parsed chat=%s message=%s offers=%s parser_ms=%.2f",
             self.user_id,
             source_chat,
             message_id,
             len(offers),
+            (time.monotonic() - started) * 1000,
         )
         processed_product_keys: set[str] = set()
 
@@ -467,12 +476,15 @@ class UserBotInstance:
         configs: dict[str, object] = {}
         for row in result.scalars().all():
             data = decrypt_config(row.config_data, row.user_id, row.config_type)
-            if isinstance(data, dict):
+            if row.config_type == CONFIG_TYPE:
+                configs[CONFIG_TYPE] = data
+            elif isinstance(data, dict):
                 configs.update(
                     {
                         key: value
                         for key, value in data.items()
-                        if key != "source_chats" or row.config_type == "source_chats"
+                        if key != CONFIG_TYPE
+                        and (key != "source_chats" or row.config_type == "source_chats")
                     }
                 )
             else:
