@@ -1,5 +1,14 @@
 from datetime import datetime
-from sqlalchemy import ForeignKey, String, Text, DateTime, func, UniqueConstraint, Index
+from sqlalchemy import (
+    ForeignKey,
+    String,
+    Text,
+    DateTime,
+    func,
+    UniqueConstraint,
+    Index,
+    LargeBinary,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 from backend.app.core.db.base import Base
 
@@ -123,3 +132,17 @@ class PromotionDelivery(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
+
+
+class StorefrontThumbnail(Base):
+    """Short-lived public image of a sent storefront offer."""
+
+    __tablename__ = "storefront_thumbnails"
+
+    delivery_id: Mapped[str] = mapped_column(
+        String(64),
+        ForeignKey("promotion_deliveries.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    body: Mapped[bytes] = mapped_column(LargeBinary)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

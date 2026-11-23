@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import os
 import time
 from datetime import datetime, timedelta, timezone
 
@@ -12,6 +13,7 @@ from backend.app.core.source_groups import enabled_source_groups
 from backend.app.models.user import UserConfig
 from backend.app.models.worker import PromotionDelivery
 from backend.worker.manager import UserBotInstance
+from backend.worker.storefront_media import prune_thumbnails
 from backend.worker.telegram_reader import TelegramSourceReader
 from backend.worker.website_rotation import website_monitor_loop
 from offers_bot.message_context import source_timestamp, promotion_context
@@ -61,6 +63,11 @@ class WorkerService:
                 LOGGER.exception("Error during delivery history cleanup")
                 await asyncio.sleep(POLL_INTERVAL_SECONDS)
                 continue
+            if os.getenv("STOREFRONT_MEDIA_USER_ID"):
+                try:
+                    await asyncio.to_thread(prune_thumbnails)
+                except Exception:
+                    LOGGER.exception("Error during storefront thumbnail cleanup")
             await asyncio.sleep(DELIVERY_CLEANUP_INTERVAL_SECONDS)
 
     async def _cleanup_delivery_history(self) -> int:
