@@ -114,6 +114,25 @@ class ManualRepostAPITests(unittest.TestCase):
         self.assertEqual(row.dedup_key, "product-key")
         self.assertEqual(row.status, "queued")
 
+    def test_manual_repost_preserves_category(self):
+        user_id, headers = self.login("owner@example.com")
+        self.add_source(user_id)
+        self.add_destination(user_id)
+        self.session.get(PromotionDelivery, "source").category = "tech"
+        self.session.commit()
+
+        with patch("backend.app.core.manual_delivery.enqueue_promotion") as enqueue:
+            response = self.client.post(
+                "/users/me/deliveries/source/repost",
+                headers=headers,
+                json={"chat_id": "222@g.us"},
+            )
+
+        self.assertEqual(response.status_code, 202, response.text)
+        row = self.session.get(PromotionDelivery, response.json()["id"])
+        self.assertEqual(row.category, "tech")
+        self.assertEqual(enqueue.call_args.kwargs["category"], "tech")
+
     def test_rejects_already_active_destination_and_disabled_destination(self):
         user_id, headers = self.login("owner@example.com")
         self.add_source(user_id)

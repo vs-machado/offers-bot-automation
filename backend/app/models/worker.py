@@ -92,6 +92,7 @@ class PromotionDelivery(Base):
     coupon: Mapped[str | None] = mapped_column(String(200))
     affiliate_url: Mapped[str | None] = mapped_column(String(1000))
     platform: Mapped[str | None] = mapped_column(String(50))
+    category: Mapped[str | None] = mapped_column(String(20))
     text: Mapped[str | None] = mapped_column(Text, nullable=True)
     image_url: Mapped[str | None] = mapped_column(String(1000), nullable=True)
     manual: Mapped[bool] = mapped_column(

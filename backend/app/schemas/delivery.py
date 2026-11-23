@@ -3,6 +3,8 @@
 from datetime import datetime
 from pydantic import BaseModel, Field
 
+from backend.app.core.offer_categories import OfferCategory
+
 
 class DeliveryRead(BaseModel):
     id: str
@@ -12,6 +14,7 @@ class DeliveryRead(BaseModel):
     coupon: str | None = None
     affiliate_url: str | None = None
     platform: str | None
+    category: OfferCategory | None = None
     chat_id: str
     destination_title: str | None
     status: str

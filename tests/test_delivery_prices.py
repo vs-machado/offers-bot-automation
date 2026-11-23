@@ -114,6 +114,31 @@ class DeliveryPriceTests(unittest.IsolatedAsyncioTestCase):
             delivery = session.scalars(select(PromotionDelivery)).one()
             self.assertIsNone(delivery.price)
 
+    async def test_offer_category_survives_queue_and_history(self):
+        promotion_context.set({**promotion_context.get(), "category": "home"})
+        await QueuePoster(1).send_offer("-100123", "Air fryer")
+        with Session(self.engine) as session:
+            db = AsyncMock()
+            db.execute.side_effect = session.execute
+            db.scalar.side_effect = session.scalar
+            history = DeliveryHistory.model_validate(
+                await get_delivery_history(db, 1, 1, 20, None, True)
+            )
+            self.assertEqual(history.items[0].category, "home")
+
+    async def test_failure_records_category_only_when_available(self):
+        promotion_context.set({**promotion_context.get(), "category": "coupon"})
+        await QueuePoster(1).record_failure(("-100123",), "failure", "affiliate")
+        promotion_context.set({})
+        await QueuePoster(1).record_failure(("-100123",), "failure", "processing")
+        with Session(self.engine) as session:
+            categories = dict(
+                session.execute(
+                    select(PromotionDelivery.stage, PromotionDelivery.category)
+                ).all()
+            )
+        self.assertEqual(categories, {"affiliate": "coupon", "processing": None})
+
 
 class DeliveryPriceMigrationTests(unittest.TestCase):
     def test_migration_keeps_existing_history_and_unknown_prices(self):
