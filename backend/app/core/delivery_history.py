@@ -190,6 +190,7 @@ async def get_delivery_history(
                 "coupon": delivery.coupon,
                 "affiliate_url": delivery.affiliate_url,
                 "platform": delivery.platform,
+                "category": delivery.category,
                 "chat_id": delivery.chat_id,
                 "destination_title": title,
                 "status": current_status,

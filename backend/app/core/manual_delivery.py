@@ -129,6 +129,7 @@ async def repost_delivery(
         coupon=source.coupon,
         affiliate_url=source.affiliate_url,
         platform=source.platform,
+        category=source.category,
         connection_id=(
             destination.connection_id if destination.platform == "whatsapp" else None
         ),
@@ -150,6 +151,7 @@ async def repost_delivery(
             expires_at=expires_at,
             image_url=source.image_url,
             parse_mode="Markdown",
+            category=source.category or "other",
         )
     except Exception as exc:
         await db.execute(
