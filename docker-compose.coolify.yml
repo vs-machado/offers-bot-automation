@@ -64,6 +64,7 @@ services:
       - TELEGRAM_SESSION_STRING=${TELEGRAM_SESSION_STRING:-}
       - TELEGRAM_PHONE=${TELEGRAM_PHONE:-}
       - QR_AUTH_PORT=8081
+      - STOREFRONT_MEDIA_USER_ID=${STOREFRONT_MEDIA_USER_ID:-}
     expose:
       - "8081"
     volumes:
@@ -88,6 +89,7 @@ services:
       - WAHA_API_KEY=${WAHA_API_KEY:-}
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
       - PROMOTION_TTL_SECONDS=${PROMOTION_TTL_SECONDS:-600}
+      - STOREFRONT_MEDIA_USER_ID=${STOREFRONT_MEDIA_USER_ID:-}
     depends_on:
       offers-redis:
         condition: service_healthy

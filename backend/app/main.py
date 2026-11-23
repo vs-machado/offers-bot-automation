@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from backend.app.api.v1.endpoints import (
     admin,
     magalu,
+    storefront_media,
     users,
     whatsapp,
     whatsapp_management,
@@ -39,3 +40,4 @@ app.include_router(whatsapp.router)
 app.include_router(whatsapp_management.router)
 app.include_router(whatsapp_website.router)
 app.include_router(whatsapp_entry.router)
+app.include_router(storefront_media.router)

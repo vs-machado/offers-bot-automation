@@ -15,6 +15,7 @@ from celery.signals import task_revoked
 
 from backend.worker.celery_app import app
 from backend.worker.poster import BotPoster, BotPosterError
+from backend.worker.storefront_media import capture_thumbnail
 from backend.app.core.delivery_errors import classify_failure
 from backend.app.core.offer_categories import accepts_category
 from backend.app.core.gaming_policy import (
@@ -570,3 +571,5 @@ def post_promotion(
             from backend.worker.whatsapp_delivery import record_outcome
 
             record_outcome(user_id, chat_id, None, connection_id=connection_id)
+            if not manual and not image_url:
+                capture_thumbnail(identity, user_id, image_data)
