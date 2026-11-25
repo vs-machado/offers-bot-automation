@@ -32,6 +32,23 @@ def deal(identity, amount, title="Cafeteira de Inox", suffix=""):
 
 
 class XOfferTests(unittest.TestCase):
+    def test_fresh_selection_does_not_need_history_or_promote_miscellaneous_items(self):
+        conn = Mock()
+        conn.execute.return_value.fetchall.return_value = [
+            deal("random", "8,99", "Pacote de adesivos decorativos"),
+            deal("accessory", "29,90", "Capa para Smartphone Galaxy"),
+            deal("replacement", "45,00", "Cafeteira Filtro de Reposição"),
+            deal("first", "299,00", "Cafeteira de Inox", suffix=" no Pix"),
+            deal("repeat", "300,00", "Cafeteira de Inox", suffix=" no Pix"),
+        ]
+        [(offer, text)] = x_offers.candidates(
+            conn, x_offers.Settings(1, "chosen", LANDING), NOW
+        )
+        self.assertEqual(offer.delivery_id, "first")
+        self.assertIn("R$ 299,00 no Pix", text)
+        self.assertNotIn("menor preço", text)
+        conn.execute.assert_called_once()
+
     def test_ranks_against_lowest_matching_price_and_omits_repeats(self):
         fresh = [
             deal("new", "20,00", "Produto sem histórico"),
@@ -165,6 +182,54 @@ class XOfferDraftTests(unittest.IsolatedAsyncioTestCase):
     "PostgreSQL integration requires a test URL",
 )
 class XOfferPostgresTests(unittest.TestCase):
+    def test_priority_source_wins_and_other_sources_are_the_fallback(self):
+        import psycopg
+
+        preferred = "https://t.me/preferred"
+        settings = x_offers.Settings(
+            1, "chosen", LANDING, priority_source_url=preferred
+        )
+        with psycopg.connect(os.environ["X_OFFERS_TEST_DATABASE_URL"]) as conn:
+            conn.execute("""CREATE TEMP TABLE promotion_deliveries (
+                id text, platform text, text text, affiliate_url text, expires_at timestamptz,
+                user_id int DEFAULT 1, chat_id text DEFAULT 'chosen', status text DEFAULT 'sent',
+                manual bool DEFAULT false, category text DEFAULT 'home', coupon text,
+                created_at timestamptz, updated_at timestamptz, source_group_url text)""")
+            conn.execute(
+                "CREATE TEMP TABLE destination_channels (user_id int, chat_id text, enabled bool)"
+            )
+            conn.execute("INSERT INTO destination_channels VALUES (1, 'chosen', true)")
+            for identity, title, age, source in (
+                ("other", "Smartphone Galaxy", 2, "https://t.me/other"),
+                ("priority", "Cafeteira de Inox", 3, preferred),
+                ("accessory", "Capa para Smartphone Galaxy", 1, preferred),
+            ):
+                stamp = NOW - timedelta(minutes=age)
+                conn.execute(
+                    """INSERT INTO promotion_deliveries
+                    (id, platform, text, affiliate_url, expires_at, created_at, updated_at, source_group_url)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s)""",
+                    (*deal(identity, "100,00", title), stamp, stamp, source),
+                )
+            self.assertEqual(
+                [
+                    offer.delivery_id
+                    for offer, _ in x_offers.candidates(conn, settings, NOW)
+                ],
+                ["priority", "other"],
+            )
+            conn.execute(
+                "UPDATE promotion_deliveries SET expires_at=%s WHERE id=%s",
+                (NOW, "priority"),
+            )
+            self.assertEqual(
+                [
+                    offer.delivery_id
+                    for offer, _ in x_offers.candidates(conn, settings, NOW)
+                ],
+                ["other"],
+            )
+
     def test_sent_scope_freshness_and_durable_spend_limit(self):
         import psycopg
 
