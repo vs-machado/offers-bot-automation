@@ -6,7 +6,7 @@ import logging
 import os
 import re
 
-import requests
+import httpx
 
 LOGGER = logging.getLogger(__name__)
 ENDPOINT = "https://api.buffer.com"
@@ -39,12 +39,12 @@ class BufferPublisher:
         return cls(token, channel_id)
 
     def _graphql(self, query, variables):
-        response = requests.post(
+        response = httpx.post(
             ENDPOINT,
             headers={"Authorization": f"Bearer {self.token}"},
             json={"query": query, "variables": variables},
-            timeout=(3, 8),
-            allow_redirects=False,
+            timeout=httpx.Timeout(8, connect=3),
+            follow_redirects=False,
         )
         response.raise_for_status()
         return response.json()["data"]
@@ -62,7 +62,7 @@ class BufferPublisher:
             ):
                 return None
             return channel.get("name") or channel["id"]
-        except (requests.RequestException, KeyError, TypeError, ValueError):
+        except (httpx.HTTPError, KeyError, TypeError, ValueError):
             return None
 
     def publish(self, text: str, expires: datetime) -> str:
@@ -100,9 +100,9 @@ class BufferPublisher:
                 return "buffer_rejected"
             if post.get("status") in {"scheduled", "sending"}:
                 return "buffer_accepted"
-        except requests.HTTPError as exc:
-            if exc.response is not None and 400 <= exc.response.status_code < 500:
+        except httpx.HTTPStatusError as exc:
+            if 400 <= exc.response.status_code < 500:
                 return "buffer_rejected"
-        except (requests.RequestException, KeyError, TypeError, ValueError):
+        except (httpx.HTTPError, KeyError, TypeError, ValueError):
             pass
         return "buffer_uncertain"

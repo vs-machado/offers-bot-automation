@@ -2,7 +2,7 @@ from datetime import datetime, timedelta, timezone
 import unittest
 from unittest.mock import Mock, patch
 
-import requests
+import httpx
 
 from backend.worker.buffer_publisher import BufferPublisher
 
@@ -25,7 +25,7 @@ class BufferPublisherTests(unittest.TestCase):
             "isQueuePaused": False,
         }
 
-    @patch("backend.worker.buffer_publisher.requests.post")
+    @patch("backend.worker.buffer_publisher.httpx.post")
     def test_share_now_acceptance_is_not_reported_as_published(self, post):
         post.side_effect = [
             response({"channel": self.channel}),
@@ -53,7 +53,7 @@ class BufferPublisherTests(unittest.TestCase):
             },
         )
 
-    @patch("backend.worker.buffer_publisher.requests.post")
+    @patch("backend.worker.buffer_publisher.httpx.post")
     def test_wrong_platform_never_gets_a_write(self, post):
         post.return_value = response(
             {"channel": {**self.channel, "service": "linkedin"}}
@@ -63,9 +63,12 @@ class BufferPublisherTests(unittest.TestCase):
         )
         post.assert_called_once()
 
-    @patch("backend.worker.buffer_publisher.requests.post")
+    @patch("backend.worker.buffer_publisher.httpx.post")
     def test_uncertain_write_is_not_retried(self, post):
-        post.side_effect = [response({"channel": self.channel}), requests.ReadTimeout()]
+        post.side_effect = [
+            response({"channel": self.channel}),
+            httpx.ReadTimeout("timed out"),
+        ]
         self.assertEqual(
             self.publisher.publish("offer", self.expires), "buffer_uncertain"
         )
