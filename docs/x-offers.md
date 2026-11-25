@@ -66,7 +66,7 @@ pilot. Cap manual publishing at one post per day to start.
    and use [Get Channels](https://developers.buffer.com/examples/get-channels.md)
    to find VSM's channel ID (`service: twitter`).
 2. Deploy with migration `0027_x_buffer_settings` and `X_OFFERS_MODE=dashboard`
-   (the default). Open **Administração → Publicação no X · Buffer**. Select the
+   (the default). Open **Publicação no X** from the admin sidebar. Select the
    destination, enter the landing URL, channel ID, and personal key, then save.
 3. Use **Testar conexão salva** to verify the X account without publishing.
    Enable publishing and save when ready. The worker applies changes on its next
@@ -81,6 +81,8 @@ source settings, `X_OFFERS_BUFFER_API_KEY`, and `X_OFFERS_BUFFER_CHANNEL_ID`.
 The worker requests `shareNow` for fresh deals. `buffer_accepted` means Buffer
 accepted the request but hasn't confirmed X publication in its response. Use
 Buffer's Sent or Failed view and the receipt ID in worker logs to confirm it.
+The dashboard's activity sidebar shows recent posts confirmed sent by Buffer,
+with links to X when Buffer provides them.
 The worker never retries an ambiguous submission. No direct X API keys or AI
 calls are needed.
 

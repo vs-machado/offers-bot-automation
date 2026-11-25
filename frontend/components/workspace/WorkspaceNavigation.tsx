@@ -2,18 +2,20 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { workspaceNavigation } from "@/lib/workspace-navigation";
+import { adminNavigation, workspaceNavigation } from "@/lib/workspace-navigation";
 import { cn } from "@/lib/utils";
 
 export function WorkspaceNavigation({
   onNavigate,
+  admin = false,
 }: {
   onNavigate?: () => void;
+  admin?: boolean;
 }) {
   const pathname = usePathname();
   return (
-    <nav aria-label="Seções do painel" className="space-y-1">
-      {workspaceNavigation.map(({ icon: Icon, ...item }) => {
+    <nav aria-label={admin ? "Administração" : "Seções do painel"} className="space-y-1">
+      {(admin ? adminNavigation : workspaceNavigation).map(({ icon: Icon, ...item }) => {
         const active = pathname === item.href;
         const className = cn(
           "flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm transition-colors focus-visible:outline-2 focus-visible:outline-ring motion-reduce:transition-none",

@@ -1,4 +1,4 @@
-import type { BufferState, BufferWrite } from "./x-buffer-types";
+import type { BufferState, BufferWrite, RecentXPosts } from "./x-buffer-types";
 
 async function request<T>(suffix: string, init: RequestInit): Promise<T> {
   const response = await fetch(`/api/backend/admin/x-buffer${suffix}`, init);
@@ -15,4 +15,8 @@ export function saveBufferSettings(settings: BufferWrite) {
 
 export function checkBufferSettings() {
   return request<{ account: string }>("/check", { method: "POST" });
+}
+
+export function getRecentXPosts(signal: AbortSignal) {
+  return request<RecentXPosts>("/posts", { cache: "no-store", signal });
 }

@@ -2,7 +2,6 @@
 
 import type { ReactNode } from "react";
 import { usePathname } from "next/navigation";
-import { ShieldCheck } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -11,7 +10,7 @@ import { LogoutButton } from "@/components/workspace/LogoutButton";
 import { MobileSidebar } from "@/components/workspace/MobileSidebar";
 import { WorkspaceNavigation } from "@/components/workspace/WorkspaceNavigation";
 import { cn } from "@/lib/utils";
-import { workspaceNavigation } from "@/lib/workspace-navigation";
+import { adminNavigation, workspaceNavigation } from "@/lib/workspace-navigation";
 
 type WorkspaceShellProps = {
   userName: string;
@@ -29,12 +28,9 @@ export function WorkspaceShell({
   const userInitial = userName.trim().charAt(0).toUpperCase() || "U";
   const pathname = usePathname();
   const isDashboard = pathname === "/dashboard";
-  const isAdminPage = pathname.startsWith("/admin");
   const pageTitle = isDashboard
     ? "Visão geral"
-    : isAdminPage
-      ? "Administração"
-      : workspaceNavigation.find((item) => item.href === pathname)?.label ??
+    : [...workspaceNavigation, ...adminNavigation].find((item) => item.href === pathname)?.label ??
         "Configurações";
 
   return (
@@ -59,19 +55,7 @@ export function WorkspaceShell({
           </p>
           <WorkspaceNavigation />
           {isAdmin ? (
-            <Link
-              href="/admin/source-groups"
-              aria-current={isAdminPage ? "page" : undefined}
-              className={cn(
-                "mt-6 flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm focus-visible:outline-2 focus-visible:outline-ring",
-                isAdminPage
-                  ? "bg-sidebar-primary/15 font-semibold text-primary inset-ring-1 inset-ring-sidebar-primary/30 dark:text-sidebar-primary"
-                  : "text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-              )}
-            >
-              <ShieldCheck aria-hidden="true" className="size-4" />
-              Administração
-            </Link>
+            <div className="mt-6"><WorkspaceNavigation admin /></div>
           ) : null}
         </div>
         <div className="border-t border-sidebar-border p-4">

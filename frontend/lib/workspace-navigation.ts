@@ -1,4 +1,4 @@
-import { LayoutDashboard, Link2, Radio, Sparkles, UsersRound } from "lucide-react";
+import { LayoutDashboard, Link2, Radio, Send, ShieldCheck, Sparkles, UsersRound } from "lucide-react";
 
 export const workspaceNavigation = [
   {
@@ -26,4 +26,9 @@ export const workspaceNavigation = [
     label: "Modelos de IA",
     href: "/settings/models",
   },
+];
+
+export const adminNavigation = [
+  { icon: ShieldCheck, label: "Administração", href: "/admin/source-groups" },
+  { icon: Send, label: "Publicação no X", href: "/admin/x-buffer" },
 ];

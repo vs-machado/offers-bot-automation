@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { getAdminSourceGroups } from "@/features/admin/api/admin-server";
 import { SourceCatalogEditor } from "@/features/admin/components/SourceCatalogEditor";
 
@@ -14,9 +13,6 @@ export async function AdminSourceGroups() {
           Gerencie o catálogo do Telegram. Grupos ativos ficam disponíveis para
           os usuários copiarem ofertas.
         </p>
-        <Link className="mt-3 inline-block text-sm font-medium text-primary underline" href="/admin/x-buffer">
-          Publicação no X · Buffer
-        </Link>
       </header>
       <SourceCatalogEditor initialGroups={groups} />
     </>
