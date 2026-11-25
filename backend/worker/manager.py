@@ -352,6 +352,7 @@ class UserBotInstance:
                         affiliate.short_url,
                         is_ali=is_ali,
                         affiliate_client=affiliate_client,
+                        affiliate_client_for_platform=self._affiliate_client_for_platform,
                     )
                     failure_stage = "posting"
                     await self._send_offer_with_image(

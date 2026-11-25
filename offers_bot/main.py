@@ -5,26 +5,31 @@ import logging
 import os
 import re
 import tempfile
+from collections.abc import Callable
 
 import httpx
 
 from .amazon import AmazonClient
 from .aliexpress import AliExpressClient
 from .awin import AwinClient
-from .magalu import MagaluClient, is_magalu_url
+from .magalu import MagaluClient
 from .config import load_settings
 from .browser_resolver import PlaywrightProductResolver
 from .mercado_livre import MercadoLivreClient, UnsupportedOfferError
 from .parser import (
     Offer,
+    PLATFORM_ALIEXPRESS,
+    PLATFORM_AMAZON,
+    PLATFORM_KABUM,
+    PLATFORM_MAGALU,
+    PLATFORM_MERCADO_LIVRE,
+    PLATFORM_SHOPEE,
     URL_RE,
+    clean_offer_url,
+    detect_platform,
     extract_coupon_codes,
     extract_offers_async,
-    is_amazon_url,
-    is_mercado_livre_url,
     is_shopee_url,
-    is_aliexpress_url,
-    is_kabum_url,
     normalize_price_label,
     select_product_title,
 )
@@ -33,6 +38,15 @@ from .store import OfferStore
 from .session_store import SessionStore
 from .source_cleanup import clean_source_advertising
 from .telegram_bot import TelegramOfferBot
+
+AffiliateClient = (
+    AliExpressClient
+    | AmazonClient
+    | AwinClient
+    | MagaluClient
+    | MercadoLivreClient
+    | ShopeeClient
+)
 
 
 AMAZON_COUPON_HEADER_RE = re.compile(r"\bcup(?:om|ons)\s+amazon\b", re.IGNORECASE)
@@ -85,7 +99,7 @@ def _clean_formatted_text(text: str) -> str:
     ]
     cleaned = "\n".join(lines).strip()
     cleaned = re.sub(
-        r"(?im)^\s*-\s*(?=(?:resgate|link|cupom|compre|produto|carrinho)\b)",
+        r"(?im)^[ \t]*-[ \t]*(?=(?:resgate|link|cupom|compre|produto|carrinho)\b)",
         "",
         cleaned,
     )
@@ -562,35 +576,36 @@ def format_offer(offer: Offer, affiliate_url: str) -> str:
 async def _build_url_replacements(
     offer: Offer,
     affiliate_url: str,
-    affiliate_client: ShopeeClient | AliExpressClient | None,
+    affiliate_client: AffiliateClient | None,
+    affiliate_client_for_platform: Callable[[str], AffiliateClient | None] | None,
+    overrides: dict[str, str] | None,
 ) -> dict[str, str]:
-    if not (offer.all_urls and len(offer.all_urls) > 1):
-        return {offer.url: affiliate_url}
-
-    replacements: dict[str, str] = {}
-    replacements[offer.url] = affiliate_url
+    """Convert secondary links with their own store's client; retain failed links."""
+    replacements = {offer.url: affiliate_url, **(overrides or {})}
+    primary_platform = detect_platform(offer.url)
 
     for url in offer.all_urls:
-        if url == offer.url or url in replacements:
+        if url in replacements:
+            continue
+        platform = detect_platform(url)
+        client = affiliate_client if platform == primary_platform else None
+        if client is None and affiliate_client_for_platform and platform:
+            client = affiliate_client_for_platform(platform)
+        replacements[url] = url
+        if client is None or not client.ready():
             continue
         try:
             aff = (
-                await asyncio.to_thread(affiliate_client.create_link, url)
-                if affiliate_client
-                else None
+                await asyncio.to_thread(client.create_link, url, resolve_image=False)
+                if isinstance(client, MercadoLivreClient)
+                else await asyncio.to_thread(client.create_link, url)
             )
             if aff:
                 replacements[url] = aff.short_url
-            else:
-                logging.getLogger(__name__).warning(
-                    "No affiliate link generated for secondary URL; keeping source URL"
-                )
-                replacements[url] = url
         except Exception as exc:
             logging.getLogger(__name__).warning(
                 "Could not create affiliate link for secondary URL: %s", exc
             )
-            replacements[url] = url
 
     return replacements
 
@@ -601,49 +616,44 @@ async def format_outgoing_offer(
     *,
     is_ali: bool = False,
     url_replacements: dict[str, str] | None = None,
-    affiliate_client: ShopeeClient | AliExpressClient | None = None,
+    affiliate_client: AffiliateClient | None = None,
+    affiliate_client_for_platform: Callable[[str], AffiliateClient | None]
+    | None = None,
 ) -> str:
-    formatted_text = format_offer(offer, affiliate_url)
-
-    # Multi-link AliExpress handling
-    if is_ali and offer.all_urls and len(offer.all_urls) > 1:
+    """Keep a multi-link message intact and use the template for single links."""
+    grouped = len(offer.all_urls) > 1
+    if grouped or (
+        is_shopee_url(offer.url) and "resgate" in offer.original_text.lower()
+    ):
         replacements = await _build_url_replacements(
-            offer, affiliate_url, affiliate_client
+            offer,
+            affiliate_url,
+            affiliate_client,
+            affiliate_client_for_platform,
+            url_replacements,
         )
         new_text = clean_source_advertising(
             offer.original_text,
             (offer.llm_result or {}).get("source_advertising_spans", []),
         )
-        for orig, aff in replacements.items():
-            new_text = new_text.replace(orig, aff)
-        new_text = _wrap_coupons_in_text(new_text)
-        new_text = re.sub(r"\s*\(?an[uú]ncio\)?\s*$", "", new_text, flags=re.IGNORECASE)
-        new_text = re.sub(r"\s*-\s*$", "", new_text, flags=re.IGNORECASE)
-        new_text = re.sub(r"\n{3,}", "\n\n", new_text).strip()
-        formatted_text = new_text
 
-    if is_ali and not (offer.all_urls and len(offer.all_urls) > 1):
+        def replace_url(match: re.Match) -> str:
+            raw = match.group()
+            url = clean_offer_url(raw)
+            if url not in replacements:
+                return "" if grouped else raw
+            suffix = raw[len(raw.rstrip(".,;:!?)\"]}'")) :]
+            return replacements[url] + suffix
+
+        return _clean_formatted_text(
+            _wrap_coupons_in_text(URL_RE.sub(replace_url, new_text))
+        )
+
+    formatted_text = format_offer(offer, affiliate_url)
+    if is_ali:
         formatted_text += (
             "\n\nObs: Abra o link pelo celular e clique no anúncio do produto desejado."
         )
-
-    if is_shopee_url(offer.url) and "resgate" in offer.original_text.lower():
-        replacements = await _build_url_replacements(
-            offer, affiliate_url, affiliate_client
-        )
-        if url_replacements:
-            replacements.update(url_replacements)
-        new_text = clean_source_advertising(
-            offer.original_text,
-            (offer.llm_result or {}).get("source_advertising_spans", []),
-        )
-        for orig, aff in replacements.items():
-            new_text = new_text.replace(orig, aff)
-        new_text = _wrap_coupons_in_text(new_text)
-        new_text = re.sub(r"\s*\(?an[uú]ncio\)?\s*$", "", new_text, flags=re.IGNORECASE)
-        new_text = re.sub(r"\s*-\s*$", "", new_text, flags=re.IGNORECASE)
-        new_text = re.sub(r"\n{3,}", "\n\n", new_text).strip()
-        return _clean_formatted_text(new_text)
 
     return _clean_formatted_text(formatted_text)
 
@@ -696,6 +706,14 @@ async def run() -> None:
         settings.magalu_store_name,
         settings.magalu_utm_campaign,
     )
+    affiliate_clients = {
+        PLATFORM_MERCADO_LIVRE: ml,
+        PLATFORM_AMAZON: amazon,
+        PLATFORM_SHOPEE: shopee,
+        PLATFORM_ALIEXPRESS: aliexpress,
+        PLATFORM_KABUM: awin,
+        PLATFORM_MAGALU: magalu,
+    }
     telegram = TelegramOfferBot(
         api_id=settings.telegram_api_id,
         api_hash=settings.telegram_api_hash,
@@ -726,22 +744,8 @@ async def run() -> None:
                 logging.info("Skipped already posted offer %s", offer.url)
                 continue
             try:
-                is_ali = is_aliexpress_url(offer.url)
-                affiliate_client = (
-                    ml
-                    if is_mercado_livre_url(offer.url)
-                    else amazon
-                    if is_amazon_url(offer.url)
-                    else shopee
-                    if is_shopee_url(offer.url)
-                    else aliexpress
-                    if is_ali
-                    else awin
-                    if is_kabum_url(offer.url)
-                    else magalu
-                    if is_magalu_url(offer.url)
-                    else None
-                )
+                is_ali = offer.platform == PLATFORM_ALIEXPRESS
+                affiliate_client = affiliate_clients.get(offer.platform)
                 if affiliate_client is None:
                     logging.info("Skipped unsupported offer URL %s", offer.url)
                     continue
@@ -797,6 +801,7 @@ async def run() -> None:
                     affiliate.short_url,
                     is_ali=is_ali,
                     affiliate_client=affiliate_client,
+                    affiliate_client_for_platform=affiliate_clients.get,
                 )
 
                 category = None
