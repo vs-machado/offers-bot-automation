@@ -16,6 +16,7 @@ from backend.worker.manager import UserBotInstance
 from backend.worker.storefront_media import prune_thumbnails
 from backend.worker.telegram_reader import TelegramSourceReader
 from backend.worker.website_rotation import website_monitor_loop
+from backend.worker.x_offers import x_offers_loop
 from offers_bot.message_context import source_timestamp, promotion_context
 
 LOGGER = logging.getLogger(__name__)
@@ -43,14 +44,16 @@ class WorkerService:
         sync_task = asyncio.create_task(self._sync_loop())
         cleanup_task = asyncio.create_task(self._retention_loop())
         website_task = asyncio.create_task(website_monitor_loop())
+        x_task = asyncio.create_task(x_offers_loop())
         try:
             await reader.listen(self._receive_message)
         finally:
             sync_task.cancel()
             cleanup_task.cancel()
             website_task.cancel()
+            x_task.cancel()
             await asyncio.gather(
-                sync_task, cleanup_task, website_task, return_exceptions=True
+                sync_task, cleanup_task, website_task, x_task, return_exceptions=True
             )
 
     async def _retention_loop(self) -> None:

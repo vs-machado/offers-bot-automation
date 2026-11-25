@@ -8,6 +8,7 @@ from backend.app.api.v1.endpoints import (
     whatsapp_management,
     whatsapp_website,
     whatsapp_entry,
+    x_buffer,
 )
 from backend.app.core.db.migrations import run_migrations
 from backend.app.core.credentials import credential_cipher
@@ -36,6 +37,7 @@ async def health_check():
 app.include_router(users.router, prefix="/users", tags=["Users"])
 app.include_router(magalu.router, tags=["Affiliates"])
 app.include_router(admin.router, prefix="/admin", tags=["Administration"])
+app.include_router(x_buffer.router, prefix="/admin", tags=["Administration"])
 app.include_router(whatsapp.router)
 app.include_router(whatsapp_management.router)
 app.include_router(whatsapp_website.router)

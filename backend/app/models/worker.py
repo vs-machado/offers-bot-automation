@@ -1,5 +1,6 @@
 from datetime import datetime
 from sqlalchemy import (
+    CheckConstraint,
     ForeignKey,
     String,
     Text,
@@ -146,3 +147,32 @@ class StorefrontThumbnail(Base):
     )
     body: Mapped[bytes] = mapped_column(LargeBinary)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class XOfferAttempt(Base):
+    """Durable write reservation for the single operator-owned X account."""
+
+    __tablename__ = "x_offer_attempts"
+
+    delivery_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    product_key: Mapped[str] = mapped_column(String(64))
+    attempted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    status: Mapped[str] = mapped_column(String(20))
+    post_id: Mapped[str | None] = mapped_column(String(19))
+
+
+class XBufferSettings(Base):
+    """Single admin-managed Buffer integration for the deployment."""
+
+    __tablename__ = "x_buffer_settings"
+    __table_args__ = (CheckConstraint("id = 1", name="ck_x_buffer_singleton"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=False)
+    enabled: Mapped[bool]
+    destination_id: Mapped[int | None] = mapped_column(
+        ForeignKey("destination_channels.id", ondelete="SET NULL")
+    )
+    landing_url: Mapped[str] = mapped_column(String(1000))
+    channel_id: Mapped[str] = mapped_column(String(128))
+    daily_limit: Mapped[int]
+    encrypted_key: Mapped[str] = mapped_column(Text)

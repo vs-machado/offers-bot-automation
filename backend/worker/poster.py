@@ -1,3 +1,4 @@
+import json
 import os
 import re
 from dataclasses import dataclass
@@ -61,6 +62,9 @@ class BotPoster:
         image_file: str | None = None,
         parse_mode: str | None = None,
         request_timeout: float = 20,
+        *,
+        reply_markup: dict | None = None,
+        disable_link_preview: bool = False,
     ) -> dict:
         """Send text or photo offer to chat and return Telegram result payload."""
         payload = {"chat_id": chat_id}
@@ -80,10 +84,16 @@ class BotPoster:
                 files = {"photo": open(image_file, "rb")}
         else:
             payload["text"] = text
+            if disable_link_preview:
+                payload["link_preview_options"] = {"is_disabled": True}
+        if reply_markup is not None:
+            payload["reply_markup"] = reply_markup
 
         try:
             async with httpx.AsyncClient(timeout=request_timeout) as client:
                 if files:
+                    if reply_markup is not None:
+                        payload["reply_markup"] = json.dumps(reply_markup)
                     response = await client.post(
                         self._url(method), data=payload, files=files
                     )
