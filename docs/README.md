@@ -33,6 +33,7 @@ sources are selected from a catalog of public Telegram groups.
 | [Development](development.md) | Environment, code structure, local checks, and CI |
 | [Migrations and legacy](migrations.md) | Alembic, upgrades, SQLite imports, and standalone runtime |
 | [WhatsApp technical specification](whatsapp-implementation.md) | Requirements, concurrency, policies, and validation criteria |
+| [X offer pilot](x-offers.md) | Selective manual drafts and opt-in automatic posting |
 
 ## Conventions
 
