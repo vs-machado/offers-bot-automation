@@ -9,6 +9,7 @@ from sqlalchemy import Column, MetaData, String, Table, create_engine, inspect
 from sqlalchemy.orm import Session
 
 from backend.app.core.delivery_history import get_delivery_history
+from backend.app.models.worker import PromotionDelivery
 from backend.app.schemas.delivery import DeliveryHistory
 from backend.worker.manager import UserBotInstance
 from backend.worker.posting_queue import QueuePoster
@@ -54,7 +55,7 @@ class DeliveryCouponTests(unittest.IsolatedAsyncioTestCase):
         QueuePoster(1)._publish("-100123", "Product", None, None, time.time() + 600)
         self.assertIsNone((await self.load_history()).items[0].coupon)
 
-    async def test_worker_preserves_each_llm_product_coupon_without_leaking(self):
+    async def test_worker_groups_product_links_and_preserves_coupon_text(self):
         products = [
             {
                 "title": "Product A",
@@ -93,20 +94,29 @@ class DeliveryCouponTests(unittest.IsolatedAsyncioTestCase):
                     }
                 ),
             ),
-            patch(
-                "backend.worker.manager.format_outgoing_offer",
-                AsyncMock(return_value="Product message"),
-            ),
         ):
-            await bot.process_message(
-                "source", 1, "\n".join(product["urls"][0] for product in products)
+            source = (
+                "Product A\nCupom: PRIME10\nhttps://amzn.to/a\n\n"
+                "Product B\nCupom: SAVE5 ou SAVE10\nhttps://amzn.to/b\n\n"
+                "Product C\nhttps://amzn.to/c"
             )
+            await bot.process_message("source", 1, source)
 
         history = await self.load_history()
-        self.assertEqual(
-            {item.title: item.coupon for item in history.items},
-            {"Product A": "PRIME10", "Product B": "SAVE5 ou SAVE10", "Product C": None},
+        self.assertEqual(len(history.items), 1)
+        delivery = history.items[0]
+        self.assertEqual(delivery.title, "Product A")
+        self.assertEqual(delivery.coupon, "PRIME10")
+        with Session(self.engine) as session:
+            stored = session.get(PromotionDelivery, delivery.id)
+            self.assertIsNotNone(stored)
+            post = stored.text
+        self.assertIn("Cupom: ```PRIME10```\nhttps://amzn.to/a?tag=example-20", post)
+        self.assertIn(
+            "Cupom: ```SAVE5``` ou ```SAVE10```\nhttps://amzn.to/b?tag=example-20",
+            post,
         )
+        self.assertIn("Product C\nhttps://amzn.to/c?tag=example-20", post)
         self.assertEqual(promotion_context.get().get("identity"), "source:123")
 
 

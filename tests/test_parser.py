@@ -479,11 +479,15 @@ class ParserTest(unittest.TestCase):
             "https://s.shopee.com.br/2qREachwMz"
         )
         offers = extract_offers(text)
-        self.assertEqual(len(offers), 2)
-        for i, o in enumerate(offers):
-            formatted = format_offer(o, f"https://s.shopee.com.br/aff{i}")
-            print(f"\n--- {self._testMethodName} (offer {i + 1}) ---\n{formatted}")
-            self.assertIsNone(o.coupon)
+        self.assertEqual(len(offers), 1)
+        offer = offers[0]
+        self.assertIsNone(offer.coupon)
+        formatted = asyncio.run(
+            format_outgoing_offer(offer, "https://s.shopee.com.br/aff1")
+        )
+        self.assertIn("R$ 35 OFF em R$ 299", formatted)
+        self.assertIn("https://s.shopee.com.br/aff1", formatted)
+        self.assertIn("https://s.shopee.com.br/2qREachwMz", formatted)
 
     def test_shopee_resgate_and_product_links_become_one_offer(self):
         text = (
@@ -639,11 +643,17 @@ class ParserTest(unittest.TestCase):
             "🔗https://amzn.to/49nNNP9"
         )
         offers = extract_offers(text)
-        self.assertEqual(len(offers), 8)
-        formatted = format_offer(offers[0], "https://amzn.to/aff123")
+        self.assertEqual(len(offers), 1)
+        self.assertEqual(len(offers[0].all_urls), 8)
+        formatted = asyncio.run(
+            format_outgoing_offer(offers[0], "https://amzn.to/aff123")
+        )
 
         print(f"\n--- {self._testMethodName} ---\n{formatted}")
-        self.assertIn("☑️ Cupom Amazon!", formatted)
+        self.assertIn("LISTA DE CUPONS AMAZON", formatted)
+        self.assertIn("https://amzn.to/aff123", formatted)
+        for link in offers[0].all_urls[1:]:
+            self.assertIn(link, formatted)
         self.assertIn("SMART300", formatted)
         self.assertIn("LEVE20", formatted)
         self.assertIn("CONSUMI10", formatted)
@@ -837,20 +847,19 @@ https://meli.la/1k61SVq
 
 -Dica NEGRETYH"""
         offers = extract_offers(text)
-        self.assertEqual(len(offers), 3)
-
-        for i, offer in enumerate(offers):
-            affiliate_url = f"https://meli.la/generated{i}"
-            formatted = format_offer(offer, affiliate_url)
-
-            # Original links should NOT be in the formatted output
-            self.assertNotIn("https://meli.la/2RNUWDH", formatted)
-            self.assertNotIn("https://meli.la/1zx1PDb", formatted)
-            self.assertNotIn("https://meli.la/1k61SVq", formatted)
-            self.assertNotIn("https://other.com/badtitle", formatted)
-
-            # Generated link SHOULD be in the formatted output
-            self.assertIn(affiliate_url, formatted)
+        self.assertEqual(len(offers), 1)
+        primary = "https://meli.la/generated0"
+        replacements = {
+            "https://meli.la/1zx1PDb": "https://meli.la/generated1",
+            "https://meli.la/1k61SVq": "https://meli.la/generated2",
+        }
+        formatted = asyncio.run(
+            format_outgoing_offer(offers[0], primary, url_replacements=replacements)
+        )
+        for original in (*offers[0].all_urls, "https://other.com/badtitle"):
+            self.assertNotIn(original, formatted)
+        for affiliate in (primary, *replacements.values()):
+            self.assertIn(affiliate, formatted)
 
     def test_ml_coupon_header_without_code_omits_cupom_line(self):
         text = (
@@ -862,11 +871,15 @@ https://meli.la/1k61SVq
             "https://meli.la/2k2Scmy"
         )
         offers = extract_offers(text)
-        self.assertEqual(len(offers), 2)
-        for offer in offers:
-            formatted = format_offer(offer, "https://meli.la/aff123")
-            self.assertNotIn("🎟️ Cupom:", formatted)
-            self.assertNotIn("🤑", formatted)
+        self.assertEqual(len(offers), 1)
+        formatted = asyncio.run(
+            format_outgoing_offer(offers[0], "https://meli.la/aff123")
+        )
+        self.assertIn("40% OFF em Smart Home", formatted)
+        self.assertIn("https://meli.la/aff123", formatted)
+        self.assertIn("https://meli.la/2k2Scmy", formatted)
+        self.assertNotIn("🎟️ Cupom:", formatted)
+        self.assertNotIn("🤑", formatted)
 
     def test_llm_novo_ml_coupon_without_code_falls_back(self):
         offer = Offer(

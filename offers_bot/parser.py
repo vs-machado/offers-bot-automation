@@ -13,7 +13,6 @@ from .source_cleanup import clean_source_advertising
 from .magalu import SHORT_HOSTS, is_magalu_url, resolve_product_url, valid_url
 
 
-MELI_SHORT_RE = re.compile(r"https?://meli\.la/[A-Za-z0-9]{7}", re.IGNORECASE)
 URL_RE = re.compile(r"https?://[^\s<>()]+", re.IGNORECASE)
 ML_HOST_RE = re.compile(r"(^|\.)mercadolivre\.com\.br$|(^|\.)meli\.la$", re.IGNORECASE)
 AMAZON_HOST_RE = re.compile(
@@ -171,6 +170,7 @@ def expand_magalu_short_links(text: str) -> str:
 
 
 def _extract_offers(text: str, llm_res: dict | None) -> list[Offer]:
+    """Extract at most one offer per message, keeping its supported URLs together."""
     logger = logging.getLogger(__name__)
     raw_text = text
     cleaned_text = clean_source_advertising(
@@ -245,11 +245,10 @@ def _extract_offers(text: str, llm_res: dict | None) -> list[Offer]:
             llm_coupon = prod.get("coupon") or None
             llm_meli_plus = prod.get("meli_plus_only", False)
 
-    offers: list[Offer] = []
     seen_urls: set[str] = set()
 
     found_urls = []
-    for url in [*MELI_SHORT_RE.findall(text), *URL_RE.findall(text)]:
+    for url in URL_RE.findall(text):
         clean_url = clean_offer_url(url)
         if not is_supported_offer_url(clean_url):
             continue
@@ -257,6 +256,9 @@ def _extract_offers(text: str, llm_res: dict | None) -> list[Offer]:
             continue
         seen_urls.add(clean_url)
         found_urls.append(clean_url)
+
+    if not found_urls:
+        return []
 
     def _offer_attrs(url: str):
         matched = llm_product_map.get(url)
@@ -288,8 +290,7 @@ def _extract_offers(text: str, llm_res: dict | None) -> list[Offer]:
         )
 
     if (
-        found_urls
-        and all(is_shopee_url(url) for url in found_urls)
+        all(is_shopee_url(url) for url in found_urls)
         and "resgate" in text.lower()
         and SHOPEE_EXPLICIT_PRODUCT_LABEL_RE.search(text)
         and _shopee_product_candidate(text, found_urls) is None
@@ -300,123 +301,28 @@ def _extract_offers(text: str, llm_res: dict | None) -> list[Offer]:
         )
         return []
 
-    shopee_resgate_url = pick_shopee_resgate_offer_url(text, found_urls)
-    if shopee_resgate_url:
-        _t, _p, _cp, _ins, _sh, _co, _mp, _prod = _offer_attrs(shopee_resgate_url)
-        offers.append(
-            Offer(
-                original_text=text.strip(),
-                url=shopee_resgate_url,
-                title=select_product_title(text, _t),
-                price=_p if _p is not None else extract_price(text),
-                card_price=_cp if _cp is not None else extract_card_price(text),
-                installment_info=_ins
-                if _ins is not None
-                else extract_installment_info(text),
-                shipping_info=_sh if _sh is not None else extract_shipping_info(text),
-                coupon=_co if _co is not None else extract_coupon(text),
-                meli_plus_only=_mp,
-                platform=detect_platform(shopee_resgate_url) or "",
-                all_urls=tuple(found_urls),
-                llm_result=llm_res,
-                llm_product=_prod,
-                raw_text=raw_text.strip(),
-            )
+    primary_url = pick_shopee_resgate_offer_url(text, found_urls) or found_urls[0]
+    _t, _p, _cp, _ins, _sh, _co, _mp, _prod = _offer_attrs(primary_url)
+    return [
+        Offer(
+            original_text=text.strip(),
+            url=primary_url,
+            title=select_product_title(text, _t),
+            price=_p if _p is not None else extract_price(text),
+            card_price=_cp if _cp is not None else extract_card_price(text),
+            installment_info=_ins
+            if _ins is not None
+            else extract_installment_info(text),
+            shipping_info=_sh if _sh is not None else extract_shipping_info(text),
+            coupon=_co if _co is not None else extract_coupon(text),
+            meli_plus_only=_mp,
+            platform=detect_platform(primary_url) or "",
+            all_urls=tuple(found_urls),
+            llm_result=llm_res,
+            llm_product=_prod,
+            raw_text=raw_text.strip(),
         )
-        return offers
-
-    # Special case: Shopee multi-link messages where one is a "Resgate" link
-    # and the other is a product link. We treat it as a single offer.
-    if len(found_urls) == 2 and all(is_shopee_url(u) for u in found_urls):
-        resgate_idx = -1
-        product_idx = -1
-        resgate_pos = text.lower().find("resgate")
-        for i, u in enumerate(found_urls):
-            url_pos = text.find(u)
-            if (
-                resgate_pos != -1
-                and url_pos >= resgate_pos
-                and not is_shopee_product_url(u)
-            ):
-                resgate_idx = i
-            if is_shopee_product_url(u):
-                product_idx = i
-
-        if resgate_idx != -1 and product_idx != -1:
-            _t, _p, _cp, _ins, _sh, _co, _mp, _prod = _offer_attrs(
-                found_urls[product_idx]
-            )
-            offers.append(
-                Offer(
-                    original_text=text.strip(),
-                    url=found_urls[product_idx],
-                    title=select_product_title(text, _t),
-                    price=_p if _p is not None else extract_price(text),
-                    card_price=_cp if _cp is not None else extract_card_price(text),
-                    installment_info=_ins
-                    if _ins is not None
-                    else extract_installment_info(text),
-                    shipping_info=_sh
-                    if _sh is not None
-                    else extract_shipping_info(text),
-                    coupon=_co if _co is not None else extract_coupon(text),
-                    meli_plus_only=_mp,
-                    platform=detect_platform(found_urls[product_idx]) or "",
-                    all_urls=tuple(found_urls),
-                    llm_result=llm_res,
-                    llm_product=_prod,
-                    raw_text=raw_text.strip(),
-                )
-            )
-            return offers
-
-    # Special case: AliExpress multi-link messages
-    if all(is_aliexpress_url(u) for u in found_urls) and len(found_urls) > 1:
-        _t, _p, _cp, _ins, _sh, _co, _mp, _prod = _offer_attrs(found_urls[0])
-        offers.append(
-            Offer(
-                original_text=text.strip(),
-                url=found_urls[0],
-                title=select_product_title(text, _t),
-                price=_p if _p is not None else extract_price(text),
-                card_price=_cp if _cp is not None else extract_card_price(text),
-                installment_info=_ins
-                if _ins is not None
-                else extract_installment_info(text),
-                shipping_info=_sh if _sh is not None else extract_shipping_info(text),
-                coupon=_co if _co is not None else extract_coupon(text),
-                meli_plus_only=_mp,
-                platform=detect_platform(found_urls[0]) or "",
-                all_urls=tuple(found_urls),
-                llm_result=llm_res,
-                llm_product=_prod,
-                raw_text=raw_text.strip(),
-            )
-        )
-        return offers
-
-    for clean_url in found_urls:
-        _t, _p, _cp, _ins, _sh, _co, _mp, _prod = _offer_attrs(clean_url)
-        offers.append(
-            Offer(
-                original_text=text.strip(),
-                url=clean_url,
-                title=select_product_title(text, _t),
-                price=_p if _p is not None else extract_price(text),
-                card_price=_cp if _cp is not None else extract_card_price(text),
-                installment_info=_ins
-                if _ins is not None
-                else extract_installment_info(text),
-                shipping_info=_sh if _sh is not None else extract_shipping_info(text),
-                coupon=_co if _co is not None else extract_coupon(text),
-                meli_plus_only=_mp,
-                platform=detect_platform(clean_url) or "",
-                llm_result=llm_res,
-                llm_product=_prod,
-                raw_text=raw_text.strip(),
-            )
-        )
-    return offers
+    ]
 
 
 def _shopee_product_candidate(text: str, found_urls: list[str]) -> str | None:
@@ -445,8 +351,7 @@ def pick_shopee_resgate_offer_url(text: str, found_urls: list[str]) -> str | Non
 
     Short Shopee links do not expose product ids without a network redirect, so
     explicit labels near each URL are the primary signal. Coupon-only bulletins
-    must keep returning multiple offers instead of being collapsed into the
-    coupon landing page.
+    use the first URL as their primary link and keep all redemption links.
     """
     if len(found_urls) < 2 or not all(is_shopee_url(u) for u in found_urls):
         return None
