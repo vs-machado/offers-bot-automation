@@ -5,6 +5,7 @@ from datetime import datetime, timedelta, timezone
 import logging
 import os
 import re
+from urllib.parse import urlsplit
 
 import httpx
 
@@ -12,6 +13,14 @@ LOGGER = logging.getLogger(__name__)
 ENDPOINT = "https://api.buffer.com"
 CHANNEL_QUERY = """query OfferChannel($id: ChannelId!) {
   channel(input: {id: $id}) { id name service isLocked isDisconnected isQueuePaused }
+}"""
+POSTS_CHANNEL = """query PostsChannel($id: ChannelId!) {
+  channel(input: {id: $id}) { id service organizationId }
+}"""
+RECENT_POSTS = """query RecentXPosts($input: PostsInput!) {
+  posts(first: 6, input: $input) {
+    edges { node { id channelId text status sentAt externalLink } }
+  }
 }"""
 CREATE_POST = """mutation ShareOffer($input: CreatePostInput!) {
   createPost(input: $input) {
@@ -64,6 +73,49 @@ class BufferPublisher:
             return channel.get("name") or channel["id"]
         except (httpx.HTTPError, KeyError, TypeError, ValueError):
             return None
+
+    def recent_posts(self) -> list[dict]:
+        """Read recent sent Buffer posts for the configured X channel."""
+        channel = self._graphql(POSTS_CHANNEL, {"id": self.channel_id})["channel"]
+        if (
+            not channel
+            or channel["id"] != self.channel_id
+            or channel["service"] != "twitter"
+        ):
+            raise ValueError("Not an X channel")
+        data = self._graphql(
+            RECENT_POSTS,
+            {
+                "input": {
+                    "organizationId": channel["organizationId"],
+                    "filter": {"status": ["sent"], "channelIds": [self.channel_id]},
+                    "sort": [{"field": "dueAt", "direction": "desc"}],
+                }
+            },
+        )
+        posts = []
+        for edge in data["posts"]["edges"]:
+            node = edge["node"]
+            if node["channelId"] != self.channel_id or node["status"] != "sent":
+                continue
+            url = node["externalLink"]
+            parsed = urlsplit(url or "")
+            if parsed.scheme != "https" or parsed.netloc not in {
+                "x.com",
+                "twitter.com",
+                "www.x.com",
+                "www.twitter.com",
+            }:
+                url = None
+            posts.append(
+                {
+                    "id": node["id"],
+                    "text": node["text"],
+                    "sent_at": node["sentAt"],
+                    "url": url,
+                }
+            )
+        return sorted(posts, key=lambda post: post["sent_at"] or "", reverse=True)
 
     def publish(self, text: str, expires: datetime) -> str:
         """Confirm the target, then submit Share Now once; acceptance is not delivery."""

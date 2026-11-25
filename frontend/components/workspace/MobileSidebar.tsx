@@ -1,15 +1,13 @@
 "use client";
 
 import { Dialog } from "@base-ui/react/dialog";
-import { Menu, ShieldCheck, X } from "lucide-react";
+import { Menu, X } from "lucide-react";
 import Image from "next/image";
-import Link from "next/link";
 import { useState } from "react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { LogoutButton } from "@/components/workspace/LogoutButton";
 import { WorkspaceNavigation } from "@/components/workspace/WorkspaceNavigation";
-import { usePathname } from "next/navigation";
 
 type MobileSidebarProps = {
   userEmail: string;
@@ -25,7 +23,6 @@ export function MobileSidebar({
   isAdmin,
 }: MobileSidebarProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const pathname = usePathname();
 
   return (
     <Dialog.Root open={isOpen} onOpenChange={setIsOpen}>
@@ -66,17 +63,7 @@ export function MobileSidebar({
           <div className="flex-1 space-y-1 overflow-y-auto p-3">
             <WorkspaceNavigation onNavigate={() => setIsOpen(false)} />
             {isAdmin ? (
-              <Link
-                href="/admin/source-groups"
-                aria-current={
-                  pathname.startsWith("/admin") ? "page" : undefined
-                }
-                onClick={() => setIsOpen(false)}
-                className="flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:outline-2 focus-visible:outline-ring aria-[current=page]:bg-sidebar-primary/15 aria-[current=page]:font-semibold aria-[current=page]:text-primary aria-[current=page]:inset-ring-1 aria-[current=page]:inset-ring-sidebar-primary/30 dark:aria-[current=page]:text-sidebar-primary"
-              >
-                <ShieldCheck aria-hidden="true" className="size-4" />
-                Administração
-              </Link>
+              <div className="mt-4"><WorkspaceNavigation admin onNavigate={() => setIsOpen(false)} /></div>
             ) : null}
           </div>
           <div className="border-t border-sidebar-border p-4">

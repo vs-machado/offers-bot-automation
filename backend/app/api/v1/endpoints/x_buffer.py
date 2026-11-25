@@ -3,6 +3,7 @@ import os
 from typing import Annotated, Literal
 from urllib.parse import urlsplit
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field, SecretStr, StringConstraints, field_validator
 from sqlalchemy import select
@@ -148,3 +149,21 @@ async def check_buffer_settings(db: AsyncSession = Depends(get_db)):
             "Não foi possível validar o perfil do X. Confira a chave, o canal e a conexão no Buffer.",
         )
     return {"account": account}
+
+
+@router.get("/x-buffer/posts")
+async def get_recent_x_posts(db: AsyncSession = Depends(get_db)):
+    """Read recent published posts without blocking settings or issuing a write to Buffer."""
+    settings = await db.get(XBufferSettings, 1)
+    if not settings or not settings.encrypted_key or not settings.channel_id:
+        return {"configured": False, "posts": []}
+    publisher = BufferPublisher(
+        decrypt_config(settings.encrypted_key, 1, "x_buffer"), settings.channel_id
+    )
+    try:
+        posts = await asyncio.to_thread(publisher.recent_posts)
+    except (httpx.HTTPError, KeyError, TypeError, ValueError) as exc:
+        raise HTTPException(
+            502, "Não foi possível carregar as publicações do Buffer."
+        ) from exc
+    return {"configured": True, "posts": posts}
