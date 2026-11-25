@@ -230,8 +230,8 @@ class QueuePoster:
                 return {"status": "duplicate"}
             inserted = conn.execute(
                 """INSERT INTO promotion_deliveries
-                (id,user_id,chat_id,status,expires_at,title,platform,source_at,dedup_key,price,connection_id,affiliate_url,coupon,text,image_url,enqueue_ms,category)
-                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT (id) DO NOTHING RETURNING id""",
+                (id,user_id,chat_id,status,expires_at,title,platform,source_at,dedup_key,price,connection_id,affiliate_url,coupon,text,image_url,enqueue_ms,category,source_group_url)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT (id) DO NOTHING RETURNING id""",
                 (
                     identity,
                     self.user_id,
@@ -253,6 +253,7 @@ class QueuePoster:
                     and (received := received_monotonic.get()) is not None
                     else None,
                     context.get("category"),
+                    context.get("source_group_url"),
                 ),
             ).fetchone()
             if inserted and is_whatsapp and destination[1] == "channel" and not expired:

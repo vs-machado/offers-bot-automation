@@ -10,6 +10,7 @@ from hashlib import sha256
 import logging
 import os
 import re
+import unicodedata
 from urllib.parse import urlencode, urlsplit
 from zoneinfo import ZoneInfo
 
@@ -29,6 +30,17 @@ PRICE = re.compile(
     r"R\$\s*((?:[0-9]{1,3}(?:\.[0-9]{3})+|[0-9]{1,7})(?:,[0-9]{2})?)(?:\s+(?:no|via)\s+(Pix))?",
     re.I,
 )
+FEATURED_PRODUCT = re.compile(
+    r"^(?:(?:smartphone|celular|iphone|notebook|laptop|tablet|smartwatch|"
+    r"monitor|(?:smart\s+)?tv|console|headset|fone(?:s)?\s+(?:de\s+ouvido|bluetooth)|"
+    r"air\s*fryer|fritadeira(?:\s+eletrica)?|cafeteira|liquidificador|"
+    r"aspirador|robo\s+aspirador|lava\s+loucas|lavadora|lava\s+e\s+seca|"
+    r"geladeira|refrigerador|freezer|micro[\s-]?ondas|ar[\s-]+condicionado)\b)"
+)
+ACCESSORY_OR_PART = re.compile(
+    r"\b(?:capa|pelicula|suporte|carregador|adaptador|cabo|refil|reposicao|avulso|"
+    r"peca|pecas|filtro|controle\s+remoto|somente\s+a\s+jarra)\s+(?:para|compativel\s+com|de)\b"
+)
 
 
 @dataclass(frozen=True)
@@ -37,6 +49,7 @@ class Settings:
     chat_id: str
     landing_url: str
     daily_limit: int = 1
+    priority_source_url: str | None = None
 
     @classmethod
     def from_env(cls):
@@ -47,7 +60,7 @@ class Settings:
             chat_id = os.getenv("X_OFFERS_CHAT_ID", "").strip()
             landing = os.getenv("X_OFFERS_LANDING_URL", "").strip()
             url = urlsplit(landing)
-            if not (user_id > 0 and chat_id and 1 <= limit <= 2):
+            if not (user_id > 0 and chat_id and 1 <= limit <= 10):
                 raise ValueError
             if (
                 url.scheme != "https"
@@ -132,7 +145,7 @@ def render(offer: Offer, url: str, savings: Decimal | None = None) -> str | None
 
 
 def rank(fresh, history, url: str):
-    """Rank at least 20% and R$20 below the lowest like-for-like observed price."""
+    """Reproduce historical ranking for offline comparison; not used for publishing."""
     lowest = {}
     for row in history:
         if offer := parse_offer(row):
@@ -157,46 +170,56 @@ def rank(fresh, history, url: str):
     return list(unique.values())
 
 
+def is_featured_product(title: str) -> bool:
+    """Require a recognized lead product, not an accessory mentioning one."""
+    normalized = "".join(
+        char
+        for char in unicodedata.normalize("NFKD", title.casefold())
+        if not unicodedata.combining(char)
+    )
+    return bool(
+        FEATURED_PRODUCT.match(normalized) and not ACCESSORY_OR_PART.search(normalized)
+    )
+
+
 def candidates(conn, settings: Settings, now: datetime, min_remaining: int = 20):
-    """Read only the configured destination's automatic sent deliveries; never replay expired rows."""
-    base = """SELECT d.id, d.platform, d.text, d.affiliate_url, d.expires_at, d.title
-              FROM promotion_deliveries d
-              WHERE d.user_id=%s AND d.chat_id=%s AND d.status='sent'
-              AND NOT d.manual AND d.category <> 'coupon' AND d.coupon IS NULL
-              AND d.text IS NOT NULL AND d.affiliate_url IS NOT NULL AND d.title IS NOT NULL"""
-    scope = (settings.user_id, settings.chat_id)
+    """Select fresh offers for featured products from the configured destination."""
+    source_order = (
+        "COALESCE(d.source_group_url = %s, FALSE) DESC, "
+        if settings.priority_source_url
+        else ""
+    )
+    source_params = (
+        (settings.priority_source_url,) if settings.priority_source_url else ()
+    )
     fresh = conn.execute(
-        base
-        + """ AND d.created_at > %s AND d.expires_at > %s AND d.updated_at <= %s
-                  AND EXISTS (SELECT 1 FROM destination_channels c
-                      WHERE c.user_id=d.user_id AND c.chat_id=d.chat_id AND c.enabled)
-                  ORDER BY d.created_at DESC LIMIT 150""",
+        f"""SELECT d.id, d.platform, d.text, d.affiliate_url, d.expires_at
+           FROM promotion_deliveries d
+           WHERE d.user_id=%s AND d.chat_id=%s AND d.status='sent'
+             AND NOT d.manual AND d.category <> 'coupon' AND d.coupon IS NULL
+             AND d.text IS NOT NULL AND d.affiliate_url IS NOT NULL
+             AND d.created_at > %s AND d.expires_at > %s AND d.updated_at <= %s
+             AND EXISTS (SELECT 1 FROM destination_channels c
+                 WHERE c.user_id=d.user_id AND c.chat_id=d.chat_id AND c.enabled)
+           ORDER BY {source_order}d.created_at DESC, d.expires_at DESC, d.id DESC LIMIT 150""",
         (
-            *scope,
+            settings.user_id,
+            settings.chat_id,
             now - timedelta(minutes=10),
             now + timedelta(seconds=min_remaining),
             now - timedelta(seconds=45),
+            *source_params,
         ),
     ).fetchall()
-    fresh = [row for row in fresh if parse_offer(row[:5])]
-    if not fresh:
-        return []
-    history = conn.execute(
-        base
-        + """ AND d.created_at BETWEEN %s AND %s
-                  AND d.platform = ANY(%s) AND d.title = ANY(%s)
-                  ORDER BY d.created_at DESC LIMIT 3000""",
-        (
-            *scope,
-            now - timedelta(days=30),
-            now - timedelta(days=1),
-            sorted({row[1] for row in fresh}),
-            sorted({row[5] for row in fresh}),
-        ),
-    ).fetchall()
-    return rank(
-        (row[:5] for row in fresh), (row[:5] for row in history), settings.landing_url
-    )
+    offers = {}
+    for row in fresh:
+        if (
+            (offer := parse_offer(row))
+            and is_featured_product(offer.title)
+            and (text := render(offer, settings.landing_url))
+        ):
+            offers.setdefault(offer.key, (offer, text))
+    return list(offers.values())
 
 
 def reserve(settings: Settings, now: datetime, min_remaining: int = 20):
@@ -205,6 +228,7 @@ def reserve(settings: Settings, now: datetime, min_remaining: int = 20):
     if not 8 <= local.hour < 22:
         return None
     midnight = datetime.combine(local.date(), time.min, BRAZIL)
+    spacing = timedelta(hours=min(4, 14 / settings.daily_limit))
     with connect() as conn:
         conn.execute("SELECT pg_advisory_xact_lock(%s)", (571406195092147,))
         recent = conn.execute(
@@ -212,11 +236,11 @@ def reserve(settings: Settings, now: datetime, min_remaining: int = 20):
             (now - timedelta(days=7),),
         ).fetchall()
         if sum(stamp >= midnight for _, stamp in recent) >= settings.daily_limit or any(
-            stamp > now - timedelta(hours=4) for _, stamp in recent
+            stamp > now - spacing for _, stamp in recent
         ):
             return None
         seen = {key for key, _ in recent}
-        for offer, text, _, _ in candidates(conn, settings, now, min_remaining):
+        for offer, text in candidates(conn, settings, now, min_remaining):
             if offer.key in seen:
                 continue
             claimed = conn.execute(
@@ -292,14 +316,15 @@ def dashboard_buffer_once():
     with connect() as conn:
         row = conn.execute(
             """SELECT d.user_id, d.chat_id, x.landing_url, x.daily_limit,
-                      x.channel_id, x.encrypted_key
+                      x.channel_id, x.encrypted_key, s.url
                FROM x_buffer_settings x
                JOIN destination_channels d ON d.id=x.destination_id AND d.enabled
+               LEFT JOIN source_groups s ON s.id=x.priority_source_id AND s.enabled
                WHERE x.id=1 AND x.enabled"""
         ).fetchone()
     if row:
-        user_id, chat_id, landing_url, limit, channel_id, secret = row
-        settings = Settings(user_id, chat_id, landing_url, limit)
+        user_id, chat_id, landing_url, limit, channel_id, secret, priority_url = row
+        settings = Settings(user_id, chat_id, landing_url, limit, priority_url)
         publisher = BufferPublisher(decrypt_config(secret, 1, "x_buffer"), channel_id)
         buffer_once(settings, publisher)
 
@@ -438,14 +463,12 @@ def main():
     except ValueError as exc:
         parser.error(str(exc))
     with connect() as conn:
-        ranked = candidates(conn, settings, datetime.now(timezone.utc))
-    if not ranked:
+        shortlist = candidates(conn, settings, datetime.now(timezone.utc))
+    if not shortlist:
         print("Nenhuma oferta recente atingiu os critérios.")
         return
-    offer, text, discount, savings = ranked[0]
-    print(
-        f"Entrega {offer.delivery_id} | {discount:.0%} abaixo do histórico | economia: R$ {savings:.2f}"
-    )
+    offer, text = shortlist[0]
+    print(f"Entrega {offer.delivery_id}")
     print(text)
     print("\nAbrir rascunho no X: " + composer_url(text))
 

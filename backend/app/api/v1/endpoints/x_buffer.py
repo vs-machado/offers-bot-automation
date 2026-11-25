@@ -1,6 +1,6 @@
 import asyncio
 import os
-from typing import Annotated, Literal
+from typing import Annotated
 from urllib.parse import urlsplit
 
 import httpx
@@ -13,7 +13,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.app.api.v1.endpoints.auth import require_admin
 from backend.app.core.credentials import decrypt_config, encrypt_config
 from backend.app.core.db.session import get_db
-from backend.app.models.user import DestinationChannel
+from backend.app.core.source_groups import enabled_source_groups
+from backend.app.models.user import DestinationChannel, SourceGroup
 from backend.app.models.worker import XBufferSettings, XOfferAttempt
 from backend.worker.buffer_publisher import BufferPublisher
 
@@ -25,7 +26,8 @@ class BufferWrite(BaseModel):
     destination_id: int | None = Field(default=None, gt=0)
     landing_url: str = Field(max_length=1000)
     channel_id: Annotated[str, StringConstraints(pattern=r"^[A-Za-z0-9_-]{0,128}$")]
-    daily_limit: Literal[1, 2]
+    daily_limit: int = Field(ge=1, le=10, strict=True)
+    priority_source_id: int | None = Field(default=None, gt=0)
     api_key: SecretStr | None = None
 
     @field_validator("landing_url")
@@ -47,6 +49,7 @@ class BufferWrite(BaseModel):
 
 async def _state(db):
     settings = await db.get(XBufferSettings, 1, populate_existing=True)
+    sources = await enabled_source_groups(db)
     destinations = (
         (
             await db.execute(
@@ -82,10 +85,14 @@ async def _state(db):
             "landing_url": settings.landing_url if settings else "",
             "channel_id": settings.channel_id if settings else "",
             "daily_limit": settings.daily_limit if settings else 1,
+            "priority_source_id": settings.priority_source_id if settings else None,
             "has_api_key": bool(settings and settings.encrypted_key),
         },
         "dashboard_managed": os.getenv("X_OFFERS_MODE", "dashboard") == "dashboard",
         "destinations": [dict(item) for item in destinations],
+        "source_groups": [
+            {"id": source.id, "label": source.label} for source in sources
+        ],
         "attempts": [dict(item) for item in attempts],
     }
 
@@ -108,6 +115,10 @@ async def put_buffer_settings(body: BufferWrite, db: AsyncSession = Depends(get_
         dest = await db.get(DestinationChannel, body.destination_id)
         if not dest or not dest.enabled:
             raise HTTPException(422, "Selecione um destino ativo.")
+    if body.priority_source_id is not None:
+        source = await db.get(SourceGroup, body.priority_source_id)
+        if not source or not source.enabled:
+            raise HTTPException(422, "Selecione um grupo de origem ativo.")
     current = await db.get(XBufferSettings, 1)
     if body.enabled and not (
         body.destination_id

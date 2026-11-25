@@ -26,6 +26,14 @@ export function BufferSettingsForm({ initial }: { initial: BufferState }) {
   const [enabled, setEnabled] = useState(settings.enabled);
   const [destination, setDestination] = useState(String(settings.destination_id ?? ""));
   const [dailyLimit, setDailyLimit] = useState(String(settings.daily_limit));
+  const [prioritySource, setPrioritySource] = useState(String(settings.priority_source_id ?? ""));
+  const priorityOptions = [
+    { value: "", label: "Sem preferência" },
+    ...state.source_groups.map((source) => ({ value: String(source.id), label: source.label })),
+  ];
+  if (prioritySource && !priorityOptions.some((option) => option.value === prioritySource)) {
+    priorityOptions.push({ value: prioritySource, label: "Grupo não disponível" });
+  }
   const destinationOptions = [
     { value: "", label: "Selecione um destino" },
     ...state.destinations.map((dest) => ({
@@ -62,6 +70,7 @@ export function BufferSettingsForm({ initial }: { initial: BufferState }) {
         channel_id: String(data.get("channel_id") ?? "").trim(),
         landing_url: String(data.get("landing_url") ?? "").trim(),
         daily_limit: Number(dailyLimit),
+        priority_source_id: Number(prioritySource) || null,
         ...(key ? { api_key: key } : {}),
       });
       setState(updated);
@@ -101,8 +110,13 @@ export function BufferSettingsForm({ initial }: { initial: BufferState }) {
                 </div>
                 <div className="grid gap-1.5">
                   <label htmlFor="x-buffer-limit" className="font-medium">Limite diário</label>
-                  <SelectField id="x-buffer-limit" value={dailyLimit} options={[{ value: "1", label: "1 oferta" }, { value: "2", label: "2 ofertas" }]} onValueChange={setDailyLimit} disabled={busy} />
+                  <SelectField id="x-buffer-limit" value={dailyLimit} options={Array.from({ length: 10 }, (_, i) => ({ value: String(i + 1), label: i === 0 ? "1 oferta" : `${i + 1} ofertas` }))} onValueChange={setDailyLimit} disabled={busy} />
                 </div>
+              </div>
+              <div className="grid gap-1.5">
+                <label htmlFor="x-buffer-priority-source" className="font-medium">Grupo de origem prioritário</label>
+                <SelectField id="x-buffer-priority-source" value={prioritySource} options={priorityOptions} onValueChange={setPrioritySource} disabled={busy} />
+                <p className="text-muted-foreground">Se houver uma oferta elegível deste grupo no destino escolhido, ela terá prioridade.</p>
               </div>
               <label className="grid gap-1.5 font-medium">Página de ofertas da VSM
                 <input className={input} name="landing_url" type="url" maxLength={1000} defaultValue={settings.landing_url} placeholder="https://…" />

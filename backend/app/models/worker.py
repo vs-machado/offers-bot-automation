@@ -122,6 +122,7 @@ class PromotionDelivery(Base):
     attempts: Mapped[int] = mapped_column(server_default="0")
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     source_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    source_group_url: Mapped[str | None] = mapped_column(String(255))
     dedup_key: Mapped[str | None] = mapped_column(String(64))
     enqueue_ms: Mapped[int | None]
     connection_id: Mapped[int | None] = mapped_column(
@@ -175,4 +176,9 @@ class XBufferSettings(Base):
     landing_url: Mapped[str] = mapped_column(String(1000))
     channel_id: Mapped[str] = mapped_column(String(128))
     daily_limit: Mapped[int]
+    priority_source_id: Mapped[int | None] = mapped_column(
+        ForeignKey(
+            "source_groups.id", name="fk_x_buffer_priority_source", ondelete="SET NULL"
+        )
+    )
     encrypted_key: Mapped[str] = mapped_column(Text)

@@ -5,9 +5,8 @@ For unattended posting without X API credits or AI tokens, see
 `X_OFFERS_MODE=draft` sends offers to your private Telegram chat. Tap **Revisar no
 X**, verify the deal and selected account, then click **Post** yourself.
 Use a pinned welcome post explaining what followers will get and linking to
-VSM's landing page. Lead with product and price. Include the savings compared
-with the bot's own observed history when it fits; skip generic hooks and trending
-hashtags. For a manual post,
+VSM's landing page. Lead with product and the advertised price. Skip generic
+hooks, unverified savings claims, and trending hashtags. For a manual post,
 one topical hashtag is reasonable if it helps people find the deal.
 
 ## Shared setup and draft preview
@@ -22,7 +21,7 @@ In the Offers Bot worker environment, set:
 | `X_OFFERS_MODE` | `buffer` for Share Now; `draft` for Telegram review prompts; `off` (default) for CLI previews only; `auto` for direct X API publishing; `browser` for Chromium publishing |
 | `X_OFFERS_DRAFT_TELEGRAM_CHAT_ID` | Your numeric Telegram user ID, not a group, channel, or username |
 | `TELEGRAM_BOT_TOKEN` | Existing Offers Bot token; needed for `draft` mode |
-| `X_OFFERS_DAILY_LIMIT` | `1` (default) or `2` draft/send attempts per day |
+| `X_OFFERS_DAILY_LIMIT` | `1` (default) through `10` draft/send attempts per day |
 
 For `draft` mode, open a private chat with the bot and tap **Start** so it
 can message you. After deploying migration `0026_x_offer_attempts`, set the worker
@@ -48,11 +47,18 @@ pilot. Cap manual publishing at one post per day to start.
 - The offer must already be sent by Offers Bot to the configured destination,
   still be within its send deadline, and have been marked sent for at least 45
   seconds. No queued, failed, manual, or expired deliveries.
-- Compare against the lowest comparable price observed by the bot from 1–30
-  days ago, with the same store, product title and payment terms. Require both
-  **20% and R$20 savings**; rank by percentage, then amount saved. This is offer
-  history, not an independent price, inventory, or checkout verification.
-- V1 skips no-history products, coupon offers, offers with extra purchase or
+- Prefer eligible offers from the optional priority Telegram source selected in
+  the dashboard. Fall back to other sources when none qualifies. This setting
+  ranks offers already sent to the selected destination; it does not subscribe
+  the bot to a new source.
+- Pick the newest eligible offer from a product shortlist: phones, computers,
+  TVs, monitors, gaming consoles, headphones, and recognizable home and kitchen
+  appliances. Titles must identify the product itself; accessories, spare parts,
+  and unknown product types do not qualify. If the shortlist is empty, skip.
+- A first-time product can qualify; price history and minimum savings are not
+  required. Posts show the advertised price without claiming a discount or
+  independently verifying checkout or stock.
+- The selector skips coupon offers, offers with extra purchase or
   shipping instructions, and ambiguous/multi-link posts. It keeps `no Pix`
   when applicable. If nothing qualifies, skip rather than weakening the filter.
 - The copy links to the VSM landing page for the group, not directly to checkout.
@@ -65,7 +71,7 @@ pilot. Cap manual publishing at one post per day to start.
    Create a personal [Buffer API key](https://developers.buffer.com/guides/authentication.md)
    and use [Get Channels](https://developers.buffer.com/examples/get-channels.md)
    to find VSM's channel ID (`service: twitter`).
-2. Deploy with migration `0027_x_buffer_settings` and `X_OFFERS_MODE=dashboard`
+2. Deploy with migration `0028_x_source_priority` and `X_OFFERS_MODE=dashboard`
    (the default). Open **Publicação no X** from the admin sidebar. Select the
    destination, enter the landing URL, channel ID, and personal key, then save.
 3. Use **Testar conexão salva** to verify the X account without publishing.
@@ -130,9 +136,10 @@ Confirm your X app is approved for this promotional use before enabling auto.
 3. Deploy with database migration `0026_x_offer_attempts`, set `X_OFFERS_MODE=auto`,
    and restart the worker. Set it back to `off` and restart to disable posting.
 
-In `buffer`, `browser`, `draft` and `auto`, the worker checks every minute between 08:00 and
-22:00 São Paulo time, spaces attempts at least four hours apart, and suppresses
-repeat store/title offers for seven days. Attempts count against the cap even
+In `buffer`, `browser`, `draft` and `auto`, the worker checks every minute from
+08:00 until 22:00 São Paulo time. Attempts are spaced at least four hours apart
+for limits of 1–3; for higher limits the minimum is the 14-hour window divided
+by the limit. Repeat store/title offers are suppressed for seven days. Attempts count against the cap even
 when rejected or uncertain. Drafts require at least 90 seconds of freshness at
 selection so you have time to review them.
 The database records reservations before sending; there is no automatic retry

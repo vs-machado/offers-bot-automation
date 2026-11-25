@@ -263,6 +263,7 @@ class UserBotInstance:
                         "coupon": (offer.coupon or "").strip()[:200] or None,
                         "platform": PLATFORM_LABELS.get(offer.platform),
                         "identity": f"{source_chat}:{message_id}:{offer.url}",
+                        "source_group_url": source_chat,
                         "category": category,
                         "is_gaming": is_gaming_offer(
                             offer.title or "", getattr(offer, "llm_product", None)
