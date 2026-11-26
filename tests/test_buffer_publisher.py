@@ -26,6 +26,28 @@ class BufferPublisherTests(unittest.TestCase):
         }
 
     @patch("backend.worker.buffer_publisher.httpx.post")
+    def test_share_now_attaches_the_product_image(self, post):
+        post.side_effect = [
+            response({"channel": self.channel}),
+            response(
+                {
+                    "createPost": {
+                        "__typename": "PostActionSuccess",
+                        "post": {"id": "receipt-1", "status": "sent"},
+                    }
+                }
+            ),
+        ]
+        caption = "iPhone 16e\n\n💰 R$ 2.969,00\n\n🔗 Link do produto:\nhttps://amzn.to/deal\n\n- Anúncio"
+        photo = "https://cdn.example.com/offer.jpg"
+        status = self.publisher.publish(caption, self.expires, image_url=photo)
+
+        self.assertEqual(status, "buffer_sent")
+        payload = post.call_args.kwargs["json"]["variables"]["input"]
+        self.assertEqual(payload["text"], caption)
+        self.assertEqual(payload["assets"], [{"image": {"url": photo}}])
+
+    @patch("backend.worker.buffer_publisher.httpx.post")
     def test_share_now_acceptance_is_not_reported_as_published(self, post):
         post.side_effect = [
             response({"channel": self.channel}),

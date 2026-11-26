@@ -123,11 +123,10 @@ async def put_buffer_settings(body: BufferWrite, db: AsyncSession = Depends(get_
     if body.enabled and not (
         body.destination_id
         and body.channel_id
-        and body.landing_url
         and (token or (current and current.encrypted_key))
     ):
         raise HTTPException(
-            422, "Preencha o destino, a URL, o canal e a chave antes de ativar."
+            422, "Preencha o destino, o canal e a chave antes de ativar."
         )
     values = body.model_dump(exclude={"api_key"})
     encrypted_key = encrypt_config(token, 1, "x_buffer") if token else ""

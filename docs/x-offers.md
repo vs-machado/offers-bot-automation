@@ -17,7 +17,7 @@ In the Offers Bot worker environment, set:
 | --- | --- |
 | `X_OFFERS_USER_ID` | Internal numeric owner ID for VSM Ofertas |
 | `X_OFFERS_CHAT_ID` | Exact destination ID of the enabled VSM offers channel whose deals people can find from the landing page |
-| `X_OFFERS_LANDING_URL` | Public HTTPS VSM landing page that leads to that group/channel; optionally add `utm_source=x&utm_medium=social&utm_campaign=ofertas` |
+| `X_OFFERS_LANDING_URL` | Public HTTPS VSM landing page used by non-Buffer modes; optional for Buffer. For the profile or pinned post, optionally add `utm_source=x&utm_medium=social&utm_campaign=ofertas`. |
 | `X_OFFERS_MODE` | `buffer` for Share Now; `draft` for Telegram review prompts; `off` (default) for CLI previews only; `auto` for direct X API publishing; `browser` for Chromium publishing |
 | `X_OFFERS_DRAFT_TELEGRAM_CHAT_ID` | Your numeric Telegram user ID, not a group, channel, or username |
 | `TELEGRAM_BOT_TOKEN` | Existing Offers Bot token; needed for `draft` mode |
@@ -61,9 +61,8 @@ pilot. Cap manual publishing at one post per day to start.
 - The selector skips coupon offers, offers with extra purchase or
   shipping instructions, and ambiguous/multi-link posts. It keeps `no Pix`
   when applicable. If nothing qualifies, skip rather than weakening the filter.
-- The copy links to the VSM landing page for the group, not directly to checkout.
-  Verify the page actually leads to the same deal feed. It discloses that the
-  group uses affiliate links.
+- Non-Buffer modes link to the VSM landing page for the group and disclose that
+  the group uses affiliate links. Buffer uses the original offer caption and link.
 
 ## Buffer publishing (recommended)
 
@@ -73,7 +72,7 @@ pilot. Cap manual publishing at one post per day to start.
    to find VSM's channel ID (`service: twitter`).
 2. Deploy with migration `0028_x_source_priority` and `X_OFFERS_MODE=dashboard`
    (the default). Open **Publicação no X** from the admin sidebar. Select the
-   destination, enter the landing URL, channel ID, and personal key, then save.
+   destination, enter the channel ID and personal key, then save.
 3. Use **Testar conexão salva** to verify the X account without publishing.
    Enable publishing and save when ready. The worker applies changes on its next
    poll (normally within one minute); an in-flight post can still finish. Check
@@ -83,6 +82,21 @@ The dashboard stores the key encrypted and never shows it again. Leave the key
 field empty to keep the saved key, or enter a replacement and save. For an
 environment-managed installation, use `X_OFFERS_MODE=buffer` with the shared
 source settings, `X_OFFERS_BUFFER_API_KEY`, and `X_OFFERS_BUFFER_CHANNEL_ID`.
+
+Buffer posts keep the delivered caption verbatim: product name, price, line
+breaks, affiliate product link, and ad disclosure. The product image is an X
+photo attachment. Eligible offers need both a caption that fits a standard
+280-character X post and an image available to Buffer over public HTTPS. Buffer
+skips offers without either, instead of posting shortened or text-only copy.
+Keep the WhatsApp landing page in the X bio or pinned post.
+
+Stored HTTPS image URLs work when Buffer can fetch them directly. For images
+that WhatsApp received as local attachments, use the existing [storefront
+thumbnails](storefront-thumbnails.md): set `STOREFRONT_MEDIA_USER_ID` to the
+source destination's owner and `X_OFFERS_MEDIA_ORIGIN` to the public HTTPS origin
+of the bot frontend (not the VSM landing site). The worker uses a thumbnail only
+when one exists and hasn't expired. Verify `/storefront/images/<delivery_id>` is
+reachable without signing in before relying on this path.
 
 The worker requests `shareNow` for fresh deals. `buffer_accepted` means Buffer
 accepted the request but hasn't confirmed X publication in its response. Use
