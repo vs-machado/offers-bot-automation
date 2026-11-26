@@ -42,6 +42,12 @@ PRICE_RE = re.compile(r"R\$\s?((?:\d{1,3}(?:\.\d{3})+|\d+)(?:,\d{2})?)", re.IGNO
 PROMO_PRICE_RE = re.compile(
     r"\bpor\s*:?\s*R\$\s*((?:\d{1,3}(?:\.\d{3})+|\d+)(?:,\d{2})?)", re.IGNORECASE
 )
+STANDALONE_PRICE_RE = re.compile(
+    rf"^[^\w\n$]*(?:pre[cç]o[ \t]*:[ \t]*)?{PRICE_RE.pattern}"
+    r"(?:[ \t]*[-–—]?[ \t]*(?:no[ \t]+pix|pix|[àa][ \t]+vista|sem[ \t]+juros|"
+    r"(?:pre[cç]o[ \t]+)?na[ \t]+finaliza[cç][aã]o)\)?)?[^\w\n]*$",
+    re.IGNORECASE,
+)
 CARD_PRICE_RE = re.compile(
     r"R\$\s?((?:\d{1,3}(?:\.\d{3})+|\d+)(?:,\d{2})?)\s*(?:no\s+cartão|parcelado|em\s+até|no\s+cartao)",
     re.IGNORECASE,
@@ -50,7 +56,7 @@ INSTALLMENT_RE = re.compile(
     r"\b(\d{1,2})\s*x\s*(?:de\s+(?:R\$\s*)?[\d.,]+\s+)?sem\s+juros\b", re.IGNORECASE
 )
 FREE_SHIPPING_RE = re.compile(
-    r"\bfrete\s+gr[áa]tis(?:\s+para\s+[A-Za-zÀ-ÿ\s]+)?\b", re.IGNORECASE
+    r"^[^\w\n]*(?:com\s+)?(frete\s+gr[áa]tis\b.*)$", re.IGNORECASE
 )
 COUPON_RE = re.compile(
     r"(?:^|\n)\s*(?:[^\w\s]\s*)*(?:[🎟️]\s*)?(?:usem?\s+o\s+)?cupom\s*:\s*([^\s\n]+)",
@@ -61,7 +67,20 @@ INLINE_COUPON_RE = re.compile(
 )
 COUPON_CODE_RE = re.compile(r"\*+([A-Za-z0-9]{4,})\*+|\b([A-Za-z0-9]{4,})\b")
 MELI_PLUS_RE = re.compile(
-    r"\bmeli\+\b|clientes?\s+meli\+|assinantes?\s+meli\+", re.IGNORECASE
+    r"\b(?:para\s+(?:(?:clientes?|assinantes?)\s+(?:do\s+)?)?|"
+    r"(?:s[oó]|somente|apenas|exclusiv[oa]s?)\s+(?:para\s+)?"
+    r"(?:(?:clientes?|assinantes?)\s+(?:do\s+)?)?)meli\+(?!\w)",
+    re.IGNORECASE,
+)
+APP_ONLY_RE = re.compile(
+    r"^[^\w\n]*((?:s[oó]|somente|apenas|exclusivamente)\s+"
+    r"(?:no|pelo)\s+(?:app|aplicativo)\b[^\n]*)",
+    re.IGNORECASE | re.MULTILINE,
+)
+COMPETITOR_SHOPEE_LIVE_RE = re.compile(
+    r"\A[^\w\n]*(?:live[ \t]+de[ \t]+ofertas[ \t]+(?:da[ \t]+)?shopee|"
+    r"shopee[ \t]+live)[^\w\n]*(?:\n|$)",
+    re.IGNORECASE,
 )
 LEADING_NOISE_RE = re.compile(
     r"^(?:[^\w\n]*)(?:(?:ainda\s+ativo|ativo|aproveita|imperd[ií]vel|oferta|promo[cç][aã]o|corre|urgente)\b[!:\-\s]*)+",
@@ -125,6 +144,8 @@ class Offer:
 
 def extract_offers(text: str) -> list[Offer]:
     """Resolve approved Magalu short links, then extract offers with LLM/regex fallback."""
+    if COMPETITOR_SHOPEE_LIVE_RE.match(text.strip()):
+        return []
     text = expand_magalu_short_links(text)
     return _extract_offers(text, parse_with_llm(text))
 
@@ -133,6 +154,8 @@ async def extract_offers_async(
     text: str, *, nvidia_models: tuple[str, str] | None = None
 ) -> list[Offer]:
     """Resolve short links off-loop before async LLM parsing and regex fallback."""
+    if COMPETITOR_SHOPEE_LIVE_RE.match(text.strip()):
+        return []
     text = await asyncio.to_thread(expand_magalu_short_links, text)
     result = (
         await parse_with_llm_async(text)
@@ -207,9 +230,7 @@ def _extract_offers(text: str, llm_res: dict | None) -> list[Offer]:
     llm_price = None
     llm_card_price = None
     llm_installment = None
-    llm_shipping = None
     llm_coupon = None
-    llm_meli_plus = False
 
     if llm_res and llm_res.get("classification") == "product":
         products = llm_res.get("products", [])
@@ -230,9 +251,7 @@ def _extract_offers(text: str, llm_res: dict | None) -> list[Offer]:
                 llm_price = first.get("price") or None
                 llm_card_price = first.get("card_price") or None
                 llm_installment = first.get("installment_info") or None
-                llm_shipping = first.get("shipping_info") or None
                 llm_coupon = first.get("coupon") or None
-                llm_meli_plus = first.get("meli_plus_only", False)
         else:
             prod = llm_res.get("product", {})
             if not isinstance(prod, dict):
@@ -241,9 +260,7 @@ def _extract_offers(text: str, llm_res: dict | None) -> list[Offer]:
             llm_price = prod.get("price") or None
             llm_card_price = prod.get("card_price") or None
             llm_installment = prod.get("installment_info") or None
-            llm_shipping = prod.get("shipping_info") or None
             llm_coupon = prod.get("coupon") or None
-            llm_meli_plus = prod.get("meli_plus_only", False)
 
     seen_urls: set[str] = set()
 
@@ -273,9 +290,7 @@ def _extract_offers(text: str, llm_res: dict | None) -> list[Offer]:
                 matched.get("price") or None,
                 matched.get("card_price") or None,
                 matched.get("installment_info") or None,
-                matched.get("shipping_info") or None,
                 matched.get("coupon") or None,
-                matched.get("meli_plus_only", False),
                 matched,
             )
         return (
@@ -283,9 +298,7 @@ def _extract_offers(text: str, llm_res: dict | None) -> list[Offer]:
             llm_price,
             llm_card_price,
             llm_installment,
-            llm_shipping,
             llm_coupon,
-            llm_meli_plus if llm_res else is_meli_plus_only(text),
             None,
         )
 
@@ -302,20 +315,22 @@ def _extract_offers(text: str, llm_res: dict | None) -> list[Offer]:
         return []
 
     primary_url = pick_shopee_resgate_offer_url(text, found_urls) or found_urls[0]
-    _t, _p, _cp, _ins, _sh, _co, _mp, _prod = _offer_attrs(primary_url)
+    _t, _p, _cp, _ins, _co, _prod = _offer_attrs(primary_url)
     return [
         Offer(
             original_text=text.strip(),
             url=primary_url,
             title=select_product_title(text, _t),
-            price=_p if _p is not None else extract_price(text),
+            price=_p
+            if _p and len(found_urls) > 1
+            else extract_price(text, parsed_price=_p),
             card_price=_cp if _cp is not None else extract_card_price(text),
             installment_info=_ins
             if _ins is not None
             else extract_installment_info(text),
-            shipping_info=_sh if _sh is not None else extract_shipping_info(text),
+            shipping_info=extract_shipping_info(text),
             coupon=_co if _co is not None else extract_coupon(text),
-            meli_plus_only=_mp,
+            meli_plus_only=is_meli_plus_only(text),
             platform=detect_platform(primary_url) or "",
             all_urls=tuple(found_urls),
             llm_result=llm_res,
@@ -616,19 +631,25 @@ def score_title_candidate(line: str) -> int:
     return score
 
 
-def extract_price(text: str) -> str | None:
-    for line in text.splitlines():
-        promo_match = PROMO_PRICE_RE.search(line)
-        if not promo_match:
-            continue
-        if "cartão" in line.lower() or "parcelado" in line.lower():
-            continue
-        price = f"R$ {promo_match.group(1)}"
-        if FINALIZATION_RE.search(line):
-            return f"{price} (preço na finalização)"
-        if "pix" in line.lower():
-            return f"{price} no PIX"
-        return price
+def extract_price(text: str, *, parsed_price: str | None = None) -> str | None:
+    """Prefer an explicit offer price over a price embedded in a title."""
+    lines = text.splitlines()
+    for pattern in (PROMO_PRICE_RE, STANDALONE_PRICE_RE):
+        for line in lines:
+            match = pattern.search(line)
+            if not match or re.search(r"\b(?:cart[ãa]o|parcelado)\b", line, re.I):
+                continue
+            price = f"R$ {match.group(1)}"
+            if FINALIZATION_RE.search(line):
+                return f"{price} (preço na finalização)"
+            if re.search(r"\bpix\b", line, re.I):
+                return f"{price} no PIX"
+            if re.search(r"\bsem juros\b", line, re.I):
+                return f"{price} - Sem Juros"
+            return price
+
+    if parsed_price:
+        return parsed_price
 
     match = PRICE_RE.search(text)
     if not match:
@@ -666,6 +687,7 @@ def extract_installment_info(text: str) -> str | None:
 
 
 def extract_shipping_info(text: str) -> str | None:
+    """Return the explicit free-shipping line, including any source qualifiers."""
     for raw_line in text.splitlines():
         line = re.sub(r"\s+", " ", raw_line).strip(" -:|!\t")
         if not line:
@@ -673,9 +695,14 @@ def extract_shipping_info(text: str) -> str | None:
         match = FREE_SHIPPING_RE.search(line)
         if not match:
             continue
-        start = match.start()
-        return line[start:]
+        return URL_RE.sub("", match.group(1)).strip()
     return None
+
+
+def extract_app_only_note(text: str) -> str | None:
+    """Keep an explicit app-only condition in the source's own words."""
+    match = APP_ONLY_RE.search(text)
+    return URL_RE.sub("", match.group(1)).strip() if match else None
 
 
 def extract_coupon(text: str) -> str | None:
@@ -777,4 +804,9 @@ def extract_coupon_codes(text: str) -> list[str]:
 
 
 def is_meli_plus_only(text: str) -> bool:
-    return bool(MELI_PLUS_RE.search(text))
+    """Check for an explicit Meli+ condition, not just a membership mention."""
+    for line in text.splitlines():
+        match = MELI_PLUS_RE.search(line)
+        if match and not re.search(r"\b(?:n[aã]o|sem)\b", line[: match.start()], re.I):
+            return True
+    return False
