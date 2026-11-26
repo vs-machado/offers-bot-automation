@@ -27,8 +27,11 @@ from .parser import (
     URL_RE,
     clean_offer_url,
     detect_platform,
+    extract_app_only_note,
     extract_coupon_codes,
     extract_offers_async,
+    extract_shipping_info,
+    is_meli_plus_only,
     is_shopee_url,
     normalize_price_label,
     select_product_title,
@@ -122,6 +125,29 @@ def _normalize_coupon_detail(text: str) -> str:
 
 DISCOUNT_LINE_RE = re.compile(r"\d+%\s*(?:OFF|desconto)", re.IGNORECASE)
 R_DISCOUNT_LINE_RE = re.compile(r"R\$\s*\d+(?:[\d.,]*)\s+OFF", re.IGNORECASE)
+DISCOUNT_AS_CODE_RE = re.compile(
+    r"(?:\d+(?:[.,]\d+)?\s*%(?:\s*(?:off|(?:de\s+)?desconto))?"
+    r"|R\$\s*[\d.,]+\s*(?:off|(?:de\s+)?desconto))",
+    re.IGNORECASE,
+)
+REDEMPTION_TUTORIAL_RE = re.compile(
+    r"^[^\w\n]*(?:tutorial|passo a passo)\s+(?:para|de)\s+(?:o\s+)?resgate\b",
+    re.IGNORECASE | re.MULTILINE,
+)
+
+
+def _is_discount_as_code(value: str | None) -> bool:
+    return bool(DISCOUNT_AS_CODE_RE.fullmatch((value or "").strip(" `*")))
+
+
+def _is_coupon_redemption_tutorial(text: str) -> bool:
+    """Recognize discount bulletins with source-provided redemption steps."""
+    heading = text.partition("\n")[0]
+    return bool(
+        re.search(r"\bcup(?:om|ons)\b", heading, re.IGNORECASE)
+        and (DISCOUNT_LINE_RE.search(heading) or R_DISCOUNT_LINE_RE.search(heading))
+        and REDEMPTION_TUTORIAL_RE.search(text)
+    )
 
 
 def _is_generic_coupon_bulletin(offer: Offer, text: str) -> bool:
@@ -389,7 +415,11 @@ def format_llm_offer(offer: Offer, affiliate_url: str) -> str:
             coupon_data = {}
         platform = coupon_data.get("platform", "Generic")
         novo_ml = coupon_data.get("novo_ml_format", False)
-        coupons = coupon_data.get("coupons", [])
+        coupons = [
+            coupon
+            for coupon in coupon_data.get("coupons", [])
+            if not _is_discount_as_code(coupon.get("code"))
+        ]
 
         if platform == "Amazon":
             title = "☑️ Cupom Amazon!"
@@ -481,21 +511,23 @@ def format_llm_offer(offer: Offer, affiliate_url: str) -> str:
             )
             or ""
         )
-        price = normalize_price_label(prod.get("price") or offer.price or "") or ""
+        price = normalize_price_label(offer.price or prod.get("price") or "") or ""
         card_price = (
             normalize_price_label(prod.get("card_price") or offer.card_price or "")
             or ""
         )
         installment = prod.get("installment_info") or offer.installment_info or ""
-        shipping = prod.get("shipping_info") or offer.shipping_info or ""
+        shipping = extract_shipping_info(offer.original_text)
         coupon = prod.get("coupon") or offer.coupon or ""
         resgate_note = _clean_field(prod.get("resgate_anuncio_note") or "") or ""
         purchase_instructions = (
             _clean_field(prod.get("purchase_instructions") or "") or ""
         )
-        meli_plus = prod.get("meli_plus_only", False) or offer.meli_plus_only
+        app_only = extract_app_only_note(offer.original_text)
 
-        if coupon and _is_resgate_note_without_code(coupon):
+        if _is_discount_as_code(coupon):
+            coupon = ""
+        elif coupon and _is_resgate_note_without_code(coupon):
             if not resgate_note:
                 resgate_note = extract_resgate_anuncio_note(coupon) or coupon
             coupon = ""
@@ -526,8 +558,10 @@ def format_llm_offer(offer: Offer, affiliate_url: str) -> str:
 
         if purchase_instructions:
             parts.append(f"🛒 {purchase_instructions}")
+        if app_only and app_only.casefold() not in purchase_instructions.casefold():
+            parts.append(f"📱 {app_only}")
 
-        if meli_plus:
+        if is_meli_plus_only(offer.original_text):
             parts.append("⭐ Exclusivo para clientes Meli+")
 
         parts.append(f"🔗 Link do produto:\n{affiliate_url}")
@@ -552,6 +586,8 @@ def format_offer(offer: Offer, affiliate_url: str) -> str:
     title = _clean_field(select_product_title(offer.original_text, offer.title))
     price = normalize_price_label(offer.price)
     card_price = normalize_price_label(offer.card_price)
+    shipping = extract_shipping_info(offer.original_text)
+    app_only = extract_app_only_note(offer.original_text)
     if title:
         if offer.installment_info:
             title = f"[{offer.installment_info}] {title}"
@@ -560,14 +596,16 @@ def format_offer(offer: Offer, affiliate_url: str) -> str:
         price_block = f"💰 {price}"
         if card_price:
             price_block = f"{price_block}\n💳 {card_price}"
-        if offer.shipping_info:
-            price_block = f"{price_block}\n{offer.shipping_info}"
+        if shipping:
+            price_block = f"{price_block}\n{shipping}"
         parts.append(price_block)
     if offer.coupon:
         parts.append(f"🎟️ CUPOM: {wrap_coupon_codes(offer.coupon)}")
     if resgate_anuncio_note:
         parts.append(f"🏷️ {resgate_anuncio_note}")
-    if offer.meli_plus_only:
+    if app_only:
+        parts.append(f"📱 {app_only}")
+    if is_meli_plus_only(offer.original_text):
         parts.append("⭐ Exclusivo para clientes Meli+")
     parts.append(f"🔗 Link do produto:\n{affiliate_url}")
     return "\n\n".join(parts)
@@ -622,8 +660,10 @@ async def format_outgoing_offer(
 ) -> str:
     """Keep a multi-link message intact and use the template for single links."""
     grouped = len(offer.all_urls) > 1
-    if grouped or (
-        is_shopee_url(offer.url) and "resgate" in offer.original_text.lower()
+    if (
+        grouped
+        or _is_coupon_redemption_tutorial(offer.original_text)
+        or (is_shopee_url(offer.url) and "resgate" in offer.original_text.lower())
     ):
         replacements = await _build_url_replacements(
             offer,
