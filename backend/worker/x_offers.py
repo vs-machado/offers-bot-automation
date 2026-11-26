@@ -2,7 +2,7 @@
 
 import argparse
 import asyncio
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, time, timedelta, timezone
 from decimal import Decimal
 from functools import partial
@@ -52,23 +52,16 @@ class Settings:
     priority_source_url: str | None = None
 
     @classmethod
-    def from_env(cls):
+    def from_env(cls, *, buffer: bool = False):
         """Read and validate the operator's single approved source channel and URL."""
         try:
             user_id = int(os.getenv("X_OFFERS_USER_ID", ""))
             limit = int(os.getenv("X_OFFERS_DAILY_LIMIT", "1"))
             chat_id = os.getenv("X_OFFERS_CHAT_ID", "").strip()
             landing = os.getenv("X_OFFERS_LANDING_URL", "").strip()
-            url = urlsplit(landing)
             if not (user_id > 0 and chat_id and 1 <= limit <= 10):
                 raise ValueError
-            if (
-                url.scheme != "https"
-                or not url.hostname
-                or "." not in url.hostname
-                or url.username is not None
-                or not re.fullmatch(r"[!-~]+", landing)
-            ):
+            if not (buffer and not landing) and not _web_url(landing):
                 raise ValueError
         except ValueError:
             raise ValueError(
@@ -85,6 +78,7 @@ class Offer:
     price: Decimal
     pix: bool
     expires: datetime
+    image_url: str | None = None
 
     @property
     def key(self) -> str:
@@ -182,8 +176,47 @@ def is_featured_product(title: str) -> bool:
     )
 
 
-def candidates(conn, settings: Settings, now: datetime, min_remaining: int = 20):
+def _web_url(value: str | None) -> bool:
+    if not value or not re.fullmatch(r"[!-~]+", value) or "\\" in value:
+        return False
+    try:
+        url = urlsplit(value)
+        return bool(
+            url.scheme == "https"
+            and url.hostname
+            and "." in url.hostname
+            and url.username is None
+        )
+    except ValueError:
+        return False
+
+
+def _buffer_caption(text: str, link: str) -> str | None:
+    # parse_offer has already checked that the affiliate link occupies its own line.
+    if not _web_url(link):
+        return None
+    without_url = text.replace(link, "", 1)
+    # Count the URL as 23 and conservatively round up non-Latin characters.
+    weight = sum(1 if ord(char) < 0x1100 else 2 for char in without_url)
+    return text if weight + 23 <= 280 else None
+
+
+def _media_origin() -> str:
+    origin = os.getenv("X_OFFERS_MEDIA_ORIGIN", "").strip().rstrip("/")
+    if _web_url(origin) and not any(urlsplit(origin)[2:]):
+        return origin
+    return ""
+
+
+def candidates(
+    conn, settings: Settings, now: datetime, min_remaining: int = 20, *, buffer=False
+):
     """Select fresh offers for featured products from the configured destination."""
+    media_origin = _media_origin() if buffer else ""
+    image_columns = ", d.image_url" if buffer else ""
+    if media_origin:
+        image_columns += """, EXISTS (SELECT 1 FROM storefront_thumbnails t
+                         WHERE t.delivery_id=d.id AND t.expires_at > CURRENT_TIMESTAMP)"""
     source_order = (
         "COALESCE(d.source_group_url = %s, FALSE) DESC, "
         if settings.priority_source_url
@@ -193,7 +226,7 @@ def candidates(conn, settings: Settings, now: datetime, min_remaining: int = 20)
         (settings.priority_source_url,) if settings.priority_source_url else ()
     )
     fresh = conn.execute(
-        f"""SELECT d.id, d.platform, d.text, d.affiliate_url, d.expires_at
+        f"""SELECT d.id, d.platform, d.text, d.affiliate_url, d.expires_at{image_columns}
            FROM promotion_deliveries d
            WHERE d.user_id=%s AND d.chat_id=%s AND d.status='sent'
              AND NOT d.manual AND d.category <> 'coupon' AND d.coupon IS NULL
@@ -213,16 +246,30 @@ def candidates(conn, settings: Settings, now: datetime, min_remaining: int = 20)
     ).fetchall()
     offers = {}
     for row in fresh:
-        if (
-            (offer := parse_offer(row))
-            and is_featured_product(offer.title)
-            and (text := render(offer, settings.landing_url))
-        ):
+        if not (offer := parse_offer(row[:5])) or not is_featured_product(offer.title):
+            continue
+        if buffer:
+            image_url = row[5]
+            if not _web_url(image_url):
+                if not (
+                    media_origin
+                    and row[6]
+                    and re.fullmatch(r"[0-9a-f]{64}", offer.delivery_id)
+                ):
+                    continue
+                image_url = f"{media_origin}/storefront/images/{offer.delivery_id}"
+            text = _buffer_caption(row[2], row[3])
+            offer = replace(offer, image_url=image_url)
+        else:
+            text = render(offer, settings.landing_url)
+        if text:
             offers.setdefault(offer.key, (offer, text))
     return list(offers.values())
 
 
-def reserve(settings: Settings, now: datetime, min_remaining: int = 20):
+def reserve(
+    settings: Settings, now: datetime, min_remaining: int = 20, *, buffer=False
+):
     """Commit a single-account reservation before publishing or sending a draft."""
     local = now.astimezone(BRAZIL)
     if not 8 <= local.hour < 22:
@@ -240,7 +287,9 @@ def reserve(settings: Settings, now: datetime, min_remaining: int = 20):
         ):
             return None
         seen = {key for key, _ in recent}
-        for offer, text in candidates(conn, settings, now, min_remaining):
+        for offer, text in candidates(
+            conn, settings, now, min_remaining, buffer=buffer
+        ):
             if offer.key in seen:
                 continue
             claimed = conn.execute(
@@ -305,10 +354,12 @@ def publish_once(settings: Settings, auth):
 
 def buffer_once(settings: Settings, publisher: BufferPublisher):
     """Submit one reserved, fresh deal through Buffer with no automatic retry."""
-    reserved = reserve(settings, datetime.now(timezone.utc), 60)
+    reserved = reserve(settings, datetime.now(timezone.utc), 60, buffer=True)
     if reserved:
         offer, text = reserved
-        record_attempt(offer, publisher.publish(text, offer.expires))
+        record_attempt(
+            offer, publisher.publish(text, offer.expires, image_url=offer.image_url)
+        )
 
 
 def dashboard_buffer_once():
@@ -437,7 +488,7 @@ async def x_offers_loop():
         action = (
             partial(asyncio.to_thread, dashboard_buffer_once)
             if mode == "dashboard"
-            else configure_action(mode, Settings.from_env())
+            else configure_action(mode, Settings.from_env(buffer=mode == "buffer"))
         )
     except (ValueError, ImportError, OSError) as exc:
         LOGGER.error("X Offers disabled: %s", exc)

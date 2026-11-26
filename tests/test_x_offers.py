@@ -32,6 +32,54 @@ def deal(identity, amount, title="Cafeteira de Inox", suffix=""):
 
 
 class XOfferTests(unittest.TestCase):
+    def test_buffer_keeps_caption_and_selects_only_offers_with_a_usable_photo(self):
+        conn = Mock()
+        local_id = "b" * 64
+        direct = deal("direct", "299,00", suffix=" via Pix")
+        local = deal(local_id, "100,00", "Monitor IPS")
+        long_caption = deal("long", "100,00", "Monitor " + "界" * 150)
+        photo = "https://cdn.example.com/offer.jpg"
+        conn.execute.return_value.fetchall.return_value = [
+            (*deal("missing", "299,00"), None, False),
+            (*direct, photo, True),
+            (*local, None, True),
+            (*long_caption, photo, False),
+        ]
+        with patch.dict(os.environ, {"X_OFFERS_MEDIA_ORIGIN": "https://bot.example/"}):
+            results = x_offers.candidates(
+                conn, x_offers.Settings(1, "chosen", LANDING), NOW, buffer=True
+            )
+        self.assertEqual(
+            [
+                (offer.delivery_id, offer.image_url, caption)
+                for offer, caption in results
+            ],
+            [
+                (direct[0], photo, direct[2]),
+                (
+                    local_id,
+                    f"https://bot.example/storefront/images/{local_id}",
+                    local[2],
+                ),
+            ],
+        )
+
+    @patch.object(x_offers, "record_attempt")
+    @patch.object(x_offers, "reserve")
+    def test_buffer_worker_forwards_the_selected_photo(self, reserve, record):
+        row = deal("fresh", "100,00")
+        photo = "https://cdn.example.com/offer.jpg"
+        offer = x_offers.replace(x_offers.parse_offer(row), image_url=photo)
+        reserve.return_value = offer, row[2]
+        publisher = Mock()
+        publisher.publish.return_value = "buffer_sent"
+
+        x_offers.buffer_once(x_offers.Settings(1, "chosen", LANDING), publisher)
+
+        self.assertTrue(reserve.call_args.kwargs["buffer"])
+        publisher.publish.assert_called_once_with(row[2], row[4], image_url=photo)
+        record.assert_called_once_with(offer, "buffer_sent")
+
     def test_fresh_selection_does_not_need_history_or_promote_miscellaneous_items(self):
         conn = Mock()
         conn.execute.return_value.fetchall.return_value = [
