@@ -117,23 +117,26 @@ class BufferPublisher:
             )
         return sorted(posts, key=lambda post: post["sent_at"] or "", reverse=True)
 
-    def publish(self, text: str, expires: datetime) -> str:
+    def publish(
+        self, text: str, expires: datetime, *, image_url: str | None = None
+    ) -> str:
         """Confirm the target, then submit Share Now once; acceptance is not delivery."""
         if not self.check_connection():
             return "buffer_blocked"
         if expires <= datetime.now(timezone.utc) + timedelta(seconds=15):
             return "expired"
+        post_input = {
+            "channelId": self.channel_id,
+            "text": text,
+            "schedulingType": "automatic",
+            "mode": "shareNow",
+        }
+        if image_url:
+            post_input["assets"] = [{"image": {"url": image_url}}]
         try:
             result = self._graphql(
                 CREATE_POST,
-                {
-                    "input": {
-                        "channelId": self.channel_id,
-                        "text": text,
-                        "schedulingType": "automatic",
-                        "mode": "shareNow",
-                    }
-                },
+                {"input": post_input},
             )["createPost"]
             if result["__typename"] != "PostActionSuccess":
                 return (

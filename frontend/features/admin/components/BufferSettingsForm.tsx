@@ -118,9 +118,9 @@ export function BufferSettingsForm({ initial }: { initial: BufferState }) {
                 <SelectField id="x-buffer-priority-source" value={prioritySource} options={priorityOptions} onValueChange={setPrioritySource} disabled={busy} />
                 <p className="text-muted-foreground">Se houver uma oferta elegível deste grupo no destino escolhido, ela terá prioridade.</p>
               </div>
-              <label className="grid gap-1.5 font-medium">Página de ofertas da VSM
+              <label className="grid gap-1.5 font-medium">Página de ofertas da VSM (opcional)
                 <input className={input} name="landing_url" type="url" maxLength={1000} defaultValue={settings.landing_url} placeholder="https://…" />
-                <span className="font-normal text-muted-foreground">Link incluído nas publicações para levar leitores ao grupo de ofertas.</span>
+                <span className="font-normal text-muted-foreground">Use este link na bio ou no post fixado. Cada oferta mantém a foto e o link do produto.</span>
               </label>
             </fieldset>
           </CardContent>
