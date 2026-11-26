@@ -1,9 +1,10 @@
 """Regression coverage for source disclaimers replacing product names."""
 
+import asyncio
 from dataclasses import replace
 import unittest
 
-from offers_bot.main import format_offer
+from offers_bot.main import format_offer, format_outgoing_offer
 from offers_bot.parser import _extract_offers
 
 
@@ -75,23 +76,24 @@ class ProductTitleTest(unittest.TestCase):
             format_offer(legacy_offer, self.url).splitlines()[0], "Camiseta"
         )
 
-    def test_valid_llm_variant_names_remain_distinct(self):
+    def test_variant_names_remain_distinct_in_grouped_post(self):
         urls = [self.url, "https://amzn.to/def456"]
+        titles = ("Camiseta azul", "Camiseta verde")
         result = {
             "classification": "product",
             "products": [
-                {"title": title, "urls": [url]}
-                for title, url in zip(("Camiseta azul", "Camiseta verde"), urls)
+                {"title": title, "urls": [url]} for title, url in zip(titles, urls)
             ],
         }
-        offers = _extract_offers(f"Camisetas\n{' '.join(urls)}\n{self.notice}", result)
-        self.assertEqual(
-            [offer.title for offer in offers], ["Camiseta azul", "Camiseta verde"]
-        )
-        for offer in offers:
-            self.assertEqual(
-                format_offer(offer, offer.url).splitlines()[0], offer.title
+        source = "\n".join(f"{title}\n{url}" for title, url in zip(titles, urls))
+        (offer,) = _extract_offers(f"{source}\n{self.notice}", result)
+        affiliates = ["https://amzn.to/aff_azul", "https://amzn.to/aff_verde"]
+        post = asyncio.run(
+            format_outgoing_offer(
+                offer, affiliates[0], url_replacements={urls[1]: affiliates[1]}
             )
+        )
+        self.assertIn("\n".join(f"{t}\n{u}" for t, u in zip(titles, affiliates)), post)
 
     def test_valid_llm_title_keeps_words_used_in_promo_copy(self):
         title = "Kit de moedas colecionáveis"
